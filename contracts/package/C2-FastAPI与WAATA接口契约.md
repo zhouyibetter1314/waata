@@ -1,4 +1,4 @@
-# C2 · Python Package 接口契约
+# C2 · FastAPI 与 WAATA 接口契约
 
 **状态：Draft（待确认）**
 
