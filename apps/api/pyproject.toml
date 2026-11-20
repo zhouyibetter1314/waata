@@ -1,0 +1,16 @@
+[project]
+name = "waata-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "waata[browser,observability]",
+]
+
+[tool.uv.sources]
+waata = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
