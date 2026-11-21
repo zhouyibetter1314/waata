@@ -1,0 +1,9 @@
+[submodule "testsites/4gaboards"]
+	path = testsites/4gaboards
+	url = https://github.com/RARgames/4gaBoards.git
+[submodule "testsites/admidio"]
+	path = testsites/admidio
+	url = https://github.com/Admidio/admidio.git
+[submodule "testsites/discourse"]
+	path = testsites/discourse
+	url = https://github.com/discourse/discourse.git

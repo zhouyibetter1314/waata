@@ -2,23 +2,27 @@
 
 WAATA（Web App Auto Test Agent）面向 Web 应用的功能与回归测试。用户提交目标地址、自然语言测试目标和预期结果，WAATA 生成测试用例，通过 Playwright 操作受控测试站点，并输出含断言、结果和证据的报告。
 
-当前处于需求与架构设计阶段。仓库包含目录骨架、Python 工作区和供团队评审的规约。前端、API 服务、测试引擎和演示站点将在实现阶段接入。
+仓库已确定 v0.1 契约，包含 Python 工作区、契约联调示例和三个第三方测试站点子模块。Vue 前端、FastAPI 服务、WAATA 测试引擎及自建登录夹具处于实现准备阶段。
 
 ## 项目结构
 
 | 路径 | 职责 |
 | --- | --- |
-| [`apps/web/`](apps/web/) | Vue 3 前端，负责任务创建、运行进度与报告展示 |
+| `apps/web/` | Vue 3 前端，负责任务创建、运行进度与报告展示 |
 | [`apps/api/`](apps/api/) | FastAPI 应用，负责 HTTP API、任务调度、运行状态与持久化 |
 | [`packages/waata/`](packages/waata/) | 独立 Python 包，负责测试编排、Agent 运行、模型调用、浏览器适配与追踪 |
-| [`contracts/`](contracts/) | HTTP、Python 包、工具、事件、证据五类跨模块契约 |
+| [`contracts/`](contracts/README.md) | HTTP、Python 包、工具、事件和证据的 v0.1 契约 |
 | [`examples/`](examples/) | 独立使用 WAATA 的设计示例 |
-| [`testsites/demo-app/`](testsites/demo-app/) | 端到端验收使用的受控演示站点 |
-| [`tests/`](tests/) | 跨模块契约测试与全系统端到端测试 |
-| [`infra/docker/`](infra/docker/)、[`scripts/`](scripts/)、[`.github/workflows/`](.github/workflows/) | 容器、工程脚本和 CI 的预留位置 |
+| [`testsites/`](testsites/README.md) | 4gaBoards、Admidio、Discourse，以及计划中的自建登录夹具 |
+| `tests/` | 计划中的跨模块契约测试与全系统端到端测试 |
+| `infra/docker/`、`scripts/`、`.github/workflows/` | 容器、工程脚本和 CI 的预留位置 |
 | `artifacts/` | 本地生成的截图、Trace 与报告，受 Git 忽略规则覆盖 |
 
-根目录的 uv 工作区包含 `apps/api` 和 `packages/waata`，统一锁定 Python 依赖。后端通过工作区依赖引用核心包，前端单独管理 JavaScript 依赖。各子模块的职责见[系统架构](docs/03-architecture.md)。
+根目录的 uv 工作区包含 `apps/api` 和 `packages/waata`，统一锁定 Python 依赖。后端通过工作区依赖引用核心包，前端单独管理 JavaScript 依赖。应用与核心包的职责见 [系统架构](docs/03-architecture.md)。
+
+## 测试示例
+
+[4gaBoards 端到端示例](contracts/examples/README.md)展示了自然语言任务、浏览器调用、SSE、证据和报告如何贯通五份契约。首轮验收的自建登录场景见 [MVP 与验收](docs/04-acceptance.md)。
 
 ## 项目规约
 

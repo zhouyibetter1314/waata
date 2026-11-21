@@ -1,0 +1,10 @@
+{
+  "target_url": "http://localhost:3000/",
+  "goal": "在本地 4gaBoards 创建名为 Course Test 01 的项目。",
+  "expected_behavior": "创建完成后，仪表盘和侧边栏均显示 Course Test 01。",
+  "credential_ref": "boards_local_fixture",
+  "options": {
+    "headless": true,
+    "max_steps_per_case": 12
+  }
+}
