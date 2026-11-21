@@ -1,8 +1,10 @@
 # WAATA
 
-WAATA（Web App Auto Test Agent）面向 Web 应用的功能与回归测试。用户提交目标地址、自然语言测试目标和预期结果，WAATA 生成测试用例，通过 Playwright 操作受控测试站点，并输出含断言、结果和证据的报告。
+WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试的平台。用户通过 Vue 前端提交目标地址、自然语言测试目标和预期结果，并查看运行进度、断言和证据。FastAPI 后端负责任务调度和结果访问，平台数据库保存运行状态、事件和报告。
 
-仓库已确定 v0.1 契约，包含 Python 工作区、契约联调示例和三个第三方测试站点子模块。Vue 前端、FastAPI 服务、WAATA 测试引擎及自建登录夹具处于实现准备阶段。
+后端通过独立的 `waata` Python 包编排测试。该包全称为 Web App Auto Test Agent，负责规划用例、通过 Playwright 在受控站点执行测试、验证结果并生成报告。详见 [waata Python 包](packages/waata/README.md)。
+
+仓库已确定 v0.1 契约，包含 Python 工作区、契约联调示例和三个第三方测试站点子模块。Vue 前端、FastAPI 服务、`waata` 测试引擎及自建登录夹具处于实现准备阶段。
 
 ## 项目结构
 
@@ -10,15 +12,15 @@ WAATA（Web App Auto Test Agent）面向 Web 应用的功能与回归测试。�
 | --- | --- |
 | `apps/web/` | Vue 3 前端，负责任务创建、运行进度与报告展示 |
 | [`apps/api/`](apps/api/) | FastAPI 应用，负责 HTTP API、任务调度、运行状态与持久化 |
-| [`packages/waata/`](packages/waata/) | 独立 Python 包，负责测试编排、Agent 运行、模型调用、浏览器适配与追踪 |
+| [`packages/waata/`](packages/waata/README.md) | 独立的 `waata` Python 包，负责测试编排、Agent 运行、模型调用、浏览器适配与追踪 |
 | [`contracts/`](contracts/README.md) | HTTP、Python 包、工具、事件和证据的 v0.1 契约 |
-| [`examples/`](examples/) | 独立使用 WAATA 的设计示例 |
+| [`examples/`](examples/) | 独立调用 `waata` Python 包的设计示例 |
 | [`testsites/`](testsites/README.md) | 4gaBoards、Admidio、Discourse，以及计划中的自建登录夹具 |
 | `tests/` | 计划中的跨模块契约测试与全系统端到端测试 |
 | `infra/docker/`、`scripts/`、`.github/workflows/` | 容器、工程脚本和 CI 的预留位置 |
 | `artifacts/` | 本地生成的截图、Trace 与报告，受 Git 忽略规则覆盖 |
 
-根目录的 uv 工作区包含 `apps/api` 和 `packages/waata`，统一锁定 Python 依赖。后端通过工作区依赖引用核心包，前端单独管理 JavaScript 依赖。应用与核心包的职责见 [系统架构](docs/03-architecture.md)。
+根目录的 uv 工作区包含 `apps/api` 和 `packages/waata`，统一锁定 Python 依赖。后端通过工作区依赖引用 `waata`，前端单独管理 JavaScript 依赖。应用与核心包的职责见 [系统架构](docs/03-architecture.md)。
 
 ## 测试示例
 
