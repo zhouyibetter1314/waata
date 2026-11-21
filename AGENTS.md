@@ -1,8 +1,21 @@
-# WAATA 开发约定
+# Agent Guidelines for WenAppAutoTestApp
 
-- 修改行为前查看 [SRS](docs/02-requirements.md)、[验收规约](docs/04-acceptance.md)和相关[契约](contracts/README.md)。跨模块改动同时查看[架构](docs/03-architecture.md)及相关 ADR。
-- 保持依赖方向为 Vue → FastAPI → WAATA 公共 Python API。测试编排、Agent 和浏览器执行由 `packages/waata` 提供，核心包独立于 Web 框架、任务队列和平台数据库。通用 `core` 保持独立于测试领域和具体适配器。
-- 把授权目标校验和动作限制落实在浏览器执行边界。集成测试使用受控站点与测试数据，凭据配置走运行环境或测试夹具。日志、Trace、报告和示例中的敏感数据须脱敏。
-- 用需求编号关联行为变更和验证。涉及公共接口、状态含义或证据引用的变更，按 [CONTRIBUTING.md](CONTRIBUTING.md) 与受影响模块共同评审。
+## Git and pull requests
 
-当前阶段可从根目录运行 `uv lock --check` 检查 Python 工作区的锁定状态。应用启动、测试和 lint 命令由对应模块在实际接入后记录。
+- Follow the workflow in [CONTRIBUTING.md](CONTRIBUTING.md). Work on a feature branch. Before opening or updating a GitHub pull request, fetch the current `main` from the canonical repository, merge it into the feature branch, resolve conflicts locally, and rerun checks before pushing. Use the canonical upstream remote when `origin` points to a fork.
+- Use Conventional Commits. Keep changes for each commit focused and preserve unrelated work in the working tree.
+- Report what was verified and list any checks that could not run in the pull request.
+
+## Architecture and contracts
+
+- Read the [requirements](docs/02-requirements.md), [acceptance criteria](docs/04-acceptance.md), and relevant [contracts](contracts/README.md) before changing behavior. Use the [architecture](docs/03-architecture.md) and ADRs when a change crosses module boundaries.
+- Keep the dependency direction Vue → FastAPI → the public WAATA Python API. Keep `packages/waata` independent of the web framework, task queue, and platform database. Keep the general agent runtime independent of test orchestration and concrete adapters.
+- Reference the relevant requirement IDs in behavior changes. Coordinate public contract changes with affected maintainers, and update the source models, examples, and checks together. Preserve the distinction between run status and test verdict.
+
+## Checks and test data
+
+- Use the root uv workspace and the hooks documented in [CONTRIBUTING.md](CONTRIBUTING.md). Run the relevant tests and `uv run --locked pre-commit run --all-files`. Check the lockfile with `uv lock --check` when changing Python dependencies.
+- Use the formatter versions pinned in [.pre-commit-config.yaml](.pre-commit-config.yaml), with Python rules in [pyproject.toml](pyproject.toml) and frontend rules in [apps/web/.prettierrc.json](apps/web/.prettierrc.json).
+- Test on authorized local fixtures or explicitly approved test environments with dedicated accounts. Enforce target and action restrictions at the browser execution boundary, and make test setup repeatable.
+- Keep credentials out of source, prompts, logs, reports, and traces. Redact sensitive evidence and use fixture references or environment configuration for secrets. Keep generated artifacts and IDE metadata local.
+- Treat the [test site submodules](testsites/README.md) as pinned upstream fixtures. Change their contents or revision pointers only when the task calls for it.
