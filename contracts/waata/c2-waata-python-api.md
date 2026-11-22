@@ -35,7 +35,7 @@ class TestEngine:
 | --- | --- |
 | `TestEngine`、`TestRequest`、`TestResult`、`WAATAError` | `waata.orchestrator` |
 | `EngineConfig` | `waata.orchestrator.config`，可信默认值、资源上限与收尾期限 |
-| `OpenAILike`、`PlaywrightAdapter`、`LangfuseObserver` | 分别从 `waata.llm`、`waata.browser`、`waata.observability` 导入 |
+| `OpenAILike`、`PlaywrightAdapter`、`Observer` | 分别从 `waata.llm`、`waata.browser`、`waata.observability` 导入。后者同时提供可选的 `LangfuseObserver` |
 | `TestEvent` | `waata.core.events`，参数结构见 C4 |
 | `ArtifactStore` | 调用方注入的存储能力，保存并登记结构见 C5 |
 
@@ -106,14 +106,17 @@ WAATA 的运行错误码包括 `CONFIGURATION_ERROR`、`MODEL_UNAVAILABLE`、`BR
 ```python
 from waata.browser import PlaywrightAdapter
 from waata.llm import OpenAILike
-from waata.observability import LangfuseObserver
 from waata.orchestrator import TestEngine, TestRequest
 
 engine = TestEngine(
     llm=OpenAILike(**model_config),
-    browser=PlaywrightAdapter(browser=browser, allowed_hosts={"demo-app.test"}),
+    browser=PlaywrightAdapter(
+        browser=browser,
+        allowed_origins={"https://demo-app.test"},
+        credential_sets=credential_sets,
+    ),
     artifact_store=artifact_store,
-    observability=LangfuseObserver(client=langfuse_client),
+    observability=observer,
 )
 result = await engine.run(
     TestRequest(

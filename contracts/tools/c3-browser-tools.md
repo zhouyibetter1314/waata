@@ -328,6 +328,8 @@ inspect 成功 data 必须包含 `condition`、`actual`、`matched`、`url`、`o
 
 跨域跳转应在网络/浏览器执行边界拦截。授权检查不得仅在访问完成后对最终 URL 执行。未授权的新页应关闭且不继续交互。首版的新页/下载能力默认关闭。子资源与弹窗的允许策略由 Q-008 共同确认，页面 origin 授权不自动覆盖其全部网络请求。
 
+Playwright 适配器默认拦截 WebSocket。调用方可为受控夹具显式允许同源 WebSocket 的精确路径。`ws` 对应 HTTP，`wss` 对应 HTTPS，主机和端口必须匹配当前用例的目标 origin。模型继续使用既有七个工具。
+
 ### 7.2 预算和副作用
 
 Runtime 与执行边界使用同一份可信预算，统一计数并强制执行限制。navigate、click、fill、select_option 在通过参数/授权校验后、分发 Playwright 前原子预占一次动作预算。已分发后即使失败也不退还。Schema 拒绝、授权拒绝和预算拒绝不占浏览器动作次数，但计入工具尝试/总时间限制。
