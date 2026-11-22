@@ -1,0 +1,290 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { cancelRun, getRun, isApiError, type RunDetail } from '../../api';
+import EmptyState from '../../components/EmptyState.vue';
+import ProgressBar from '../../components/ProgressBar.vue';
+import StateBadge from '../../components/StateBadge.vue';
+import { formatDate, statusLabels, verdictLabels } from './presentation';
+import RunEventTimeline from './RunEventTimeline.vue';
+import RunReportPanel from './RunReportPanel.vue';
+import { useRunEvents } from './useRunEvents';
+
+const route = useRoute();
+const run = ref<RunDetail | null>(null);
+const loading = ref(false);
+const error = ref('');
+const requestId = ref('');
+const cancelBusy = ref(false);
+const cancelMessage = ref('');
+const cancelError = ref('');
+let controller: AbortController | null = null;
+let requestSequence = 0;
+
+const runId = computed(() => String(route.params.runId ?? ''));
+const progressPercent = computed(() => {
+  const progress = run.value?.progress;
+  if (!progress?.total_cases) return 0;
+  return Math.min(
+    100,
+    Math.round((progress.completed_cases / progress.total_cases) * 100),
+  );
+});
+const isTerminal = computed(() =>
+  run.value
+    ? ['succeeded', 'errored', 'cancelled'].includes(run.value.status)
+    : false,
+);
+const verdictText = computed(() =>
+  run.value?.verdict ? verdictLabels[run.value.verdict] : '未产生',
+);
+const eventsEnabled = computed(() => Boolean(run.value));
+
+async function load(id: string, clear = true): Promise<void> {
+  controller?.abort();
+  controller = new AbortController();
+  const current = ++requestSequence;
+  loading.value = true;
+  error.value = '';
+  requestId.value = '';
+  if (clear) run.value = null;
+  try {
+    const detail = await getRun(id, controller.signal);
+    if (current === requestSequence) run.value = detail;
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === 'AbortError') return;
+    if (current !== requestSequence) return;
+    error.value = cause instanceof Error ? cause.message : '读取任务详情失败';
+    if (isApiError(cause)) requestId.value = cause.requestId ?? '';
+  } finally {
+    if (current === requestSequence) loading.value = false;
+  }
+}
+
+const { events, connectionMessage, cursor } = useRunEvents(
+  runId,
+  eventsEnabled,
+  () => load(runId.value, false),
+);
+
+async function requestCancel(): Promise<void> {
+  if (!run.value || cancelBusy.value || isTerminal.value) return;
+  cancelBusy.value = true;
+  cancelMessage.value = '';
+  cancelError.value = '';
+  try {
+    const result = await cancelRun(run.value.run_id);
+    run.value.status = result.status;
+    run.value.cancellation_requested = result.cancellation_requested;
+    cancelMessage.value =
+      result.status === 'cancelled'
+        ? '任务已取消'
+        : '取消已请求，正在等待 Worker 完成清理';
+    if (result.status === 'cancelled') await load(runId.value, false);
+  } catch (cause) {
+    if (isApiError(cause) && cause.code === 'RUN_NOT_CANCELLABLE') {
+      cancelMessage.value = '任务状态已经变化，详情已重新同步';
+      await load(runId.value, false);
+    } else {
+      cancelError.value =
+        cause instanceof Error ? cause.message : '取消任务失败';
+    }
+  } finally {
+    cancelBusy.value = false;
+  }
+}
+
+watch(runId, (id) => load(id), { immediate: true });
+onBeforeUnmount(() => controller?.abort());
+</script>
+
+<template>
+  <section class="page detail-page">
+    <RouterLink class="back-link" to="/runs"
+      ><span aria-hidden="true">←</span> 返回运行记录</RouterLink
+    >
+
+    <div v-if="loading" class="panel loading-state detail-loading">
+      <span class="spinner spinner-dark"></span>正在读取任务详情…
+    </div>
+    <div v-else-if="error" class="panel error-state" role="alert">
+      <span class="error-state-icon" aria-hidden="true">!</span>
+      <div>
+        <h2>无法读取任务详情</h2>
+        <p>{{ error }}</p>
+        <small v-if="requestId">请求 ID：{{ requestId }}</small>
+      </div>
+      <button
+        class="button button-secondary"
+        type="button"
+        @click="load(runId)"
+      >
+        重试
+      </button>
+    </div>
+
+    <template v-else-if="run">
+      <div class="run-hero">
+        <div class="run-hero-main">
+          <div class="run-id-line">
+            <span>RUN</span><code>{{ run.run_id }}</code>
+          </div>
+          <h1>{{ run.goal }}</h1>
+          <p>{{ run.expected_behavior }}</p>
+          <div class="badge-group">
+            <StateBadge :tone="run.status" :label="statusLabels[run.status]" />
+            <StateBadge
+              v-if="run.verdict"
+              :tone="run.verdict"
+              :label="verdictLabels[run.verdict]"
+            />
+            <span v-else class="badge badge-neutral"
+              ><span class="badge-dot"></span>未产生</span
+            >
+          </div>
+          <div v-if="!isTerminal" class="hero-actions">
+            <button
+              class="button button-hero"
+              type="button"
+              :disabled="cancelBusy || run.cancellation_requested"
+              @click="requestCancel"
+            >
+              {{
+                cancelBusy
+                  ? '正在取消…'
+                  : run.cancellation_requested
+                    ? '取消已请求'
+                    : '取消运行'
+              }}
+            </button>
+          </div>
+        </div>
+        <div class="hero-progress">
+          <div class="progress-value">
+            <strong>{{ progressPercent }}</strong
+            ><span>%</span>
+          </div>
+          <ProgressBar :value="progressPercent" />
+          <small
+            >已完成
+            <span
+              >{{ run.progress.completed_cases }} /
+              {{ run.progress.total_cases ?? '待规划' }}</span
+            >
+            个用例</small
+          >
+        </div>
+      </div>
+
+      <div
+        v-if="run.cancellation_requested && run.status === 'running'"
+        class="alert alert-warning"
+      >
+        <div>
+          <strong>取消请求已受理</strong
+          ><small>正在等待 Worker 停止运行并完成资源清理。</small>
+        </div>
+      </div>
+      <div v-if="cancelMessage" class="alert alert-warning">
+        <strong>{{ cancelMessage }}</strong>
+      </div>
+      <div v-if="cancelError" class="alert alert-error" role="alert">
+        <strong>{{ cancelError }}</strong>
+      </div>
+      <div v-if="run.error" class="alert alert-error">
+        <div>
+          <strong>{{ run.error.message }}</strong
+          ><small>错误码：{{ run.error.code }}</small>
+        </div>
+      </div>
+
+      <div class="detail-overview">
+        <div>
+          <span>运行状态</span><strong>{{ statusLabels[run.status] }}</strong>
+        </div>
+        <div>
+          <span>测试判定</span
+          ><strong :class="run.verdict ? `text-${run.verdict}` : ''">{{
+            verdictText
+          }}</strong>
+        </div>
+        <div>
+          <span>已完成用例</span
+          ><strong>{{ run.progress.completed_cases }}</strong>
+        </div>
+        <div>
+          <span>用例总数</span
+          ><strong>{{ run.progress.total_cases ?? '待规划' }}</strong>
+        </div>
+      </div>
+
+      <div class="detail-layout">
+        <div class="detail-primary">
+          <div class="panel detail-panel">
+            <div class="panel-title">
+              <div>
+                <h2>任务信息</h2>
+                <p>本次运行的 C1 请求与生命周期时间。</p>
+              </div>
+            </div>
+            <dl class="detail-list">
+              <dt>目标地址</dt>
+              <dd>
+                <a :href="run.target_url" target="_blank" rel="noreferrer">{{
+                  run.target_url
+                }}</a>
+              </dd>
+              <dt>Run ID</dt>
+              <dd>
+                <code>{{ run.run_id }}</code>
+              </dd>
+              <dt>创建时间</dt>
+              <dd>{{ formatDate(run.created_at) }}</dd>
+              <dt>开始时间</dt>
+              <dd>{{ formatDate(run.started_at) }}</dd>
+              <dt>结束时间</dt>
+              <dd>{{ formatDate(run.finished_at) }}</dd>
+            </dl>
+          </div>
+          <RunEventTimeline
+            :events="events"
+            :connection-message="connectionMessage"
+            :cursor="cursor"
+          />
+        </div>
+
+        <div class="detail-secondary">
+          <div class="panel detail-panel">
+            <div class="panel-title">
+              <div>
+                <h2>用例汇总</h2>
+                <p>仅统计已经获得判定的测试用例。</p>
+              </div>
+            </div>
+            <div v-if="run.summary" class="summary-grid">
+              <div class="summary-passed">
+                <span>通过</span><b>{{ run.summary.passed }}</b>
+              </div>
+              <div class="summary-failed">
+                <span>失败</span><b>{{ run.summary.failed }}</b>
+              </div>
+              <div class="summary-blocked">
+                <span>受阻</span><b>{{ run.summary.blocked }}</b>
+              </div>
+              <div class="summary-inconclusive">
+                <span>无法判定</span><b>{{ run.summary.inconclusive }}</b>
+              </div>
+            </div>
+            <EmptyState
+              v-else
+              title="尚无可查询报告"
+              description="运行完成后将在这里显示用例统计。"
+              icon="◌"
+            />
+          </div>
+          <RunReportPanel :run-id="run.run_id" :available="isTerminal" />
+        </div>
+      </div>
+    </template>
+  </section>
+</template>
