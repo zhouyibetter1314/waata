@@ -67,7 +67,7 @@ HTTP 的 `ArtifactView` 增加 `url: string` 和 `expires_at: string | null`。U
   "captured_at": "2026-11-21T01:00:03Z",
   "size_bytes": 204,
   "url": "/api/v1/artifacts/art_002",
-  "expires_at": null
+  "expires_at": "2026-11-28T01:00:03Z"
 }
 ```
 

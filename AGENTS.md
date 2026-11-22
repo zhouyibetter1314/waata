@@ -10,6 +10,7 @@
 
 - Read the [requirements](docs/02-requirements.md), [acceptance criteria](docs/04-acceptance.md), and relevant [contracts](contracts/README.md) before changing behavior. Use the [architecture](docs/03-architecture.md) and ADRs when a change crosses module boundaries.
 - Keep the dependency direction Vue → FastAPI → the public WAATA Python API. Keep `packages/waata` independent of the web framework, task queue, and platform database. Keep the general agent runtime independent of test orchestration and concrete adapters.
+- Manage PostgreSQL schema changes with versioned SQL in [migrations/](migrations/README.md). Add a new migration for each schema change, preserve applied files, and verify upgrades with representative data.
 - Reference the relevant requirement IDs in behavior changes. Coordinate public contract changes with affected maintainers, and update the source models, examples, and checks together. Preserve the distinction between run status and test verdict.
 
 ## Checks and test data

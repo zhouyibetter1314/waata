@@ -1,6 +1,6 @@
 # 03 系统架构
 
-公共接口、字段和状态语义以 [v0.1 契约](../contracts/README.md)为准。
+本文描述 v0.1 的设计。公共接口、字段和状态语义以 [契约](../contracts/README.md)为准。
 
 ## 系统边界
 
@@ -17,7 +17,9 @@ Vue、FastAPI 与 PostgreSQL 17 构成平台。Worker 通过 C2 调用独立的 
 | `apps/api/src/waata_api/services`、`workers` | 任务协调和 WAATA 调用 |
 | `apps/api/src/waata_api/repositories`、`infrastructure` | 运行记录、证据存储、队列和数据库适配 |
 
-创建任务后，API 分配 Run ID，持久化排队记录后返回 `202`。Worker 领取任务，执行长任务并为 C4 事件编号。Vue 通过 C1 查询状态和报告，通过 C4 的 SSE 流接收进度。数据库模型与事务边界见 [C6](../contracts/database/c6-platform-persistence.md)，部署中的故障恢复见 [Q-003](05-open-questions.md#q-003-队列持久化与恢复)。
+API 分配 Run ID，提交排队记录后返回 `202`。Worker 从 PostgreSQL 领取任务，执行测试并为 C4 事件编号。Vue 通过 C1 查询状态和报告，通过 C4 SSE 接收进度。
+
+FastAPI 和 Worker 共享 C6 数据模型。部署先执行 [SQL 迁移](../migrations/README.md)，再启动使用新结构的进程。事务边界见 [C6](../contracts/database/c6-platform-persistence.md)，故障接管见 [Q-003](05-open-questions.md#q-003-队列持久化与恢复)。
 
 ## 核心包
 

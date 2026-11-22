@@ -1,5 +1,11 @@
--- Reference DDL for C6. Apply to an empty PostgreSQL 17 test database.
+-- C6 baseline for an empty PostgreSQL 17 database.
 BEGIN;
+
+CREATE TABLE schema_migrations (
+    version integer PRIMARY KEY CHECK (version > 0),
+    filename text NOT NULL UNIQUE,
+    applied_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE test_runs (
     run_id text PRIMARY KEY,
@@ -99,5 +105,8 @@ CREATE TABLE run_artifacts (
 );
 
 CREATE INDEX run_artifacts_run ON run_artifacts (run_id);
+
+INSERT INTO schema_migrations (version, filename)
+VALUES (1, '0001_platform_persistence.sql');
 
 COMMIT;

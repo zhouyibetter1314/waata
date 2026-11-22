@@ -12,7 +12,11 @@
 | 浏览器与可观测性 | Playwright、会话隔离、证据采集和 Langfuse | 用预设的功能测试动作验证受控页面操作与追踪 | C3、C4、C5 |
 | 契约与 QA | 公共契约、Mock、契约测试和端到端验收 | 对照实现验证契约，跑通受控登录场景 | C1～C6 |
 
-按团队人数合并工作流。任务记录负责人、需求编号、涉及的契约和验收条件。优先联调 HTTP、公共 Python API 和事件三条主链路，使用 [4gaBoards 示例](contracts/examples/README.md)与替身并行开发。
+任务记录负责人、需求编号、关联契约和验收条件。使用 [4gaBoards 示例](contracts/examples/README.md)及测试替身并行开发，优先联调 HTTP、Python API 和事件。
+
+## 数据库变更
+
+PostgreSQL 表、索引与约束通过 `migrations/` 下的版本化 SQL 管理。提交结构变更时新增迁移，同步更新受影响的 C6 说明，并记录空库初始化和已有库升级的验证结果。执行顺序和版本记录见 [迁移规约](migrations/README.md)。
 
 ## 本地提交检查
 
@@ -39,6 +43,9 @@ uv run --locked pre-commit install --install-hooks
 工具版本以 [钩子配置](.pre-commit-config.yaml)为准。编辑器中使用同一份规则。提交时只检查已暂存文件，同时验证配置文件语法、冲突标记和私钥。格式化写回后，先审阅改动，再重新暂存并提交。
 
 ```bash
+# 验证共享契约夹具
+uv run --locked python -m unittest discover -s tests/contract
+
 # 检查仓库中的受版本控制文件
 uv run --locked pre-commit run --all-files
 

@@ -21,7 +21,8 @@
 | **C3 · 操作和检查** | 浏览器打开仪表盘，填写项目名并提交。Verifier 分别检查仪表盘项目卡片和侧边栏入口是否可见 | [六次工具调用及结果](../tools/examples/4gaboards-tool-calls.json) |
 | **C4 · 发布进度** | Worker 接收进度、编号并保存事件，FastAPI 通过 SSE 推送。断线重连携带 `Last-Event-ID`，例如 `10`，服务端从序号 `11` 补发 | [完整 SSE 响应体](../events/examples/4gaboards-events.sse) |
 | **C5 · 保存证据** | 两条结构化观察分别登记，用证据 ID 关联断言。Playwright Trace 随运行收尾登记，授权用户可从报告里的链接读取 | [证据元数据](../artifacts/examples/4gaboards-artifact-views.json) · [仪表盘观察](../artifacts/examples/4gaboards-dashboard-observation.json) · [侧边栏观察](../artifacts/examples/4gaboards-sidebar-observation.json) |
-| **C1 · 查看结果** | Worker 保存报告并提交终态。Vue 展示运行完成、用例通过和两条断言证据 | [任务详情](../http/examples/4gaboards-run-detail.json) · [HTTP 报告](../http/examples/4gaboards-report.json) |
+| **C6 · 持久化** | FastAPI 先提交 `queued` 再返回 `202`。Worker 原子领取任务，最终在同一事务提交报告、终态及事件 `20`（`report.generated`）和 `21`（`run.completed`） | [持久化契约](../database/c6-platform-persistence.md) · [首版迁移](../../migrations/0001_platform_persistence.sql) |
+| **C1 · 查看结果** | Vue 展示运行完成、用例通过和两条断言证据 | [任务详情](../http/examples/4gaboards-run-detail.json) · [HTTP 报告](../http/examples/4gaboards-report.json) |
 
 最终结果为 `status=succeeded`、`verdict=passed`。仪表盘断言引用 `art_4ga_dashboard`，侧边栏断言引用 `art_4ga_sidebar`。Trace 条目展示 ZIP 的元数据与读取路径。该示例的 `langfuse_trace_id` 为 `null`，表示未接入可选的 Langfuse 观测。
 

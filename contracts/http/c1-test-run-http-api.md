@@ -49,11 +49,11 @@
 | `options.headless` | boolean | 可选，默认 `true`。Worker 据此选择 Browser |
 | `options.max_steps_per_case` | integer | 可选，正整数，继承服务端默认值并受服务端上限约束 |
 
-每用例步骤上限和 C3 整次运行共享的浏览器动作上限独立执行。课程计步见 C2。请求包含明文凭据、越界配置或未知字段时拒绝。服务端确认任务已排队后返回 `202`，响应含 `run_id: string`、`status: "queued"`、`created_at: string`。格式、权限和排队错误见第 5 节。
+每用例步骤上限和 C3 的 Run 级浏览器动作上限分别计数，课程计步见 C2。拒绝明文凭据、越界配置及未知字段。排队记录提交后返回 `202`，响应含 `run_id: string`、`status: "queued"`、`created_at: string`。错误响应见第 5 节。
 
 ### 3.2 列表与详情
 
-列表支持 `page`（默认 `1`，最小 `1`）和 `page_size`（默认 `20`，范围 `1–100`）。返回 `items: RunSummary[]`、`page: int`、`page_size: int`、`total: int`。按 `created_at` 降序，同时间以 `run_id` 稳定排序。无权限的记录不计入总数。
+列表支持 `page`（默认 `1`，最小 `1`）和 `page_size`（默认 `20`，范围 `1–100`）。返回 `items: RunSummary[]`、`page: int`、`page_size: int`、`total: int`。在授权范围内统计总数，并按 `created_at`、`run_id` 依次降序排列。
 
 | 模型 | 字段与约束 |
 | --- | --- |

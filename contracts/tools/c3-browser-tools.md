@@ -11,7 +11,7 @@
 | 项目 | 约定 |
 | --- | --- |
 | 调用方式 | Python 包内部异步调用，不新增 HTTP/SSE 接口。不得依赖 FastAPI 或平台数据库 |
-| 工具名称 | 固定使用上述 `browser.*` 名称，未知工具在执行前拒绝 |
+| 工具名称 | 使用第 4 节列出的 `browser.*` 名称，未知工具在执行前拒绝 |
 | 字段与值 | 字段为 `snake_case`。只传 JSON 可序列化值，不传 Page、Locator、文件句柄 |
 | Schema | 参数按工具名区分。拒绝未知字段、缺失字段和错误类型，不静默忽略 |
 | 时间 | 观察时间使用 ISO 8601 UTC。耗时使用非负整数毫秒 |
@@ -129,7 +129,7 @@ inspect 的 `exists`、`count`、`visible` 可以读取多匹配。其精确语�
 | `browser.click` | `locator` | `action`、实际 `url` | 动作 |
 | `browser.fill` | `locator`、`value` 或 `secret_ref` | `action`、实际 `url` | 动作 |
 | `browser.select_option` | `locator`、`value` | `action`、实际 `url` | 动作 |
-| `browser.screenshot` | 可选截图参数 | Artifact 引用 | 取证 |
+| `browser.screenshot` | 可选截图参数 | `artifact_id`、`kind`、`page_url`、`captured_at` | 取证 |
 | `browser.inspect` | 检查条件 | 实际值、比较结果、证据引用 | 检查 |
 
 七个工具均接受可选的 `timeout_ms`。动作成功 data 固定 `action` 为 `navigate`、`click`、`fill`、`select_option`。`url` 是本次操作返回时的脱敏页面 URL。返回成功只说明动作方法已完成，不保证异步业务结果已呈现，Runner 应再 observe/inspect。
@@ -200,9 +200,8 @@ click 执行成功不表示登录成功、表单校验通过或检查点通过�
 
 - `locator` 必填。`value` 与 `secret_ref` 严格二选一，同时提供或均不提供时返回 `INVALID_ARGUMENTS`。
 - `value` 是字符串，允许 `""` 以清空输入。只用于非秘密测试数据。已知秘密字段不接受明文 `value`。
-- `secret_ref` 是非空的受控引用，执行边界只解析当前 Run 被允许的凭据条目，不允许借此读取任意环境变量或文件。错误密码场景也使用专门的测试夹具引用。
+- `secret_ref` 是非空的字段级引用，例如 `demo_login_fixture.password`。可信解析器只解析 C2 为本次 Run 授权的夹具条目，禁止读取任意环境变量或文件。错误密码也使用专用夹具引用。
 - 输入框必须唯一、可编辑。使用 fill 替换当前内容，不累计追加。成功 data 不回显输入值或解析出的秘密。
-- `secret_ref` 是字段级引用。可信解析器只允许解析 C2 已为本次 Run 授权的凭据集合中的条目，例如 `demo_login_fixture.password`。实际键名由夹具提供。
 
 ### 5.5 browser.select_option
 
@@ -342,7 +341,7 @@ observe、screenshot、inspect 不消耗浏览器动作预算，但受独立调�
 - 调用方持有 Browser。Adapter 为每次 Run 建立隔离 BrowserContext 和 Page，退出时只关闭自身创建的会话，不关闭外部 Browser，遵循 C2。
 - 工具不得自行创建未受上下文管理的会话、绕过授权导航，或跨 Run 共享 Page、Cookie、证据引用及秘密。
 - 取消/故障后停止新动作，在收尾期限内保存允许保留的已有证据与 Trace，再清理 context。清理错误必须单独记录并保留原始错误信息。
-- 截图与 Trace 分别执行脱敏校验。Trace 可能含 DOM、输入值、网络和截图。无法可靠脱敏时，必须关闭相关记录或禁止交付原始 Trace，并在报告中记录证据缺口。
+- 分别校验截图与 Trace 的脱敏结果。Trace 可能包含 DOM、输入值、网络记录和截图。无法可靠脱敏时，停用相关采集或扣留原件，并在可用的报告中记录证据缺口。
 - 同 Run 的 Case 是否重建会话和如何重置测试数据由 C2/Q-004 约定。清空 Cookie 不视为完成业务数据重置。
 
 ## 8. 工具注册与实现责任
