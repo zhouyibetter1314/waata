@@ -1,0 +1,41 @@
+[
+  {
+    "artifact_id": "art_4ga_dashboard",
+    "run_id": "run_4gaboards_001",
+    "case_id": "case_create_project",
+    "step_id": "step_verify",
+    "tool_call_id": "call_005",
+    "kind": "observation",
+    "mime_type": "application/json",
+    "captured_at": "2026-11-21T02:00:17Z",
+    "size_bytes": 269,
+    "url": "/api/v1/artifacts/art_4ga_dashboard",
+    "expires_at": null
+  },
+  {
+    "artifact_id": "art_4ga_sidebar",
+    "run_id": "run_4gaboards_001",
+    "case_id": "case_create_project",
+    "step_id": "step_verify",
+    "tool_call_id": "call_006",
+    "kind": "observation",
+    "mime_type": "application/json",
+    "captured_at": "2026-11-21T02:00:19Z",
+    "size_bytes": 269,
+    "url": "/api/v1/artifacts/art_4ga_sidebar",
+    "expires_at": null
+  },
+  {
+    "artifact_id": "art_4ga_trace",
+    "run_id": "run_4gaboards_001",
+    "case_id": null,
+    "step_id": null,
+    "tool_call_id": null,
+    "kind": "playwright_trace",
+    "mime_type": "application/zip",
+    "captured_at": "2026-11-21T02:00:21Z",
+    "size_bytes": 74218,
+    "url": "/api/v1/artifacts/art_4ga_trace",
+    "expires_at": null
+  }
+]

@@ -4,6 +4,22 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = []
 
+[dependency-groups]
+dev = ["pre-commit>=4.2,<5"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
 [tool.uv]
 package = false
 

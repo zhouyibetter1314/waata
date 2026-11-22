@@ -1,0 +1,165 @@
+[
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_open",
+      "tool_call_id": "call_001"
+    },
+    "call": {
+      "tool": "browser.navigate",
+      "arguments": {
+        "url": "http://localhost:3000/"
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "action": "navigate",
+        "url": "http://localhost:3000/"
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_open",
+      "tool_call_id": "call_002"
+    },
+    "call": {
+      "tool": "browser.click",
+      "arguments": {
+        "locator": {
+          "strategy": "css",
+          "value": "[class*=\"headerButtonGroup\"] button[title=\"Add Project\"]"
+        }
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "action": "click",
+        "url": "http://localhost:3000/"
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_create",
+      "tool_call_id": "call_003"
+    },
+    "call": {
+      "tool": "browser.fill",
+      "arguments": {
+        "locator": {
+          "strategy": "placeholder",
+          "value": "Enter project name..."
+        },
+        "value": "Course Test 01"
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "action": "fill",
+        "url": "http://localhost:3000/"
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_create",
+      "tool_call_id": "call_004"
+    },
+    "call": {
+      "tool": "browser.click",
+      "arguments": {
+        "locator": {
+          "strategy": "css",
+          "value": "form:has(input[placeholder=\"Enter project name...\"]) button"
+        }
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "action": "click",
+        "url": "http://localhost:3000/"
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_verify",
+      "tool_call_id": "call_005"
+    },
+    "call": {
+      "tool": "browser.inspect",
+      "arguments": {
+        "condition": "visible",
+        "locator": {
+          "strategy": "css",
+          "value": "a[href^=\"/projects/\"] [title=\"Course Test 01\"]"
+        }
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "condition": "visible",
+        "actual": true,
+        "matched": true,
+        "url": "http://localhost:3000/",
+        "observed_at": "2026-11-21T02:00:17Z",
+        "evidence_ids": [
+          "art_4ga_dashboard"
+        ]
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_verify",
+      "tool_call_id": "call_006"
+    },
+    "call": {
+      "tool": "browser.inspect",
+      "arguments": {
+        "condition": "visible",
+        "locator": {
+          "strategy": "role",
+          "role": "button",
+          "name": "Course Test 01"
+        }
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "condition": "visible",
+        "actual": true,
+        "matched": true,
+        "url": "http://localhost:3000/",
+        "observed_at": "2026-11-21T02:00:19Z",
+        "evidence_ids": [
+          "art_4ga_sidebar"
+        ]
+      },
+      "error": null
+    }
+  }
+]

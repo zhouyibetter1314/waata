@@ -1,6 +1,6 @@
 # 04 MVP 与验收
 
-状态为评审稿。独立 Python 包先验证完整测试流程，平台集成随后验证 Vue 提交、FastAPI 调度与前端复核。
+独立 Python 包先验证完整测试流程，平台集成随后验证 Vue 提交、FastAPI 调度与前端复核。跨模块数据可参考 [4gaBoards 联调示例](../contracts/examples/README.md)。
 
 ## 测试夹具
 

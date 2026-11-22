@@ -1,0 +1,84 @@
+id: 1
+event: run.started
+data: {"schema_version":1,"event_id":"evt_4ga_001","run_id":"run_4gaboards_001","sequence":1,"type":"run.started","timestamp":"2026-11-21T02:00:02Z","case_id":null,"step_id":null,"payload":{}}
+
+id: 2
+event: plan.created
+data: {"schema_version":1,"event_id":"evt_4ga_002","run_id":"run_4gaboards_001","sequence":2,"type":"plan.created","timestamp":"2026-11-21T02:00:03Z","case_id":null,"step_id":null,"payload":{"total_cases":1}}
+
+id: 3
+event: case.started
+data: {"schema_version":1,"event_id":"evt_4ga_003","run_id":"run_4gaboards_001","sequence":3,"type":"case.started","timestamp":"2026-11-21T02:00:04Z","case_id":"case_create_project","step_id":null,"payload":{"name":"创建项目并验证两个位置"}}
+
+id: 4
+event: agent.step.started
+data: {"schema_version":1,"event_id":"evt_4ga_004","run_id":"run_4gaboards_001","sequence":4,"type":"agent.step.started","timestamp":"2026-11-21T02:00:05Z","case_id":"case_create_project","step_id":"step_open","payload":{"summary":"打开已登录的本地仪表盘并打开创建项目表单"}}
+
+id: 5
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_4ga_005","run_id":"run_4gaboards_001","sequence":5,"type":"tool.called","timestamp":"2026-11-21T02:00:06Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_001","tool":"browser.navigate"}}
+
+id: 6
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_4ga_006","run_id":"run_4gaboards_001","sequence":6,"type":"tool.completed","timestamp":"2026-11-21T02:00:07Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_001","tool":"browser.navigate","success":true,"duration_ms":280,"error_code":null,"evidence_ids":[]}}
+
+id: 7
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_4ga_007","run_id":"run_4gaboards_001","sequence":7,"type":"tool.called","timestamp":"2026-11-21T02:00:08Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_002","tool":"browser.click"}}
+
+id: 8
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_4ga_008","run_id":"run_4gaboards_001","sequence":8,"type":"tool.completed","timestamp":"2026-11-21T02:00:09Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_002","tool":"browser.click","success":true,"duration_ms":140,"error_code":null,"evidence_ids":[]}}
+
+id: 9
+event: agent.step.started
+data: {"schema_version":1,"event_id":"evt_4ga_009","run_id":"run_4gaboards_001","sequence":9,"type":"agent.step.started","timestamp":"2026-11-21T02:00:10Z","case_id":"case_create_project","step_id":"step_create","payload":{"summary":"填写本次使用的唯一项目名并提交"}}
+
+id: 10
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_4ga_010","run_id":"run_4gaboards_001","sequence":10,"type":"tool.called","timestamp":"2026-11-21T02:00:11Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_003","tool":"browser.fill"}}
+
+id: 11
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_4ga_011","run_id":"run_4gaboards_001","sequence":11,"type":"tool.completed","timestamp":"2026-11-21T02:00:12Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_003","tool":"browser.fill","success":true,"duration_ms":95,"error_code":null,"evidence_ids":[]}}
+
+id: 12
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_4ga_012","run_id":"run_4gaboards_001","sequence":12,"type":"tool.called","timestamp":"2026-11-21T02:00:13Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_004","tool":"browser.click"}}
+
+id: 13
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_4ga_013","run_id":"run_4gaboards_001","sequence":13,"type":"tool.completed","timestamp":"2026-11-21T02:00:14Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_004","tool":"browser.click","success":true,"duration_ms":168,"error_code":null,"evidence_ids":[]}}
+
+id: 14
+event: agent.step.started
+data: {"schema_version":1,"event_id":"evt_4ga_014","run_id":"run_4gaboards_001","sequence":14,"type":"agent.step.started","timestamp":"2026-11-21T02:00:15Z","case_id":"case_create_project","step_id":"step_verify","payload":{"summary":"分别检查仪表盘项目卡片和侧边栏项目入口"}}
+
+id: 15
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_4ga_015","run_id":"run_4gaboards_001","sequence":15,"type":"tool.called","timestamp":"2026-11-21T02:00:16Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_005","tool":"browser.inspect"}}
+
+id: 16
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_4ga_016","run_id":"run_4gaboards_001","sequence":16,"type":"tool.completed","timestamp":"2026-11-21T02:00:17Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_005","tool":"browser.inspect","success":true,"duration_ms":115,"error_code":null,"evidence_ids":["art_4ga_dashboard"]}}
+
+id: 17
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_4ga_017","run_id":"run_4gaboards_001","sequence":17,"type":"tool.called","timestamp":"2026-11-21T02:00:18Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_006","tool":"browser.inspect"}}
+
+id: 18
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_4ga_018","run_id":"run_4gaboards_001","sequence":18,"type":"tool.completed","timestamp":"2026-11-21T02:00:19Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_006","tool":"browser.inspect","success":true,"duration_ms":115,"error_code":null,"evidence_ids":["art_4ga_sidebar"]}}
+
+id: 19
+event: case.verified
+data: {"schema_version":1,"event_id":"evt_4ga_019","run_id":"run_4gaboards_001","sequence":19,"type":"case.verified","timestamp":"2026-11-21T02:00:20Z","case_id":"case_create_project","step_id":null,"payload":{"verdict":"passed"}}
+
+id: 20
+event: report.generated
+data: {"schema_version":1,"event_id":"evt_4ga_020","run_id":"run_4gaboards_001","sequence":20,"type":"report.generated","timestamp":"2026-11-21T02:00:22Z","case_id":null,"step_id":null,"payload":{"artifact_id":null}}
+
+id: 21
+event: run.completed
+data: {"schema_version":1,"event_id":"evt_4ga_021","run_id":"run_4gaboards_001","sequence":21,"type":"run.completed","timestamp":"2026-11-21T02:00:22Z","case_id":null,"step_id":null,"payload":{"status":"succeeded","verdict":"passed","error":null}}
+

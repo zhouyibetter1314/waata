@@ -1,20 +1,85 @@
 # WAATA 跨模块契约
 
-本目录供团队共同设计和评审。当前记录接口边界、设计问题与预期交付物。路径、签名、字段、状态值及传输语义在对应生产方和消费方评审后确定。
+C1～C5 是 WAATA v0.1 的正式契约。[4gaBoards 端到端示例](examples/README.md)串联了从提交任务到查看报告的完整流程。
 
-| 编号 | 位置 | 参与模块 | 评审内容与交付物 |
+## 项目结构
+
+```mermaid
+flowchart LR
+    Web["Vue 前端"]
+    Backend["FastAPI 后端"]
+    Database[("平台数据库")]
+
+    Web <-->|"C1 · HTTP 请求与响应<br/>C4 · SSE 执行进度"| Backend
+    Backend <-->|"运行状态、事件与报告"| Database
+```
+
+## 后端如何调用 WAATA
+
+```mermaid
+flowchart TB
+    Web["Vue 前端"]
+
+    subgraph Backend["平台后端"]
+        API["FastAPI<br/>校验请求与权限"]
+        Worker["Worker<br/>调度、取消与依赖注入"]
+        Database[("平台数据库")]
+        Artifacts[("ArtifactStore")]
+
+        API -->|"提交任务或请求取消"| Worker
+        API -->|"查询状态、报告和历史事件"| Database
+        Worker -->|"保存状态、报告与 C4 事件"| Database
+        API -->|"C5 · 授权后读取证据"| Artifacts
+    end
+
+    WAATA["waata · 独立 Python 包"]
+    Langfuse["Langfuse（可选）"]
+
+    Web -->|"C1 · 目标 URL、测试目标与预期行为<br/>凭据引用与运行选项"| API
+    API -->|"C1 · 状态、报告与证据<br/>C4 · SSE 推送与重放"| Web
+    Worker -->|"C2 · TestRequest、run_id、on_event"| WAATA
+    WAATA -->|"C2 · 结果或执行异常<br/>C4 · 进度回调"| Worker
+    WAATA -->|"C5 · Playwright Trace、截图等"| Artifacts
+    WAATA -->|"模型、工具与验证追踪"| Langfuse
+```
+
+Worker 将模型、浏览器适配器、证据存储和可选的 Observer 注入 TestEngine，并为 C4 事件编号后持久化。报告通过 `langfuse_trace_id` 关联 Langfuse 追踪。
+
+## WAATA 包内部结构
+
+```mermaid
+flowchart TB
+    Caller["Python 调用方<br/>Worker、CLI 或脚本"]
+
+    subgraph Package["独立 waata Python 包"]
+        Engine["orchestrator · TestEngine<br/>规划 → 执行 → 验证 → 报告"]
+        Agent["core · Agent Runtime"]
+        Browser["browser · BrowserAdapter<br/>每次运行隔离 BrowserContext 和 Page"]
+        LLM["llm · 模型接口"]
+        Observer["observability · Observer（可选）"]
+
+        Engine -->|"执行用例"| Agent
+        Agent <-->|"C3 · 工具调用与观察结果"| Browser
+        Engine -->|"规划与语义验证"| LLM
+        Agent -->|"决定下一步动作"| LLM
+        Engine -.->|"关联执行追踪"| Observer
+    end
+
+    Artifacts["调用方提供的 ArtifactStore"]
+
+    Caller <-->|"C2 · 调用与结果<br/>C4 · on_event 回调"| Engine
+    Browser -->|"C5 · 登记浏览器证据"| Artifacts
+    Engine -->|"C5 · 保存报告快照（可选）"| Artifacts
+```
+
+## 契约索引
+
+| 契约 | 参与模块 | 内容 | 示例 |
 | --- | --- | --- | --- |
-| C1 · HTTP API | [`http/`](http/) | Vue、FastAPI | 任务创建、列表、详情、进度、报告和取消。确定 HTTP 方法、响应状态、错误与授权。由 FastAPI 导出 OpenAPI 快照 |
-| C2 · Python Package | [`package/`](package/) | FastAPI Worker、WAATA | TestEngine 的依赖注入、运行入口、结果模型、生命周期、错误和取消。由公开 Python 类型与模型提供定义 |
-| C3 · Tools | [`tools/`](tools/) | Agent Runtime、BrowserAdapter | 页面观察和常见功能操作的输入、输出与错误，授权校验由执行边界实施。确认工具注册和校验规则 |
-| C4 · Events | [`events/`](events/) | WAATA、FastAPI、Vue | 事件标识与版本、Run/Case/Step 关联、终态、排序、重连和去重。确定 WAATA 事件与 SSE 的映射 |
-| C5 · Artifacts | [`artifacts/`](artifacts/) | BrowserAdapter、Reporter、后端存储、Vue | 截图、Playwright Trace、报告与 Langfuse 引用，确认元数据、保存和授权访问方式 |
+| [C1 · 测试任务 HTTP API](http/c1-test-run-http-api.md) | Vue ↔ FastAPI | 任务、报告和证据的 HTTP 接口 | [创建请求](http/examples/4gaboards-create-run.json) |
+| [C2 · WAATA Python API](waata/c2-waata-python-api.md) | Worker ↔ WAATA | TestEngine、输入输出、错误与取消 | [TestRequest](waata/examples/4gaboards-test-request.json) · [TestResult](waata/examples/4gaboards-test-result.json) |
+| [C3 · 浏览器工具](tools/c3-browser-tools.md) | Agent Runtime ↔ BrowserAdapter | 工具输入、结果与执行边界 | [工具调用](tools/examples/4gaboards-tool-calls.json) |
+| [C4 · 测试运行事件](events/c4-test-run-events.md) | WAATA → Worker → Vue | 事件信封、终态与 SSE 重放 | [SSE 响应体](events/examples/4gaboards-events.sse) |
+| [C5 · 测试证据与产物](artifacts/c5-test-evidence-artifacts.md) | WAATA、存储层、Vue | 证据登记、引用和授权读取 | [证据元数据](artifacts/examples/4gaboards-artifact-views.json) |
 
-## 跨契约约束
-
-- 运行生命周期和用例判定分别表达。业务断言未满足时，系统仍可正常完成运行并交付报告。
-- 事件、报告、截图和 Trace 可关联到同一 Run。产生于特定用例或步骤的记录附带相应标识。
-- 结果携带证据元数据和引用。平台为访问证据提供授权检查，Python 包可由调用方提供存储能力。
-- FastAPI 的请求和响应模型作为 C1 的来源，OpenAPI 快照从服务导出，前端按快照生成类型。C2 的定义以核心包的公共类型和模型为准。
-
-C1、C2、C4 优先评审。每份契约应包含正常与失败示例，并在实现接入后由 [`tests/contract/`](../tests/contract/) 验证。变更流程见[团队协作规约](../CONTRIBUTING.md)。相关未决事项见[开放问题](../docs/05-open-questions.md)。
+变更公共契约时，由相关方共同评审，并同步更新来源模型、示例和契约测试。详见 [协作规约](../CONTRIBUTING.md)。
