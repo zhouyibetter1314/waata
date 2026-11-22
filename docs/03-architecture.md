@@ -4,7 +4,7 @@
 
 ## 系统边界
 
-Vue、FastAPI 与数据库构成平台。Worker 通过 C2 调用独立的 WAATA Python 包。通用 `core` 执行注册的工具，浏览器适配层提供 Playwright 工具。平台、后端调用和包内部结构见 [契约通信图](../contracts/README.md#项目结构)。
+Vue、FastAPI 与 PostgreSQL 17 构成平台。Worker 通过 C2 调用独立的 WAATA Python 包。通用 `core` 执行注册的工具，浏览器适配层提供 Playwright 工具。平台、后端调用和包内部结构见 [契约通信图](../contracts/README.md#项目结构)。
 
 ## 应用层
 
@@ -17,7 +17,7 @@ Vue、FastAPI 与数据库构成平台。Worker 通过 C2 调用独立的 WAATA 
 | `apps/api/src/waata_api/services`、`workers` | 任务协调和 WAATA 调用 |
 | `apps/api/src/waata_api/repositories`、`infrastructure` | 运行记录、证据存储、队列和数据库适配 |
 
-创建任务后，API 分配 Run ID 并返回可查询的任务记录。Worker 执行长任务，为 C4 事件编号并持久化。Vue 通过 C1 查询状态和报告，通过 C4 的 SSE 流接收进度。部署中的队列与故障恢复见 [Q-003](05-open-questions.md#q-003-队列持久化与恢复)。
+创建任务后，API 分配 Run ID，持久化排队记录后返回 `202`。Worker 领取任务，执行长任务并为 C4 事件编号。Vue 通过 C1 查询状态和报告，通过 C4 的 SSE 流接收进度。数据库模型与事务边界见 [C6](../contracts/database/c6-platform-persistence.md)，部署中的故障恢复见 [Q-003](05-open-questions.md#q-003-队列持久化与恢复)。
 
 ## 核心包
 

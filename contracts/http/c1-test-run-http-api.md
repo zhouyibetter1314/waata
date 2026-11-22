@@ -4,6 +4,8 @@
 
 定义受控 Web 测试任务的创建、查询、订阅、取消、报告和证据读取。FastAPI 请求与响应模型作为实现来源，导出 `contracts/http/openapi.json` 供前端生成类型。C1 使用 [C2](../waata/c2-waata-python-api.md) 的结果及判定、[C4](../events/c4-test-run-events.md) 的事件和 [C5](../artifacts/c5-test-evidence-artifacts.md) 的证据元数据。
 
+平台排队、状态和报告的数据库事务边界见 [C6](../database/c6-platform-persistence.md)。
+
 ## 2. 通用约定
 
 | 项目 | 约定 |

@@ -1,6 +1,6 @@
 # WAATA 跨模块契约
 
-C1～C5 是 WAATA v0.1 的正式契约。[4gaBoards 端到端示例](examples/README.md)串联了从提交任务到查看报告的完整流程。
+C1～C6 是 WAATA v0.1 的契约。[4gaBoards 端到端示例](examples/README.md)展示了从提交任务到查看报告时 C1～C5 的数据流。
 
 ## 项目结构
 
@@ -8,10 +8,10 @@ C1～C5 是 WAATA v0.1 的正式契约。[4gaBoards 端到端示例](examples/RE
 flowchart LR
     Web["Vue 前端"]
     Backend["FastAPI 后端"]
-    Database[("平台数据库")]
+    Database[("PostgreSQL 17")]
 
     Web <-->|"C1 · HTTP 请求与响应<br/>C4 · SSE 执行进度"| Backend
-    Backend <-->|"运行状态、事件与报告"| Database
+    Backend <-->|"C6 · 运行、事件、报告与证据元数据"| Database
 ```
 
 ## 后端如何调用 WAATA
@@ -23,12 +23,12 @@ flowchart TB
     subgraph Backend["平台后端"]
         API["FastAPI<br/>校验请求与权限"]
         Worker["Worker<br/>调度、取消与依赖注入"]
-        Database[("平台数据库")]
+        Database[("PostgreSQL 17")]
         Artifacts[("ArtifactStore")]
 
         API -->|"提交任务或请求取消"| Worker
-        API -->|"查询状态、报告和历史事件"| Database
-        Worker -->|"保存状态、报告与 C4 事件"| Database
+        API -->|"C6 · 查询运行、报告和事件"| Database
+        Worker -->|"C6 · 提交状态、报告与 C4 事件"| Database
         API -->|"C5 · 授权后读取证据"| Artifacts
     end
 
@@ -81,5 +81,6 @@ flowchart TB
 | [C3 · 浏览器工具](tools/c3-browser-tools.md) | Agent Runtime ↔ BrowserAdapter | 工具输入、结果与执行边界 | [工具调用](tools/examples/4gaboards-tool-calls.json) |
 | [C4 · 测试运行事件](events/c4-test-run-events.md) | WAATA → Worker → Vue | 事件信封、终态与 SSE 重放 | [SSE 响应体](events/examples/4gaboards-events.sse) |
 | [C5 · 测试证据与产物](artifacts/c5-test-evidence-artifacts.md) | WAATA、存储层、Vue | 证据登记、引用和授权读取 | [证据元数据](artifacts/examples/4gaboards-artifact-views.json) |
+| [C6 · 平台持久化](database/c6-platform-persistence.md) | FastAPI、Worker ↔ PostgreSQL | 排队、运行状态、事件、报告和证据元数据的持久化 | [PostgreSQL 17 参考 DDL](database/examples/schema.sql) |
 
 变更公共契约时，由相关方共同评审，并同步更新来源模型、示例和契约测试。详见 [协作规约](../CONTRIBUTING.md)。

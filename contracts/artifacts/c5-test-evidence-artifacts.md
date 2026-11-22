@@ -28,6 +28,8 @@ HTTP 的 `ArtifactView` 增加 `url: string` 和 `expires_at: string | null`。U
 
 ## 3. 保存与引用
 
+平台证据元数据的数据库模型和登记边界见 [C6](../database/c6-platform-persistence.md)。
+
 - `ArtifactStore.save(artifact: ArtifactInput) -> ArtifactRef` 是异步能力。`ArtifactInput` 含 `run_id`、`case_id`、`step_id`、`tool_call_id`、`kind`、`mime_type`、`captured_at` 及有界的脱敏内容字节。调用方可提供本地目录或平台存储实现。
 - 只有内容可读取且元数据登记成功后才返回引用。失败时回报保存错误，用内部清理处理未登记的文件。C3 使用 `ARTIFACT_WRITE_FAILED`，WAATA 根据已有证据在 C2 报告里表明缺口。收尾和清理遵守 C2 的期限。
 - 结构化观察保存所需的脱敏数据及采集上下文，排除记录自身的证据 ID。截图保存完成后再附加其 ID。`inspect` 的有效结论引用本次成功登记的观察。报告中所有证据引用都须来自同一个 Run，并能解析到其 `artifacts` 条目。

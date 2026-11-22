@@ -41,6 +41,8 @@ Run 级的 `case_id` 和 `step_id` 均为 `null`。Case 级需要 `case_id`，`s
 
 ## 4. 持久化与终态
 
+数据库中的事件序号、幂等写入与终态提交遵循 [C6](../database/c6-platform-persistence.md)。
+
 - Worker 领取任务时一起写入 `running` 与 `run.started`。每个 Run 恰好提交一个终态事件，排队取消可以直接提交 `run.cancelled`。
 - Worker 在同一次提交中保存终态及可用报告，并追加相应事件。有报告时 `report.generated` 的序号排在终态事件之前。接收 `report.generated` 时对应报告已经可查询，`artifact_id` 可引用已登记的报告快照。
 - 若报告无法保存，Worker 使用 `REPORT_WRITE_FAILED` 并发布 `run.failed`，保留已有的原始诊断。若事件存储不可用，Worker 保留故障信息，恢复后补交终态。终态与其事件同一提交，已入库事件才可推送。

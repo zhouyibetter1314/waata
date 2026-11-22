@@ -1,6 +1,6 @@
 # WAATA
 
-WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试的平台。用户通过 Vue 前端提交目标地址、自然语言测试目标和预期结果，并查看运行进度、断言和证据。FastAPI 后端负责任务调度和结果访问，平台数据库保存运行状态、事件和报告。
+WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试的平台。用户通过 Vue 前端提交目标地址、自然语言测试目标和预期结果，并查看运行进度、断言和证据。FastAPI 后端负责任务调度和结果访问，平台使用 PostgreSQL 17 保存运行状态、事件、报告和证据元数据。
 
 后端通过独立的 `waata` Python 包编排测试。该包全称为 Web App Auto Test Agent，负责规划用例、通过 Playwright 在受控站点执行测试、验证结果并生成报告。详见 [waata Python 包](packages/waata/README.md)。
 
@@ -13,7 +13,7 @@ WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试�
 | `apps/web/` | Vue 3 前端，负责任务创建、运行进度与报告展示 |
 | [`apps/api/`](apps/api/) | FastAPI 应用，负责 HTTP API、任务调度、运行状态与持久化 |
 | [`packages/waata/`](packages/waata/README.md) | 独立的 `waata` Python 包，负责测试编排、Agent 运行、模型调用、浏览器适配与追踪 |
-| [`contracts/`](contracts/README.md) | HTTP、Python 包、工具、事件和证据的 v0.1 契约 |
+| [`contracts/`](contracts/README.md) | HTTP、Python 包、工具、事件、证据与平台持久化的 v0.1 契约 |
 | [`examples/`](examples/) | 独立调用 `waata` Python 包的设计示例 |
 | [`testsites/`](testsites/README.md) | 4gaBoards、Admidio、Discourse，以及计划中的自建登录夹具 |
 | `tests/` | 计划中的跨模块契约测试与全系统端到端测试 |
@@ -24,7 +24,7 @@ WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试�
 
 ## 测试示例
 
-[4gaBoards 端到端示例](contracts/examples/README.md)展示了自然语言任务、浏览器调用、SSE、证据和报告如何贯通五份契约。首轮验收的自建登录场景见 [MVP 与验收](docs/04-acceptance.md)。
+[4gaBoards 端到端示例](contracts/examples/README.md)展示了自然语言任务、浏览器调用、SSE、证据和报告如何贯通 C1～C5。数据库表结构与事务验收见 [C6](contracts/database/c6-platform-persistence.md)。首轮验收的自建登录场景见 [MVP 与验收](docs/04-acceptance.md)。
 
 ## 项目规约
 

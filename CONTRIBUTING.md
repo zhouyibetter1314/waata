@@ -7,10 +7,10 @@
 | 工作流 | 责任范围 | 独立验证方式 | 关联契约 |
 | --- | --- | --- | --- |
 | 前端 | Vue 页面、API 客户端、运行时间线和报告 | 用 Mock API 验证提交任务、状态更新与报告展示 | C1、C4、C5 |
-| 后端 | FastAPI、Worker、任务生命周期、存储和 SSE | 用 Mock TestEngine 验证调度、状态查询和报告查询 | C1、C2、C4、C5 |
+| 后端 | FastAPI、Worker、任务生命周期、PostgreSQL、证据存储和 SSE | 用 Mock TestEngine 验证调度、状态查询和报告查询，用 PostgreSQL 17 验证事务与重放 | C1、C2、C4、C5、C6 |
 | WAATA 核心 | 模型接口、Agent Runtime、测试编排与判定 | 用 Fake LLM 和 Fake BrowserAdapter 验证公共调用流程 | C2、C3、C4 |
 | 浏览器与可观测性 | Playwright、会话隔离、证据采集和 Langfuse | 用预设的功能测试动作验证受控页面操作与追踪 | C3、C4、C5 |
-| 契约与 QA | 公共契约、Mock、契约测试和端到端验收 | 对照实现验证契约，跑通受控登录场景 | C1～C5 |
+| 契约与 QA | 公共契约、Mock、契约测试和端到端验收 | 对照实现验证契约，跑通受控登录场景 | C1～C6 |
 
 按团队人数合并工作流。任务记录负责人、需求编号、涉及的契约和验收条件。优先联调 HTTP、公共 Python API 和事件三条主链路，使用 [4gaBoards 示例](contracts/examples/README.md)与替身并行开发。
 
