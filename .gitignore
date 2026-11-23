@@ -16,6 +16,7 @@ test-results/
 .env
 .env.*
 !.env.example
+!/infra/docker/.env.langfuse.example
 /artifacts/
 # 本地文件
 .local/

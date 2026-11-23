@@ -27,7 +27,7 @@ docker exec -i waata-postgres psql -X -v ON_ERROR_STOP=1 -U waata -d waata -f - 
 
 ## 本地登录夹具
 
-参考仓库根目录的 [.env.example](../../.env.example)，将以下值配置到同一工作目录的 `.env` 或分别导出到运行进程环境。数据库 DSN 形如 `postgresql://waata:<数据库密码>@127.0.0.1:55432/waata`。保留实际密码和密钥在本地环境。
+在仓库根目录创建 `.env`，例如执行 `cp -n .env.example .env`。将以下值写入该文件，或分别导出到运行进程环境。数据库 DSN 形如 `postgresql://waata:<数据库密码>@127.0.0.1:55432/waata`，密码使用前一步生成的值。实际密码和密钥保存在本地环境。 [.env.example](../../.env.example)
 
 | 变量 | 本地配置 |
 | --- | --- |
@@ -36,6 +36,7 @@ docker exec -i waata-postgres psql -X -v ON_ERROR_STOP=1 -U waata -d waata -f - 
 | `WAATA_TARGET_POLICY` | `testsites/demo-app/targets.example.json` |
 | `WAATA_DEMO_PASSWORD`、`WAATA_DEMO_WRONG_PASSWORD` | 两个不同的随机夹具值 |
 | `WAATA_MODEL_BASE_URL`、`WAATA_MODEL_NAME`、`WAATA_MODEL_API_KEY` | 已授权的 OpenAI 兼容服务根地址、支持工具调用的模型 ID 和访问密钥。服务无需认证时可省略密钥 |
+| `LANGFUSE_BASE_URL`、`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY` | 可选。追踪地址与 Langfuse 项目的一对密钥。 [本地 Langfuse](../../infra/README.md#langfuse) |
 
 已有配置中的 `DEEPSEEK_*` 模型变量仍可作为兼容回退。对应的 `WAATA_MODEL_*` 变量有值时优先使用新配置。
 
@@ -56,14 +57,18 @@ npm ci
 VITE_API_MOCKING=disabled npm run dev
 ```
 
-打开 [新建任务](http://127.0.0.1:5173/runs/new)。目标使用 `http://127.0.0.1:3010/login` 和 `http://127.0.0.1:3011/login`，凭据引用均为 `demo_login_fixture`。目标为验证有效和无效密码两个场景。预期为有效密码进入 `/dashboard` 且显示 `Signed in`，错误密码留在 `/login` 且显示 `Wrong password`。基准版正常完成且通过，回归版正常完成且显示失败断言。
+Vue 启动后，打开 <http://127.0.0.1:5173/runs/new>，按验收步骤分别提交基准版和回归版。基准版预期为 `succeeded` + `passed`，回归版预期为 `succeeded` + `failed`。 [手工验收](../../docs/04-acceptance.md)
+
+## 停止与重建
+
+先停止本机 API 和 Worker，再执行 `docker stop waata-postgres`。后续可用 `docker start waata-postgres` 继续使用同一数据。确认要重置此专用本地数据库后，删除该容器及 `waata-postgres-data` 数据卷，再按启动说明创建空库，应用全部迁移。需要同步清空运行证据时，删除本次实例的 `WAATA_ARTIFACT_ROOT`。 [迁移规约](../../migrations/README.md)
 
 ## 运行设置
 
 - **授权**。可信目标配置为 JSON 数组。每项明确允许的 origin、主体、浏览器动作及凭据引用。未配置目标时无任务可进入执行。Worker 再次验证配置，并按需要解析字段级环境变量。浏览器只在授权的受控测试环境使用，部署时将浏览器的网络出口限制在该环境内。
 - **共享部署**。设置 `WAATA_AUTH_MODE=gateway`、`WAATA_GATEWAY_TOKEN`、`WAATA_ALLOWED_HOSTS` 和 `WAATA_WEB_ORIGINS`。后两项为逗号分隔的精确 Host 与 origin。同源网关验证会话，剥除外部请求的 `X-WAATA-Principal`、`X-WAATA-Gateway-Token`，再用经认证的主体和内部令牌重写这两个头。API 只接收网关转发的请求。禁用 SSE 缓冲，并将网关流空闲超时设为大于 SSE 保活间隔。
 - **并发与预算**。`WAATA_WORKER_CONCURRENCY` 控制每个 Worker 的运行槽数。可用 `WAATA_ENGINE_CONFIG` JSON 设置 WAATA 的用例、动作、步骤、模型和超时预算。`WAATA_WORKER_POLL_SECONDS`、`WAATA_WORKER_HEARTBEAT_SECONDS`、`WAATA_WORKER_LEASE_SECONDS`、`WAATA_WORKER_SHUTDOWN_SECONDS` 默认分别为 0.25、2、15 和 15 秒。`WAATA_SSE_POLL_SECONDS` 与 `WAATA_SSE_KEEPALIVE_SECONDS` 默认分别为 0.25 和 15 秒。使用可显示界面的 Chromium 环境时，可设置 `WAATA_ALLOW_HEADFUL=true` 启用 headed 模式。
-- **证据**。`WAATA_ARTIFACT_ROOT` 默认是 `artifacts/platform`，API 与 Worker 需使用支持原子重命名与文件锁的同一私有持久目录。`WAATA_ARTIFACT_RETENTION_SECONDS` 默认七天，`WAATA_ARTIFACT_MAX_BYTES` 以 JSON 按类型覆盖写入大小。结构化观察默认保存，截图由目标策略选择并配置遮罩。原始 Playwright Trace 采集维持关闭。Langfuse 可用 `LANGFUSE_BASE_URL`、`LANGFUSE_PUBLIC_KEY` 与 `LANGFUSE_SECRET_KEY` 启用。
+- **证据**。`WAATA_ARTIFACT_ROOT` 默认是 `artifacts/platform`，API 与 Worker 需使用支持原子重命名与文件锁的同一私有持久目录。`WAATA_ARTIFACT_RETENTION_SECONDS` 默认七天，`WAATA_ARTIFACT_MAX_BYTES` 以 JSON 按类型覆盖写入大小。结构化观察默认保存，截图由目标策略选择并配置遮罩。原始 Playwright Trace 采集关闭。 [C5](../../contracts/artifacts/c5-test-evidence-artifacts.md)
 
 ## 校验
 

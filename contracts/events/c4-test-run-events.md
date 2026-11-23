@@ -32,7 +32,7 @@ Worker 以 `(run_id, event_id)` 幂等写入，并在同一事务内为新事件
 | `tool.called` | Tool Executor | 调用上下文 | `tool_call_id: string`、`tool: string` |
 | `tool.completed` | Tool Executor | 同上 | `tool_call_id`、`tool`、`success: bool`、`duration_ms: int`、`error_code: string \| null`、`evidence_ids: string[]` |
 | `case.verified` | Verifier | Case | `verdict`，C2 的用例判定 |
-| `report.generated` | Worker | Run | `artifact_id: string \| null`，可选报告快照的引用。结构化报告已可查询 |
+| `report.generated` | Worker | Run | `artifact_id: string \| null`，为可选报告快照保留。当前实现填 `null`，结构化报告已可查询 |
 | `run.completed` | Worker | Run | `status: "succeeded"`、`verdict` 为 C2 的总体判定、`error: null` |
 | `run.failed` | Worker | Run | `status: "errored"`、`verdict: null`、`error: RunError` |
 | `run.cancelled` | Worker | Run | `status: "cancelled"`、`verdict: null`、`error: null` |
@@ -44,8 +44,8 @@ Run 级的 `case_id` 和 `step_id` 均为 `null`。Case 级需要 `case_id`，`s
 数据库中的事件序号、幂等写入与终态提交遵循 [C6](../database/c6-platform-persistence.md)。
 
 - Worker 领取任务时一起写入 `running` 与 `run.started`。每个 Run 恰好提交一个终态事件，排队取消可以直接提交 `run.cancelled`。
-- Worker 在同一次提交中保存终态及可用报告，并追加相应事件。有报告时 `report.generated` 的序号排在终态事件之前。接收 `report.generated` 时对应报告已经可查询，`artifact_id` 可引用已登记的报告快照。
-- 若报告无法保存，Worker 使用 `REPORT_WRITE_FAILED` 并发布 `run.failed`，保留已有的原始诊断。若事件存储不可用，Worker 保留故障信息，恢复后补交终态。终态与其事件同一提交，已入库事件才可推送。
+- Worker 在同一次提交中保存终态及可用报告，并追加相应事件。有报告时 `report.generated` 的序号排在终态事件之前。接收 `report.generated` 时对应报告已经可查询。
+- 若报告无法保存，Worker 发布 `run.failed`，通常使用 `REPORT_WRITE_FAILED`，必要的清理失败保留 `CLEANUP_FAILED`。临时存储故障时，Worker 在执行租约允许的窗口内重试，过期的运行由 C6 的恢复流程收尾。终态与其事件同一提交，已入库事件才可推送。
 - `run.completed` 可携带 `verdict=failed`。运行进入终态后停止发布新事件。Vue 通过详情接口校准最终状态。
 - 事件仅包含允许展示的摘要、标识和错误码。原始工具参数、凭据值及凭据引用、Cookie、API Key、原始模型推理和未经脱敏的页面内容不进入发布信封。
 
@@ -86,4 +86,4 @@ data: {"schema_version":1,"event_id":"evt_000017","run_id":"run_001","sequence":
 
 ## 8. 部署配置
 
-部署时配置保活间隔、事件存储与异常恢复策略。破坏性协议变更由生产方和消费方共同评审。见 [Q-003 和 Q-009](../../docs/05-open-questions.md)。
+FastAPI 轮询 PostgreSQL 已提交事件。`WAATA_SSE_POLL_SECONDS` 控制查询间隔，默认 `0.25` 秒。`WAATA_SSE_KEEPALIVE_SECONDS` 控制空闲保活间隔，默认 `15` 秒。破坏性协议变更由生产方和消费方共同评审。见 [Q-003 和 Q-009](../../docs/05-open-questions.md)。

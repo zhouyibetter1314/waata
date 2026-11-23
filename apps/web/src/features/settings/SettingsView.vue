@@ -2,7 +2,9 @@
 import { computed } from 'vue';
 import { API_BASE } from '../../api';
 
-const isMock = computed(() => import.meta.env.VITE_API_MOCKING !== 'disabled');
+const isMock = computed(
+  () => import.meta.env.DEV && import.meta.env.VITE_API_MOCKING !== 'disabled',
+);
 const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
 </script>
 
@@ -22,7 +24,7 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
       <span class="status-dot"></span>
       <div>
         <strong>{{
-          isMock ? '当前使用正式样例 Mock' : '当前连接真实 FastAPI'
+          isMock ? '当前使用契约 Mock' : '当前使用真实 API 模式'
         }}</strong>
         <p>
           {{
@@ -99,7 +101,7 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
         <div class="panel-title">
           <div>
             <h2>模型与浏览器配置边界</h2>
-            <p>Vue 不读取 DeepSeek API Key，也不直接启动 Playwright。</p>
+            <p>模型密钥和 Playwright 由服务端管理。</p>
           </div>
         </div>
         <div class="boundary-grid">
@@ -117,10 +119,9 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
           </div>
         </div>
         <div class="settings-note">
-          <strong>DeepSeek API Key 放在哪里？</strong>
+          <strong>模型 API 密钥</strong>
           <p>
-            由后端负责人写入部署环境或后端约定的本地环境文件，并确保不提交
-            Git。前端只会看到脱敏后的运行状态和错误码。
+            在服务端部署环境或仓库根目录的本地 .env 中配置 WAATA_MODEL_API_KEY。
           </p>
         </div>
       </div>
@@ -129,21 +130,18 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
         <div class="panel-title">
           <div>
             <h2>当前限制</h2>
-            <p>这些能力需要正式契约或真实后端完成后才能启用。</p>
           </div>
         </div>
         <ul class="settings-limitations">
           <li>
-            <strong>Run 删除</strong
-            ><span>C1 暂无 DELETE 端点，不能从前端伪造持久删除。</span>
+            <strong>Run 删除</strong><span>C1 v0.1 暂无任务删除接口。</span>
           </li>
           <li>
-            <strong>OpenAPI 类型生成</strong
-            ><span>等待后端导出 contracts/http/openapi.json。</span>
-          </li>
-          <li>
-            <strong>真实执行联调</strong
-            ><span>等待 B02–B06 和 WAATA Package 对应任务。</span>
+            <strong>Playwright Trace</strong
+            ><span
+              >原始 Trace
+              采集关闭。运行证据包括结构化观察和按目标策略启用的截图。</span
+            >
           </li>
         </ul>
       </div>

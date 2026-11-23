@@ -4,7 +4,7 @@
 
 FastAPI 和 Worker 使用 PostgreSQL 17 持久化运行任务、事件、报告和证据元数据。本地开发与验收使用 `postgres:17`。Vue 通过 C1、C4、C5 访问平台数据。独立 `waata` 包通过 C2 接收调用方注入的存储接口。
 
-截图、观察文件、Playwright Trace 和可选报告快照由 [C5 ArtifactStore](../artifacts/c5-test-evidence-artifacts.md) 保存字节。PostgreSQL 保存可查询元数据和内部存储键。Langfuse 追踪保留在观测系统，通过报告中的 `langfuse_trace_id` 关联。
+内置 [C5 ArtifactStore](../artifacts/c5-test-evidence-artifacts.md) 将观察文件与已启用的截图写入 API 和 Worker 共享的本地目录，并在 PostgreSQL 中登记元数据与内部存储键。结构化报告的 JSON 保存在 PostgreSQL。Langfuse 追踪保留在观测系统，通过报告中的 `langfuse_trace_id` 关联。
 
 ## 2. 数据模型
 
@@ -39,11 +39,13 @@ Run ID 和证据 ID 使用不透明字符串。数据库时间戳使用 `timesta
 
 [租约迁移](../../migrations/0002_run_execution_lease.sql)为 Run 增加 `execution_token` 和 `lease_expires_at`。领取时在同一事务写入令牌、租约和 `run.started`。Worker 按数据库时钟续租，在提交新事件、证据登记或终态前锁定 Run 并验证令牌及有效期。终态清空租约。回收任务锁定已过期或遗留的无租约 `running` 记录，以 `WORKER_ERROR` 结束并原子追加 `run.failed`。
 
+Worker 轮询领取任务，续租时读取取消标记。默认 `WAATA_WORKER_POLL_SECONDS=0.25`、`WAATA_WORKER_HEARTBEAT_SECONDS=2`、`WAATA_WORKER_LEASE_SECONDS=15`。租约时长必须大于两个心跳间隔。
+
 ## 4. 事件序号与重放
 
 1. 写入事件时锁定对应的 `test_runs` 行，再查询 `(run_id, event_id)`。同一事件 ID 的版本、类型、发生时间、关联和载荷一致时，返回原序号。内容不一致时，按 C4 拒绝并记录故障。
 2. 新事件的 Run 必须仍允许追加。由 `last_event_sequence` 从 0 开始递增，与事件插入一起提交。终态过渡在同一事务中追加允许的事件，终态提交以后只允许已有事件的幂等重试。每个 Run 的序号连续，取值范围与 C4 一致。
-3. SSE 按 [C4](../events/c4-test-run-events.md) 从已提交的 `run_events` 中读取 `sequence > cursor` 的事件并升序发送。通知仅触发重新查询。
+3. SSE 按 [C4](../events/c4-test-run-events.md) 轮询已提交的 `run_events`，读取 `sequence > cursor` 的事件并升序发送。
 
 Run 行锁可通过 `SELECT ... FOR UPDATE` 实现。PostgreSQL 的数据库序列在事务回滚时保留已发出的值。C4 的无空洞序号使用上述同一事务内的 Run 计数器。[PostgreSQL 17 行锁](https://www.postgresql.org/docs/17/explicit-locking.html#LOCKING-ROWS) · [PostgreSQL 17 序列函数](https://www.postgresql.org/docs/17/functions-sequence.html)
 

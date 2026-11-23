@@ -46,8 +46,8 @@
 | `goal`、`expected_behavior` | string | 必填，非空测试目标与预期行为，传给 C2 |
 | `credential_ref` | string 或 null | 可选，默认 `null`。非空值引用服务端为该 Run 授权的测试凭据集合 |
 | `options` | object | 可选，缺省时使用默认配置 |
-| `options.headless` | boolean | 可选，默认 `true`。Worker 据此选择 Browser |
-| `options.max_steps_per_case` | integer | 可选，正整数，继承服务端默认值并受服务端上限约束 |
+| `options.headless` | boolean | 可选，默认 `true`。设为 `false` 时，Worker 需要启用 `WAATA_ALLOW_HEADFUL` 且环境需支持有界面 Chromium，否则任务会因执行配置错误而结束 |
+| `options.max_steps_per_case` | integer | 可省略，由服务端补充默认值（默认 `16`）。显式传值需为正整数，并受服务端上限（默认 `50`）约束 |
 
 每用例步骤上限和 C3 的 Run 级浏览器动作上限分别计数，课程计步见 C2。拒绝明文凭据、越界配置及未知字段。排队记录提交后返回 `202`，响应含 `run_id: string`、`status: "queued"`、`created_at: string`。错误响应见第 5 节。
 
@@ -152,11 +152,11 @@
 | `409` | `REPORT_NOT_READY`、`REPORT_UNAVAILABLE`、`RUN_NOT_CANCELLABLE` | 报告或取消与当前状态不相容 |
 | `410` | `ARTIFACT_EXPIRED` | 已授权的证据过期 |
 | `422` | `VALIDATION_ERROR` | 已解析请求的字段缺失、类型错误、值越界或包含不支持字段 |
-| `429` | `TOO_MANY_REQUESTS` | 已配置的限流或并发配额触发 |
+| `429` | `TOO_MANY_REQUESTS` | 为 HTTP 请求限流和配额预留 |
 | `500` | `INTERNAL_ERROR` | 未预期的服务端错误 |
 | `503` | `SERVICE_UNAVAILABLE`、`ARTIFACT_UNAVAILABLE` | 服务或存储暂不可用 |
 
-错误消息须脱敏，`request_id` 用于关联服务日志。FastAPI 的请求校验错误需通过异常处理器映射成上述结构。参见 [FastAPI 错误处理文档](https://fastapi.tiangolo.com/tutorial/handling-errors/#override-request-validation-exceptions)。
+错误消息须脱敏，`request_id` 用于关联服务日志。HTTP 响应通过 `X-Request-ID` 返回对应标识。FastAPI 的请求校验错误需通过异常处理器映射成上述结构。参见 [FastAPI 错误处理文档](https://fastapi.tiangolo.com/tutorial/handling-errors/#override-request-validation-exceptions)。
 
 ## 6. 契约验收
 
@@ -171,4 +171,6 @@
 
 ## 7. 部署配置与扩展
 
-部署时配置测试目标与凭据授权。报告导出、筛选、场景管理和批量运行如需扩展，通过契约变更评审。见 [开放问题](../../docs/05-open-questions.md)。
+本机模式从回环连接识别配置的主体。部署接入可信网关时由网关注入主体，FastAPI 校验网关令牌。两种模式均校验请求 Host，并对 POST 校验浏览器 Origin。本机模式允许没有 Origin 的 POST，例如本机命令行调用。按主体和目标 origin 配置访问权限、允许的动作及凭据。配置见 [后端启动与联调](../../apps/api/README.md)。
+
+Worker 并发上限控制任务领取。限流、报告导出、筛选、场景管理和批量运行的扩展通过契约评审。见 [开放问题](../../docs/05-open-questions.md)。

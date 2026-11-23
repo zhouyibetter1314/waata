@@ -33,11 +33,11 @@ class TestEngine:
 
 | 公共对象 | 导入位置或用途 |
 | --- | --- |
-| `TestEngine`、`TestRequest`、`TestResult`、`WAATAError` | `waata.orchestrator` |
+| `TestEngine`、`TestRequest`、`TestOptions`、`TestResult`、`WAATAError`、`EventCallback` | `waata.orchestrator` |
 | `EngineConfig` | `waata.orchestrator.config`，可信默认值、资源上限与收尾期限 |
 | `OpenAILike`、`PlaywrightAdapter`、`Observer` | 分别从 `waata.llm`、`waata.browser`、`waata.observability` 导入。后者同时提供可选的 `LangfuseObserver` |
 | `TestEvent` | `waata.core.events`，参数结构见 C4 |
-| `ArtifactStore` | 调用方注入的存储能力，保存并登记结构见 C5 |
+| `ArtifactStore` | `waata.artifacts`，由调用方注入保存和登记能力，见 C5 |
 
 `run()` 异步完成整次测试并收尾。平台传入创建任务时分配的 `run_id`，独立调用可省略并由引擎生成。同一次运行的报告、进度和证据复用该标识。引擎在调用方协程中按产生顺序等待 `on_event` 完成。Worker 的回调只在事件持久化后返回。若回调最终失败，引擎停止新增动作、清理资源，并以 `EVENT_DELIVERY_FAILED` 报告。Observer 独立记录追踪，平台事件发布走回调。
 
@@ -52,9 +52,9 @@ class TestEngine:
 | `options` | `TestOptions` | 可省略，默认使用引擎配置 |
 | `options.max_steps_per_case` | `int \| None` | 正整数，缺省继承引擎默认值，由可信上限约束 |
 
-[C1](../http/c1-test-run-http-api.md) 的 `options.headless` 由 Worker 据此选择注入的 Browser。可信凭据解析器把已授权集合映射为 C3 允许使用的字段级 `secret_ref`。结果、公开事件和普通日志均须省略凭据值与引用。
+Worker 根据 [C1](../http/c1-test-run-http-api.md) 的 `options.headless` 启动有界面或无界面的 Chromium。可信凭据解析器把已授权集合映射为 C3 允许使用的字段级 `secret_ref`。结果、公开事件和普通日志均须省略凭据值与引用。
 
-Agent 每启动一个步骤扣一个用例步骤额度，单步允许零个或多个工具调用。C3 的浏览器动作预算整次 Run 共享，由 `EngineConfig.max_browser_actions_per_run` 配置。独立约束还包括用例数、总时间、模型用量和工具尝试次数。课程的 35 次操作要求以教师确认的计数口径为准，测试配置须单独核对 [Q-005](../../docs/05-open-questions.md#q-005-运行预算与基线)。
+Agent 每启动一个步骤扣一个用例步骤额度，单步允许零个或多个工具调用。C3 的浏览器动作预算整次 Run 共享，由 `EngineConfig.max_browser_actions_per_run` 配置。默认每用例 `16` 个步骤，每 Run `35` 次浏览器动作、最多 `8` 个用例和 `120` 秒。独立约束还包括模型用量和工具尝试次数。课程的 35 次操作要求以教师确认的计数口径为准，测试配置须单独核对 [Q-005](../../docs/05-open-questions.md#q-005-运行预算与基线)。
 
 ## 4. 结果与判定
 
@@ -84,9 +84,11 @@ Agent 每启动一个步骤扣一个用例步骤额度，单步允许零个或�
 
 用例、步骤和断言 ID 在所属 Run 内按各自类型唯一。正常报告收录所有计划用例，部分报告可包含未判定的已开始用例，并保留已完成的断言及其证据。报告中的证据引用均可在同一报告的 `artifacts` 找到。断言为 `true` 或 `false` 时应包含有效证据。技术错误报告填入 `error`，正常报告的 `error=null`。HTTP 映射示例见 C1。
 
+模型依据目标和预期生成结构化检查点，Runner 驱动页面操作。引擎以 `browser.inspect` 的实际观察验证检查点，复核不匹配结果并将可用的观察证据关联到断言。
+
 ## 5. 生命周期、错误与取消
 
-调用方持有 LLM 客户端、Playwright Browser、Langfuse 客户端和底层存储。WAATA 管理隔离的 BrowserContext、Page、Agent 上下文、预算和本次 Run 的资源。完成、故障或取消后，先停止新动作，在有限收尾时间内完成允许保存的证据和会话清理，保留原始故障原因。
+调用方持有 LLM 客户端、Playwright Browser、Langfuse 客户端和底层存储。WAATA 为每个用例管理独立的 BrowserContext、Page 和 Agent 上下文，并为整次 Run 管理共享预算。完成、故障或取消后，先停止新动作，在有限收尾时间内清理会话，保留原始故障原因。
 
 | 情况 | WAATA 与 Worker 的处理 |
 | --- | --- |
@@ -144,4 +146,4 @@ result = await engine.run(
 
 ## 8. 实现与部署配置
 
-实现时配置用例间夹具重置、默认资源上限与凭据解析器。课程计步和判定映射按课程要求单独核对。见 [开放问题](../../docs/05-open-questions.md)。
+独立调用方可通过 `EngineConfig.setup_case` 在每个用例打开会话前准备夹具。平台部署通过可信目标配置解析凭据，并通过 `WAATA_ENGINE_CONFIG` 配置资源上限。课程计步和判定映射按课程要求单独核对。见 [开放问题](../../docs/05-open-questions.md)。

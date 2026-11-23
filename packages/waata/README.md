@@ -15,4 +15,4 @@ uv run --locked --package waata --extra browser python -m unittest discover -s p
 
 依赖 WebSocket 的测试站点可通过 `allowed_websocket_paths` 显式启用同源路径，例如 4gaBoards 的 `/socket.io/`。默认拦截 WebSocket 连接。
 
-使用 `observability` extra 和 `waata.observability.LangfuseObserver(client=…)` 可将运行元数据提交到 Langfuse。调用方从环境加载 `LANGFUSE_BASE_URL`、`LANGFUSE_PUBLIC_KEY` 和 `LANGFUSE_SECRET_KEY` 并持有 SDK 客户端，短进程退出前由调用方 flush。包与平台之间的依赖方向见 [系统架构](../../docs/03-architecture.md)。
+使用 `observability` extra 和 `waata.observability.LangfuseObserver(client=…)` 可将运行元数据提交到 Langfuse。调用方加载实例地址和项目的一对密钥，持有 SDK 客户端，并在退出前调用 `flush()` 或 `shutdown()`。平台 Worker 已接入此生命周期管理。仓库的 `uv.lock` 将 Langfuse Python SDK 固定到兼容 `v4.30.0` 服务端的 v4 系列。 [本地 Langfuse](../../infra/README.md#langfuse) · [系统架构](../../docs/03-architecture.md)

@@ -10,7 +10,7 @@
 
 采用 Monorepo，Vue 位于 `apps/web`，FastAPI 位于 `apps/api`，核心 Python 包位于 `packages/waata`。后端通过 uv 工作区依赖引用核心包，核心包具备独立的打包元数据。
 
-`waata.orchestrator` 持有测试领域编排，以 TestEngine 作为高级公共入口。其依赖的 `core` 负责通用 Agent 机制，模型、浏览器和可观测能力通过接口和适配器组合。FastAPI 负责 HTTP、调度、运行记录、权限与证据存储。依赖方向从平台指向核心包。
+`waata.orchestrator` 持有测试领域编排，以 `TestEngine` 作为高级公共入口。其依赖的 `core` 负责通用 Agent 机制，模型、浏览器和可观测能力通过接口和适配器组合。FastAPI 负责 HTTP、任务入队与权限，独立 Worker 负责领取任务和调用引擎。平台管理运行记录与证据存储，通过接口向引擎注入证据存储。依赖方向从平台指向核心包。
 
 ## 影响
 

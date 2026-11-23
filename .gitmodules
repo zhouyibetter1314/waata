@@ -7,3 +7,6 @@
 [submodule "testsites/discourse"]
 	path = testsites/discourse
 	url = https://github.com/discourse/discourse.git
+[submodule "infra/langfuse"]
+	path = infra/langfuse
+	url = https://github.com/langfuse/langfuse.git

@@ -14,6 +14,8 @@
 
 任务记录负责人、需求编号、关联契约和验收条件。使用 [4gaBoards 示例](contracts/examples/README.md)及测试替身并行开发，优先联调 HTTP、Python API 和事件。
 
+本地重新搭建时按 [本地依赖](infra/README.md)检出需要的子模块，首次联调可使用仓库内自建的基准与回归夹具。验收记录包括当前仓库和夹具修订、模型及有效配置、Run ID 与实际判定。 [手工验收](docs/04-acceptance.md)
+
 ## 数据库变更
 
 PostgreSQL 表、索引与约束通过 `migrations/` 下的版本化 SQL 管理。提交结构变更时新增迁移，同步更新受影响的 C6 说明，并记录空库初始化和已有库升级的验证结果。执行顺序和版本记录见 [迁移规约](migrations/README.md)。

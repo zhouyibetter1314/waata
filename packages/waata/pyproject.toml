@@ -11,7 +11,7 @@ dependencies = [
 
 [project.optional-dependencies]
 browser = ["playwright"]
-observability = ["langfuse"]
+observability = ["langfuse>=4.7,<5"]
 
 [build-system]
 requires = ["hatchling"]

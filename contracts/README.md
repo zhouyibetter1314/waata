@@ -1,6 +1,6 @@
 # WAATA 跨模块契约
 
-[4gaBoards 端到端示例](examples/README.md)展示 WAATA v0.1 从提交任务到查看报告的 C1～C6 数据流。
+[4gaBoards 端到端示例](examples/README.md)提供用于前端 Mock 和契约校验的 C1～C6 联调数据。实际运行入口见 [后端启动与联调](../apps/api/README.md)。
 
 ## 项目结构
 
@@ -38,7 +38,7 @@ flowchart TB
     API -->|"C1 · 状态与报告<br/>C4 · SSE 推送与重放<br/>C5 · 证据"| Web
     Worker -->|"C2 · TestRequest、run_id、on_event"| WAATA
     WAATA -->|"C2 · 结果或执行异常<br/>C4 · 进度回调"| Worker
-    WAATA -->|"C5 · Playwright Trace、截图等"| Artifacts
+    WAATA -->|"C5 · 结构化观察与已启用的截图"| Artifacts
     WAATA -->|"模型、工具与验证追踪"| Langfuse
 ```
 
@@ -53,14 +53,15 @@ flowchart TB
     subgraph Package["独立 waata Python 包"]
         Engine["orchestrator · TestEngine<br/>规划 → 执行 → 验证 → 报告"]
         Agent["core · Agent Runtime"]
-        Browser["browser · BrowserAdapter<br/>每次运行隔离 BrowserContext 和 Page"]
+        Browser["browser · BrowserAdapter<br/>每个用例隔离 BrowserContext 和 Page"]
         LLM["llm · 模型接口"]
         Observer["observability · Observer（可选）"]
 
         Engine -->|"执行用例"| Agent
         Agent <-->|"C3 · 工具调用与观察结果"| Browser
-        Engine -->|"规划与语义验证"| LLM
+        Engine -->|"生成用例和检查点"| LLM
         Agent -->|"决定下一步动作"| LLM
+        Engine -->|"确定性检查点验证"| Browser
         Engine -.->|"关联执行追踪"| Observer
     end
 
@@ -68,8 +69,9 @@ flowchart TB
 
     Caller <-->|"C2 · 调用与结果<br/>C4 · on_event 回调"| Engine
     Browser -->|"C5 · 登记浏览器证据"| Artifacts
-    Engine -->|"C5 · 保存报告快照（可选）"| Artifacts
 ```
+
+Worker 为每次 Run 启动并关闭 Chromium。WAATA 为该 Run 的每个用例创建新会话，并负责关闭会话。平台报告存入 PostgreSQL，由 HTTP API 补充证据访问路径。
 
 ## 契约索引
 

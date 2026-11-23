@@ -2,6 +2,11 @@
 
 本目录中的版本化 SQL 定义 WAATA 平台的 PostgreSQL 17 表、约束和索引。数据模型与事务边界见 [C6](../contracts/database/c6-platform-persistence.md)。
 
+| 迁移 | 内容 |
+| --- | --- |
+| [0001](0001_platform_persistence.sql) | 运行、事件、证据元数据及迁移记录 |
+| [0002](0002_run_execution_lease.sql) | Worker 执行令牌与租约，以及租约回收、用例事件和证据到期索引 |
+
 ## 编写迁移
 
 - 文件采用 `NNNN_description.sql`，使用四位递增编号及小写下划线描述。变更表结构时新增下一版本。已应用的文件保持原名和内容。

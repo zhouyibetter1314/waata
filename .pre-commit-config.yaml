@@ -32,6 +32,12 @@ repos:
       - id: check-json
       - id: check-toml
       - id: check-yaml
+        exclude: '^infra/docker/langfuse\.local\.yaml$'
+      - id: check-yaml
+        name: check YAML syntax (Langfuse Compose)
+        # Docker Compose extends YAML with !override and !reset.
+        files: '^infra/docker/langfuse\.local\.yaml$'
+        args: [--unsafe]
       - id: check-merge-conflict
         args: [--assume-in-merge]
       - id: detect-private-key

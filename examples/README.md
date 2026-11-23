@@ -11,7 +11,7 @@ from waata.orchestrator import TestEngine, TestRequest
 async def run_login_check(
     model_config, browser, artifact_store, origin, valid_password, invalid_password
 ):
-    password_field = {"strategy": "label", "value": "密码"}
+    password_field = {"strategy": "label", "value": "Password"}
     async with OpenAILike(**model_config) as model:
         engine = TestEngine(
             llm=model,
@@ -20,8 +20,8 @@ async def run_login_check(
                 allowed_origins={origin},
                 credential_sets={
                     "demo_login_fixture": {
-                        "demo.valid_password": CredentialField(valid_password, password_field),
-                        "demo.invalid_password": CredentialField(invalid_password, password_field),
+                        "demo.valid": CredentialField(valid_password, password_field),
+                        "demo.invalid": CredentialField(invalid_password, password_field),
                     },
                 },
             ),
@@ -31,7 +31,10 @@ async def run_login_check(
             TestRequest(
                 target_url=f"{origin}/login",
                 goal="验证演示站点的登录流程",
-                expected_behavior="有效凭据进入控制台，错误密码显示约定的提示",
+                expected_behavior=(
+                    "有效密码进入 /dashboard 且显示 Signed in，"
+                    "错误密码留在 /login 且显示 Wrong password"
+                ),
                 credential_ref="demo_login_fixture",
             )
         )

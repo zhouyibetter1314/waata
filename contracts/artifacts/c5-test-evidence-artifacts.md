@@ -10,10 +10,10 @@
 | --- | --- | --- |
 | `observation` | `application/json` | BrowserAdapter，脱敏的 `observe` 或 `inspect` 观察记录 |
 | `screenshot` | `image/png` | BrowserAdapter，已遮罩并校验的截图 |
-| `playwright_trace` | `application/zip` | BrowserAdapter，收尾阶段生成且可安全交付的 Trace |
-| `test_report` | `application/json` | Reporter，可选的结构化报告快照。快照的产物列表排除快照自身 |
+| `playwright_trace` | `application/zip` | 为已脱敏且可安全交付的浏览器 Trace 保留 |
+| `test_report` | `application/json` | 为可选的结构化报告快照保留。快照的产物列表排除快照自身 |
 
-Langfuse Trace 通过 C2 报告的可空 `langfuse_trace_id` 关联，追踪内容与访问授权由观测系统管理。
+内置 BrowserAdapter 生成结构化观察和已启用的截图。Worker 将结构化报告保存至 PostgreSQL，供报告接口读取。证据读取接口支持已登记的上述类型。Langfuse Trace 通过 C2 报告的可空 `langfuse_trace_id` 关联，追踪内容与访问授权由观测系统管理。
 
 | `ArtifactRef` 字段 | 类型 | 约束 |
 | --- | --- | --- |
@@ -51,7 +51,7 @@ HTTP 的 `ArtifactView` 增加 `url: string` 和 `expires_at: string | null`。U
 
 ## 5. 示例
 
-4gaBoards 场景的观察与 Playwright Trace 见 [证据元数据示例](examples/4gaboards-artifact-views.json)。
+4gaBoards 的 [证据元数据示例](examples/4gaboards-artifact-views.json) 包含观察记录及供前端联调的 Playwright Trace 条目。
 
 错误密码用例的一条 `inspect` 观察已登记。报告使用下列 HTTP 证据元数据，断言通过 `evidence_ids: ["art_002"]` 引用它。
 
@@ -85,4 +85,4 @@ HTTP 的 `ArtifactView` 增加 `url: string` 和 `expires_at: string | null`。U
 
 ## 7. 部署配置
 
-部署时配置存储后端、各类证据大小上限、保留期限、Trace 采集策略和报告快照导出范围。见 [Q-007](../../docs/05-open-questions.md#q-007-证据和报告)。
+平台目前使用 `WAATA_ARTIFACT_ROOT` 指定的本地文件目录。API 和 Worker 共享该目录。`WAATA_ARTIFACT_MAX_BYTES` 可调整各类证据的大小上限，`WAATA_ARTIFACT_RETENTION_SECONDS` 默认保留 `604800` 秒（7 天）。Trace 采集和报告快照导出的评审见 [Q-007](../../docs/05-open-questions.md#q-007-证据和报告)。
