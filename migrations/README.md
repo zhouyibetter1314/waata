@@ -12,13 +12,16 @@
 
 由单一发布步骤负责迁移，在启动依赖新结构的 FastAPI 和 Worker 前完成。应用进程只使用已迁移的库。连接配置通过 PostgreSQL 客户端环境提供，并确认目标数据库。
 
-从仓库根目录对空库应用 [首版迁移](0001_platform_persistence.sql)。
+从仓库根目录对空库按序应用全部迁移。
 
 ```bash
 psql -X -v ON_ERROR_STOP=1 -f migrations/0001_platform_persistence.sql
+psql -X -v ON_ERROR_STOP=1 -f migrations/0002_run_execution_lease.sql
 ```
 
 升级已有库时，先核对已应用的版本和文件名，再按编号升序逐个执行待应用的文件。遇到错误时停止，确认当前版本已回滚后再重试。[PostgreSQL 17 psql 文档](https://www.postgresql.org/docs/17/app-psql.html#APP-PSQL-VARIABLES-ON-ERROR-STOP)
+
+执行 [Worker 租约迁移](0002_run_execution_lease.sql)前，先停止使用旧结构的 Worker 并确保其浏览器执行已停止。迁移保留已有记录。新版 Worker 会按 C6 将遗留的无租约 `running` 记录收敛为 `errored + null`，原有排队任务可以继续领取。
 
 ```sql
 SELECT version, filename, applied_at FROM schema_migrations ORDER BY version;

@@ -4,20 +4,20 @@ WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试�
 
 后端通过独立的 `waata` Python 包编排测试。该包全称为 Web App Auto Test Agent，负责规划用例、通过 Playwright 在受控站点执行测试、验证结果并生成报告。详见 [waata Python 包](packages/waata/README.md)。
 
-Vue 前端已可通过 Mock API 本地运行。FastAPI 服务和 `waata` 引擎目前是代码骨架，自建登录夹具待实现。
+Vue 前端可通过 Mock API 独立运行，也可连接 FastAPI、PostgreSQL 17 和 Worker。参见 [后端启动与联调](apps/api/README.md)。
 
 ## 项目结构
 
 | 路径 | 职责 |
 | --- | --- |
 | [`apps/web/`](apps/web/README.md) | Vue 3 前端，负责任务创建、运行进度与报告展示 |
-| [`apps/api/`](apps/api/) | FastAPI 应用，负责 HTTP API、任务调度、运行状态与持久化 |
+| [`apps/api/`](apps/api/README.md) | FastAPI 应用，负责 HTTP API、任务调度、运行状态与持久化 |
 | [`packages/waata/`](packages/waata/README.md) | 独立的 `waata` Python 包，负责测试编排、Agent 运行、模型调用、浏览器适配与追踪 |
 | [`contracts/`](contracts/README.md) | HTTP、Python 包、工具、事件、证据与平台持久化的 v0.1 契约 |
 | [`migrations/`](migrations/README.md) | PostgreSQL 17 的版本化 SQL 迁移 |
 | [`examples/`](examples/) | 独立调用 `waata` Python 包的设计示例 |
-| [`testsites/`](testsites/README.md) | 4gaBoards、Admidio、Discourse，以及计划中的自建登录夹具 |
-| `tests/` | 共享契约测试，全系统端到端测试待实现 |
+| [`testsites/`](testsites/README.md) | 4gaBoards、Admidio、Discourse，以及自建登录夹具 |
+| `tests/` | 共享契约与全链路测试 |
 | `infra/docker/`、`scripts/`、`.github/workflows/` | 容器、工程脚本和 CI 的预留位置 |
 | `artifacts/` | 本地生成的截图、Trace 与报告，受 Git 忽略规则覆盖 |
 

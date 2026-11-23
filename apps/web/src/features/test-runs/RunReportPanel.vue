@@ -174,9 +174,11 @@ onBeforeUnmount(() => {
             <h3>{{ testCase.name }}</h3>
           </div>
           <StateBadge
+            v-if="testCase.verdict"
             :tone="testCase.verdict"
             :label="verdictLabels[testCase.verdict]"
           />
+          <span v-else>未判定</span>
         </header>
         <p>{{ testCase.expected_behavior }}</p>
         <details open>
@@ -186,15 +188,29 @@ onBeforeUnmount(() => {
             :key="step.step_id"
             class="report-step"
           >
-            <strong>{{ step.summary }}</strong
+            <strong>{{ step.summary ?? '执行步骤' }}</strong
             ><small>{{ step.step_id }}</small>
             <ul>
               <li v-for="call in step.tool_calls" :key="call.tool_call_id">
                 <code>{{ call.tool }}</code
-                ><span :class="call.success ? 'text-passed' : 'text-failed'">{{
-                  call.success ? '成功' : '失败'
-                }}</span
-                ><span>{{ call.duration_ms }} ms</span>
+                ><span
+                  :class="
+                    call.success === null
+                      ? 'text-inconclusive'
+                      : call.success
+                        ? 'text-passed'
+                        : 'text-failed'
+                  "
+                  >{{
+                    call.success === null
+                      ? '未完成'
+                      : call.success
+                        ? '成功'
+                        : '失败'
+                  }}</span
+                ><span v-if="call.duration_ms !== null"
+                  >{{ call.duration_ms }} ms</span
+                >
               </li>
             </ul>
           </div>

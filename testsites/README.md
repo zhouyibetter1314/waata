@@ -14,4 +14,4 @@ git submodule update --init -- testsites/4gaboards testsites/admidio testsites/d
 
 站点运行时和测试数据由各自的本地环境管理。配置目标时使用隔离的实例、专用测试账号和显式授权的地址。4gaBoards 的输入与结果见 [端到端契约示例](../contracts/examples/README.md)。
 
-`testsites/demo-app/` 预留给团队自建的登录验收夹具。基准和回归版本的要求见 [MVP 与验收](../docs/04-acceptance.md#测试夹具)。
+[`testsites/demo-app/`](demo-app/) 提供独立运行的本地登录夹具。基准版和仅改变错误提示的回归版可使用同一套测试数据与预期。启动方式见 [后端启动与联调](../apps/api/README.md#本地登录夹具)，验收规则见 [MVP 与验收](../docs/04-acceptance.md#测试夹具)。

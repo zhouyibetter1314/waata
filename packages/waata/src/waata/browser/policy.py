@@ -3,6 +3,7 @@
 import ipaddress
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from html import escape
 from urllib.parse import quote, quote_plus, urlsplit
@@ -85,8 +86,10 @@ class CredentialField:
 
 
 def redactions(fields: dict[str, CredentialField]) -> tuple[str, ...]:
-    markers = set(fields)
-    markers.update(credential.value for credential in fields.values())
+    return redaction_variants(set(fields) | {field.value for field in fields.values()})
+
+
+def redaction_variants(markers: Iterable[str]) -> tuple[str, ...]:
     variants = {
         variant
         for marker in markers

@@ -1,0 +1,36 @@
+[
+  {
+    "origin": "http://127.0.0.1:3010",
+    "owners": ["local"],
+    "actions": ["browser.navigate", "browser.fill", "browser.click"],
+    "credentials": {
+      "demo_login_fixture": {
+        "demo.valid": {
+          "env": "WAATA_DEMO_PASSWORD",
+          "locator": {"strategy": "label", "value": "Password"}
+        },
+        "demo.invalid": {
+          "env": "WAATA_DEMO_WRONG_PASSWORD",
+          "locator": {"strategy": "label", "value": "Password"}
+        }
+      }
+    }
+  },
+  {
+    "origin": "http://127.0.0.1:3011",
+    "owners": ["local"],
+    "actions": ["browser.navigate", "browser.fill", "browser.click"],
+    "credentials": {
+      "demo_login_fixture": {
+        "demo.valid": {
+          "env": "WAATA_DEMO_PASSWORD",
+          "locator": {"strategy": "label", "value": "Password"}
+        },
+        "demo.invalid": {
+          "env": "WAATA_DEMO_WRONG_PASSWORD",
+          "locator": {"strategy": "label", "value": "Password"}
+        }
+      }
+    }
+  }
+]

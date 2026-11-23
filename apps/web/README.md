@@ -20,7 +20,7 @@ npm run dev
 
 开发服务器使用 <http://127.0.0.1:5173>。端口被占用时启动失败。
 
-开发模式默认用 MSW 加载共享 JSON 和 SSE 样例。联调时禁用 Mock，`/api` 会代理到 `http://127.0.0.1:8000`。
+开发模式默认用 MSW 加载共享 JSON 和 SSE 样例。联调时禁用 Mock，`/api` 会代理到 `http://127.0.0.1:8000`。 [后端启动与联调](../api/README.md)
 
 Bash
 
@@ -66,14 +66,14 @@ npm run test:e2e
 - SSE 断线、重复事件、保活、切换 Run、未来游标的重试上限，以及收到 `204` 后停止重连。
 - 运行中取消返回 `202` 后的状态刷新，以及取消竞争返回 `409`。
 - 截图预览、ZIP 下载，以及证据读取返回 `404`、`410`、`503`。
-- 与 FastAPI 和 FakeTestEngine 联调，再接入真实 `waata` 引擎完成端到端验收。
+- 浏览器中的真实平台链路由 [全链路测试](../../tests/e2e/test_platform.py) 验证，覆盖提交、基准与回归结果、证据读取和重启后重放。
 
 ## API 类型
 
-`src/api/types.ts` 依据 C1、C4、C5 手工维护。后端导出 `contracts/http/openapi.json` 后，从 `apps/web/` 生成类型。
+`src/api/types.ts` 从生成的 HTTP 类型导出 C1 和 C5 数据模型，同时按 C4 定义 SSE 信封。后端更新 `contracts/http/openapi.json` 后，从 `apps/web/` 重新生成类型。
 
 ```bash
 npm run generate:api
 ```
 
-生成结果写入 `src/api/schema.d.ts`。API 层接入生成类型后，运行 `npm run typecheck` 验证 C1-AT-06。
+生成结果写入 `src/api/schema.d.ts`。运行 `npm run typecheck` 验证 C1-AT-06。

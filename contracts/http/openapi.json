@@ -1,0 +1,1622 @@
+{
+  "components": {
+    "schemas": {
+      "ApiErrorDetail": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "title": "ApiErrorDetail",
+        "type": "object"
+      },
+      "ApiErrorEnvelope": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ApiErrorEnvelope",
+        "type": "object"
+      },
+      "ArtifactView": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "minLength": 1,
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "kind": {
+            "enum": [
+              "observation",
+              "screenshot",
+              "playwright_trace",
+              "test_report"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "step_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Id"
+          },
+          "tool_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call Id"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "case_id",
+          "step_id",
+          "tool_call_id",
+          "kind",
+          "mime_type",
+          "captured_at",
+          "artifact_id",
+          "size_bytes",
+          "url",
+          "expires_at"
+        ],
+        "title": "ArtifactView",
+        "type": "object"
+      },
+      "CancelRunResponse": {
+        "properties": {
+          "cancellation_requested": {
+            "const": true,
+            "title": "Cancellation Requested",
+            "type": "boolean"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status",
+          "cancellation_requested"
+        ],
+        "title": "CancelRunResponse",
+        "type": "object"
+      },
+      "CreateRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "credential_ref": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Ref"
+          },
+          "expected_behavior": {
+            "minLength": 1,
+            "title": "Expected Behavior",
+            "type": "string"
+          },
+          "goal": {
+            "minLength": 1,
+            "title": "Goal",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/components/schemas/RunOptions"
+          },
+          "target_url": {
+            "minLength": 1,
+            "title": "Target Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_url",
+          "goal",
+          "expected_behavior"
+        ],
+        "title": "CreateRunRequest",
+        "type": "object"
+      },
+      "CreateRunResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "queued",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status",
+          "created_at"
+        ],
+        "title": "CreateRunResponse",
+        "type": "object"
+      },
+      "ExecutionContext": {
+        "additionalProperties": false,
+        "properties": {
+          "max_browser_actions_per_run": {
+            "exclusiveMinimum": 0.0,
+            "title": "Max Browser Actions Per Run",
+            "type": "integer"
+          },
+          "max_steps_per_case": {
+            "exclusiveMinimum": 0.0,
+            "title": "Max Steps Per Case",
+            "type": "integer"
+          },
+          "max_test_cases": {
+            "exclusiveMinimum": 0.0,
+            "title": "Max Test Cases",
+            "type": "integer"
+          },
+          "target_url": {
+            "title": "Target Url",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "Timeout Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "target_url",
+          "max_steps_per_case",
+          "max_browser_actions_per_run",
+          "max_test_cases",
+          "timeout_seconds"
+        ],
+        "title": "ExecutionContext",
+        "type": "object"
+      },
+      "ReportAssertion": {
+        "additionalProperties": false,
+        "properties": {
+          "actual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
+          },
+          "assertion_id": {
+            "title": "Assertion Id",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected"
+          },
+          "passed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed"
+          }
+        },
+        "required": [
+          "assertion_id",
+          "expected",
+          "actual",
+          "passed",
+          "evidence_ids"
+        ],
+        "title": "ReportAssertion",
+        "type": "object"
+      },
+      "ReportCase": {
+        "additionalProperties": false,
+        "properties": {
+          "assertions": {
+            "items": {
+              "$ref": "#/components/schemas/ReportAssertion"
+            },
+            "title": "Assertions",
+            "type": "array"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "string"
+          },
+          "expected_behavior": {
+            "title": "Expected Behavior",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "preconditions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Preconditions",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ReportStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "enum": [
+                  "passed",
+                  "failed",
+                  "blocked",
+                  "inconclusive"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "case_id",
+          "name",
+          "preconditions",
+          "expected_behavior",
+          "verdict",
+          "reason",
+          "steps",
+          "assertions"
+        ],
+        "title": "ReportCase",
+        "type": "object"
+      },
+      "ReportStep": {
+        "additionalProperties": false,
+        "properties": {
+          "step_id": {
+            "title": "Step Id",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ReportToolCall"
+            },
+            "title": "Tool Calls",
+            "type": "array"
+          }
+        },
+        "required": [
+          "step_id",
+          "summary",
+          "tool_calls"
+        ],
+        "title": "ReportStep",
+        "type": "object"
+      },
+      "ReportToolCall": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Success"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "title": "Tool Call Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_call_id",
+          "tool",
+          "success",
+          "duration_ms",
+          "error_code",
+          "evidence_ids"
+        ],
+        "title": "ReportToolCall",
+        "type": "object"
+      },
+      "RunCaseSummary": {
+        "properties": {
+          "blocked": {
+            "minimum": 0.0,
+            "title": "Blocked",
+            "type": "integer"
+          },
+          "failed": {
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "inconclusive": {
+            "minimum": 0.0,
+            "title": "Inconclusive",
+            "type": "integer"
+          },
+          "passed": {
+            "minimum": 0.0,
+            "title": "Passed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "passed",
+          "failed",
+          "blocked",
+          "inconclusive"
+        ],
+        "title": "RunCaseSummary",
+        "type": "object"
+      },
+      "RunDetail": {
+        "properties": {
+          "cancellation_requested": {
+            "title": "Cancellation Requested",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_behavior": {
+            "title": "Expected Behavior",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "goal": {
+            "title": "Goal",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/RunProgress"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "errored",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunCaseSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_url": {
+            "title": "Target Url",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "enum": [
+                  "passed",
+                  "failed",
+                  "blocked",
+                  "inconclusive"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "run_id",
+          "target_url",
+          "goal",
+          "status",
+          "verdict",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "expected_behavior",
+          "progress",
+          "summary",
+          "error",
+          "cancellation_requested"
+        ],
+        "title": "RunDetail",
+        "type": "object"
+      },
+      "RunError": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "RunError",
+        "type": "object"
+      },
+      "RunListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "RunListResponse",
+        "type": "object"
+      },
+      "RunOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "headless": {
+            "default": true,
+            "title": "Headless",
+            "type": "boolean"
+          },
+          "max_steps_per_case": {
+            "exclusiveMinimum": 0.0,
+            "title": "Max Steps Per Case",
+            "type": "integer"
+          }
+        },
+        "title": "RunOptions",
+        "type": "object"
+      },
+      "RunProgress": {
+        "properties": {
+          "completed_cases": {
+            "minimum": 0.0,
+            "title": "Completed Cases",
+            "type": "integer"
+          },
+          "total_cases": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Cases"
+          }
+        },
+        "required": [
+          "total_cases",
+          "completed_cases"
+        ],
+        "title": "RunProgress",
+        "type": "object"
+      },
+      "RunReport": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactView"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/ReportCase"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "execution": {
+            "$ref": "#/components/schemas/ExecutionContext"
+          },
+          "langfuse_trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Langfuse Trace Id"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "errored",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "enum": [
+                  "passed",
+                  "failed",
+                  "blocked",
+                  "inconclusive"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "run_id",
+          "status",
+          "verdict",
+          "error",
+          "execution",
+          "cases",
+          "artifacts",
+          "langfuse_trace_id"
+        ],
+        "title": "RunReport",
+        "type": "object"
+      },
+      "RunSummary": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "goal": {
+            "title": "Goal",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "errored",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_url": {
+            "title": "Target Url",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "enum": [
+                  "passed",
+                  "failed",
+                  "blocked",
+                  "inconclusive"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "run_id",
+          "target_url",
+          "goal",
+          "status",
+          "verdict",
+          "created_at",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "RunSummary",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "WAATA",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/artifacts/{artifact_id}": {
+      "get": {
+        "operationId": "getTestRunArtifact",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {},
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "C5 evidence content"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "UNAUTHENTICATED · 需要有效的平台身份认证"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "ARTIFACT_NOT_FOUND · 测试证据不存在"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "ARTIFACT_EXPIRED · 测试证据已过期"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "VALIDATION_ERROR · 请求字段无效或超出允许范围"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR · 服务处理请求时发生错误"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "SERVICE_UNAVAILABLE · 服务暂时不可用, ARTIFACT_UNAVAILABLE · 测试证据暂时不可读取"
+          }
+        },
+        "summary": "Get Test Run Artifact"
+      }
+    },
+    "/api/v1/test-runs": {
+      "get": {
+        "operationId": "listTestRuns",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "UNAUTHENTICATED · 需要有效的平台身份认证"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "VALIDATION_ERROR · 请求字段无效或超出允许范围"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR · 服务处理请求时发生错误"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "SERVICE_UNAVAILABLE · 服务暂时不可用"
+          }
+        },
+        "summary": "List Test Runs"
+      },
+      "post": {
+        "operationId": "createTestRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INVALID_REQUEST · 请求格式无效"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "UNAUTHENTICATED · 需要有效的平台身份认证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "TARGET_NOT_ALLOWED · 测试目标未获授权, CREDENTIAL_NOT_ALLOWED · 测试凭据未获授权"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "VALIDATION_ERROR · 请求字段无效或超出允许范围"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR · 服务处理请求时发生错误"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "SERVICE_UNAVAILABLE · 服务暂时不可用"
+          }
+        },
+        "summary": "Create Test Run"
+      }
+    },
+    "/api/v1/test-runs/{run_id}": {
+      "get": {
+        "operationId": "getTestRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "UNAUTHENTICATED · 需要有效的平台身份认证"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "RUN_NOT_FOUND · 测试任务不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "VALIDATION_ERROR · 请求字段无效或超出允许范围"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR · 服务处理请求时发生错误"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "SERVICE_UNAVAILABLE · 服务暂时不可用"
+          }
+        },
+        "summary": "Get Test Run"
+      }
+    },
+    "/api/v1/test-runs/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancelTestRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelRunResponse"
+                }
+              }
+            },
+            "description": "Queued run cancelled"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INVALID_REQUEST · 请求格式无效"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "UNAUTHENTICATED · 需要有效的平台身份认证"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "RUN_NOT_FOUND · 测试任务不存在"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "RUN_NOT_CANCELLABLE · 此任务已结束，无法取消"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "VALIDATION_ERROR · 请求字段无效或超出允许范围"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR · 服务处理请求时发生错误"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "SERVICE_UNAVAILABLE · 服务暂时不可用"
+          }
+        },
+        "summary": "Cancel Test Run"
+      }
+    },
+    "/api/v1/test-runs/{run_id}/events": {
+      "get": {
+        "operationId": "getTestRunEvents",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "C4 event replay and live stream"
+          },
+          "204": {
+            "description": "Cursor has already reached the terminal event"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INVALID_EVENT_CURSOR · 事件游标无效"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "UNAUTHENTICATED · 需要有效的平台身份认证"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "RUN_NOT_FOUND · 测试任务不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "VALIDATION_ERROR · 请求字段无效或超出允许范围"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR · 服务处理请求时发生错误"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "SERVICE_UNAVAILABLE · 服务暂时不可用"
+          }
+        },
+        "summary": "Get Test Run Events"
+      }
+    },
+    "/api/v1/test-runs/{run_id}/report": {
+      "get": {
+        "operationId": "getTestRunReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "UNAUTHENTICATED · 需要有效的平台身份认证"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "RUN_NOT_FOUND · 测试任务不存在"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "REPORT_NOT_READY · 测试报告尚未生成, REPORT_UNAVAILABLE · 此任务没有可查询的报告"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "VALIDATION_ERROR · 请求字段无效或超出允许范围"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "INTERNAL_ERROR · 服务处理请求时发生错误"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "SERVICE_UNAVAILABLE · 服务暂时不可用"
+          }
+        },
+        "summary": "Get Test Run Report"
+      }
+    }
+  }
+}
