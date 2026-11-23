@@ -10,11 +10,11 @@
 | 后端 | FastAPI、Worker、任务生命周期、PostgreSQL、证据存储和 SSE | 用 Mock TestEngine 验证调度、状态查询和报告查询，用 PostgreSQL 17 验证事务与重放 | C1、C2、C4、C5、C6 |
 | WAATA 核心 | 模型接口、Agent Runtime、测试编排与判定 | 用 Fake LLM 和 Fake BrowserAdapter 验证公共调用流程 | C2、C3、C4 |
 | 浏览器与可观测性 | Playwright、会话隔离、证据采集和 Langfuse | 用预设的功能测试动作验证受控页面操作与追踪 | C3、C4、C5 |
-| 契约与 QA | 公共契约、Mock、契约测试和端到端验收 | 对照实现验证契约，跑通受控登录场景 | C1～C6 |
+| 契约与 QA | 公共契约、Mock、契约测试和端到端验收 | 对照实现验证契约，在授权站点手工验收平台流程 | C1～C6 |
 
 任务记录负责人、需求编号、关联契约和验收条件。使用 [4gaBoards 示例](contracts/examples/README.md)及测试替身并行开发，优先联调 HTTP、Python API 和事件。
 
-本地重新搭建时按 [本地依赖](infra/README.md)检出需要的子模块，首次联调可使用仓库内自建的基准与回归夹具。验收记录包括当前仓库和夹具修订、模型及有效配置、Run ID 与实际判定。 [手工验收](docs/04-acceptance.md)
+本地重新搭建时按 [本地依赖](infra/README.md)检出需要的子模块。验收人员选择经授权的测试站点，记录当前仓库修订、站点版本、模型、运行配置、Run ID 与实际判定。 [手工验收](docs/04-acceptance.md)
 
 ## 数据库变更
 

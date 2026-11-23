@@ -1,41 +1,30 @@
 # 独立调用示意
 
-以下示例按 C2 注入模型、Chromium Browser、证据存储和登录夹具。`origin` 是测试团队授权的夹具 origin，两个密码由调用方从本地测试配置加载。公共接口见 [C2](../contracts/waata/c2-waata-python-api.md)，平台联调数据见 [4gaBoards 端到端示例](../contracts/examples/README.md)。
+以下示例按 C2 注入模型、Chromium Browser 和证据存储。调用方在自己的授权站点选择一个无需登录的页面及预期行为。 [C2 公共接口](../contracts/waata/c2-waata-python-api.md) · [4gaBoards 端到端示例](../contracts/examples/README.md)
 
 ```python
-from waata.browser import CredentialField, PlaywrightAdapter
+from waata.browser import PlaywrightAdapter
 from waata.llm import OpenAILike
 from waata.orchestrator import TestEngine, TestRequest
 
 
-async def run_login_check(
-    model_config, browser, artifact_store, origin, valid_password, invalid_password
+async def run_page_check(
+    model_config, browser, artifact_store, origin, target_url, goal, expected_behavior
 ):
-    password_field = {"strategy": "label", "value": "Password"}
     async with OpenAILike(**model_config) as model:
         engine = TestEngine(
             llm=model,
             browser=PlaywrightAdapter(
                 browser=browser,
                 allowed_origins={origin},
-                credential_sets={
-                    "demo_login_fixture": {
-                        "demo.valid": CredentialField(valid_password, password_field),
-                        "demo.invalid": CredentialField(invalid_password, password_field),
-                    },
-                },
             ),
             artifact_store=artifact_store,
         )
         return await engine.run(
             TestRequest(
-                target_url=f"{origin}/login",
-                goal="验证演示站点的登录流程",
-                expected_behavior=(
-                    "有效密码进入 /dashboard 且显示 Signed in，"
-                    "错误密码留在 /login 且显示 Wrong password"
-                ),
-                credential_ref="demo_login_fixture",
+                target_url=target_url,
+                goal=goal,
+                expected_behavior=expected_behavior,
             )
         )
 ```

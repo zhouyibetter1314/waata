@@ -4,10 +4,15 @@
 
 C2 定义的公共入口 `waata.orchestrator.TestEngine` 编排测试计划、执行、验证和报告，使用调用方注入的模型、浏览器、证据存储和可选 Observer。首版支持 OpenAI 兼容工具调用、用例内操作历史、隔离的 Chromium 会话和基于证据的确定性检查。接口与调用示意见 [C2 契约](../../contracts/waata/c2-waata-python-api.md)和 [独立调用示例](../../examples/README.md)。
 
-Playwright 通过 `browser` extra 安装。首次运行本地浏览器验收时，安装与锁文件匹配的 Chromium，然后运行包测试。
+Playwright 通过 `browser` extra 安装。首次使用或 Playwright 需要新版浏览器时，安装与锁文件匹配的 Chromium。已有对应版本时可以复用。
 
 ```bash
-uv run --locked --package waata --extra browser playwright install chromium --only-shell
+uv run --locked --package waata --extra browser playwright install chromium
+```
+
+开发时可独立运行 Python 包测试。
+
+```bash
 uv run --locked --package waata --extra browser python -m unittest discover -s packages/waata/tests -v
 ```
 

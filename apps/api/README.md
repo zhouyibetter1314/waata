@@ -8,7 +8,17 @@ FastAPI 提供 C1 任务和报告、C4 SSE 重放及 C5 证据读取。独立的
 
 ```bash
 uv sync --locked --all-packages
-uv run --locked playwright install chromium --only-shell
+```
+
+首次运行或锁定的 Playwright 版本需要新的 Chromium 时，安装与之匹配的完整浏览器。已有匹配版本时会复用缓存。Linux 默认存放在 `~/.cache/ms-playwright`。 [Playwright 浏览器安装](https://playwright.dev/python/docs/browsers)
+
+```bash
+uv run --locked playwright install chromium
+```
+
+在同一个终端里创建本地 PostgreSQL。
+
+```bash
 export POSTGRES_PASSWORD="$(uv run --locked python -c 'from secrets import token_hex; print(token_hex(24))')"
 docker run -d --name waata-postgres -p 127.0.0.1:55432:5432 \
   -e POSTGRES_USER=waata -e POSTGRES_DB=waata -e POSTGRES_PASSWORD \
@@ -25,26 +35,44 @@ docker exec -i waata-postgres psql -X -v ON_ERROR_STOP=1 -U waata -d waata -f - 
 
 已有库依据 `schema_migrations` 应用未执行的版本。升级至租约版本前停止旧写入者。Worker 启动后会将失去执行者的历史 `running` 记录收尾为 `WORKER_ERROR`，保留已提交事件和证据。可在本机直接使用 `psql` 应用同一 SQL 文件。 [迁移规约](../../migrations/README.md)
 
-## 本地登录夹具
+## 本地启动与目标配置
 
 在仓库根目录创建 `.env`，例如执行 `cp -n .env.example .env`。将以下值写入该文件，或分别导出到运行进程环境。数据库 DSN 形如 `postgresql://waata:<数据库密码>@127.0.0.1:55432/waata`，密码使用前一步生成的值。实际密码和密钥保存在本地环境。 [.env.example](../../.env.example)
 
 | 变量 | 本地配置 |
 | --- | --- |
 | `WAATA_DATABASE_DSN` | 上面创建的数据库 DSN |
-| `WAATA_AUTH_MODE` | `local`，使用回环地址与固定主体 `local` |
-| `WAATA_TARGET_POLICY` | `testsites/demo-app/targets.example.json` |
-| `WAATA_DEMO_PASSWORD`、`WAATA_DEMO_WRONG_PASSWORD` | 两个不同的随机夹具值 |
+| `WAATA_AUTH_MODE` | 本机联调填 `local`。API 使用固定的请求者标识 `local` 接收来自本机的请求 |
+| `WAATA_TARGET_POLICY` | 目标授权 JSON 的路径，例如 `.local/targets.json` |
 | `WAATA_MODEL_BASE_URL`、`WAATA_MODEL_NAME`、`WAATA_MODEL_API_KEY` | 已授权的 OpenAI 兼容服务根地址、支持工具调用的模型 ID 和访问密钥。服务无需认证时可省略密钥 |
+| `WAATA_ALLOW_HEADFUL` | Worker 在桌面环境运行时可设为 `true`，允许任务显示 Chromium 窗口 |
 | `LANGFUSE_BASE_URL`、`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY` | 可选。追踪地址与 Langfuse 项目的一对密钥。 [本地 Langfuse](../../infra/README.md#langfuse) |
 
 已有配置中的 `DEEPSEEK_*` 模型变量仍可作为兼容回退。对应的 `WAATA_MODEL_*` 变量有值时优先使用新配置。
 
-分别在不同终端启动夹具、API 和 Worker。
+### 配置一个你有权限测试的站点
+
+`WAATA_AUTH_MODE` 决定 API 把请求视为谁发来的。`WAATA_TARGET_POLICY` 决定这位请求者能让 Worker 打开哪些站点、执行哪些动作。浏览器执行层也会应用该策略。
+
+例如，若测试页面是 `http://127.0.0.1:3000/projects`，可在仓库根目录创建 `.local/targets.json`，并在 `.env` 中填写 `WAATA_TARGET_POLICY=.local/targets.json`。下面的策略允许本机请求者访问该服务和点击页面控件。`origin` 填协议、主机和端口，具体页面路径由新建任务提供。
+
+```json
+[
+  {
+    "origin": "http://127.0.0.1:3000",
+    "owners": ["local"],
+    "actions": ["browser.navigate", "browser.click"]
+  }
+]
+```
+
+将示例 origin 换成实际测试站。需要输入文本时加入 `browser.fill`，需要选择下拉选项时加入 `browser.select_option`。无需登录的任务可以留空「凭据引用」。需要登录时，在目标策略的 `credentials` 中为账号取一个引用名，登记每个字段的本地环境变量名 `env` 及输入框定位方式 `locator`。在任务里只填写该引用名。 [凭据填充契约](../../contracts/tools/c3-browser-tools.md#54-browserfill)
+
+### 启动平台
+
+先启动自己的测试站。在仓库根目录打开两个终端，分别执行一条命令启动 API 和 Worker。
 
 ```bash
-uv run --locked --env-file .env python testsites/demo-app/server.py --port 3010
-uv run --locked --env-file .env python testsites/demo-app/server.py --port 3011 --regression
 uv run --locked uvicorn waata_api.main:app --host 127.0.0.1 --port 8000 --no-access-log --no-proxy-headers
 uv run --locked python -m waata_api.workers
 ```
@@ -57,7 +85,7 @@ npm ci
 VITE_API_MOCKING=disabled npm run dev
 ```
 
-Vue 启动后，打开 <http://127.0.0.1:5173/runs/new>，按验收步骤分别提交基准版和回归版。基准版预期为 `succeeded` + `passed`，回归版预期为 `succeeded` + `failed`。 [手工验收](../../docs/04-acceptance.md)
+Vue 启动后，打开 <http://127.0.0.1:5173/runs/new>，填写自己的目标页面、测试目标和预期行为。要看到 Chromium 窗口，先用 `WAATA_ALLOW_HEADFUL=true` 启动 Worker，然后取消勾选「无头浏览器运行」再提交任务。使用已有 Worker 时，修改 `.env` 后重启它。 [手工验收](../../docs/04-acceptance.md)
 
 ## 停止与重建
 
@@ -72,12 +100,11 @@ Vue 启动后，打开 <http://127.0.0.1:5173/runs/new>，按验收步骤分别�
 
 ## 校验
 
-用独立的 PostgreSQL 17 测试库，将该库的 DSN 设置为 `WAATA_TEST_DATABASE_URL`。真实 HTTP 与 Vue 验收要求已应用全部迁移、已安装 Chromium 和前端依赖，且本机 `8000`、`5173` 空闲。测试会启动真实 API、Worker、Vue 和本机夹具，使用可控模型替身。
+仓库层的数据库测试使用独立的 PostgreSQL 17 测试库。将该库的 DSN 设置为 `WAATA_TEST_DATABASE_URL`。平台端到端运行按自己的测试站和场景手工验收。 [手工验收](../../docs/04-acceptance.md)
 
 ```bash
 uv run --locked python -m unittest discover -s apps/api/tests -v
 uv run --locked python -m unittest discover -s tests/contract -v
-uv run --locked python -m unittest discover -s tests/e2e -v
 uv run --locked pre-commit run --all-files
 ```
 

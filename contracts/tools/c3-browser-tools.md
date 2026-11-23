@@ -398,7 +398,7 @@ ToolSpec 至少包含 `name`、`description`、`input_schema` 和异步 `handler
 | C3-AT-08 | 秘密标记从公开输出和证据中移除。保存失败不会产生无效证据引用 |
 | C3-AT-09 | Agent 可借助 FakeBrowserAdapter 验证正常、工具失败和检查不匹配。BrowserAdapter 可使用预设调用验证受控页面 |
 
-BrowserAdapter 实现方应提供符合本契约 Schema 与结果约束的 FakeBrowserAdapter。Agent Runtime 实现方应提供支持预设工具调用序列的 FakeLLM。契约测试纳入 `tests/contract/`，浏览器集成测试使用 `testsites/demo-app/` 的受控登录夹具。C3 契约验收不依赖真实 LLM 服务。
+BrowserAdapter 实现方应提供符合本契约 Schema 与结果约束的 FakeBrowserAdapter。Agent Runtime 实现方应提供支持预设工具调用序列的 FakeLLM。`tests/contract/` 使用样例验证契约，真实浏览器场景由验收人员选择授权站点。 [手工验收](../../docs/04-acceptance.md)
 
 ## 10. 部署配置与扩展
 

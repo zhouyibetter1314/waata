@@ -14,4 +14,4 @@ git submodule update --init -- testsites/4gaboards testsites/admidio testsites/d
 
 检出后按表中的固定版本文档部署需要的站点，为每个站点选择独立的 Compose 项目和数据卷。记录访问 origin 和测试账号初始化步骤，便于同版本复跑。接入 WAATA 时在目标策略中声明 origin、主体、动作与凭据引用。 [后端运行设置](../apps/api/README.md#运行设置) · [本地依赖](../infra/README.md) · [4gaBoards 契约示例](../contracts/examples/README.md)
 
-[`testsites/demo-app/`](demo-app/) 提供独立运行的本地登录夹具。基准版和仅改变错误提示的回归版可使用同一套测试数据与预期。启动方式见 [后端启动与联调](../apps/api/README.md#本地登录夹具)，验收规则见 [MVP 与验收](../docs/04-acceptance.md#测试夹具)。
+也可以接入你已有的授权测试站点，并自行选择验收场景。 [目标配置](../apps/api/README.md#配置一个你有权限测试的站点) · [手工验收](../docs/04-acceptance.md)

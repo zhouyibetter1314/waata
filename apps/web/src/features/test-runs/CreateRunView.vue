@@ -9,8 +9,9 @@ const submitting = ref(false);
 const requestError = ref('');
 const requestId = ref('');
 const errors = ref<RunFormErrors>({});
+const defaultTargetUrl = 'http://127.0.0.1:3000/';
 const form = reactive({
-  target_url: 'http://localhost:3000/',
+  target_url: defaultTargetUrl,
   goal: '',
   expected_behavior: '',
   credential_ref: '',
@@ -90,7 +91,7 @@ async function submit(): Promise<void> {
               autocomplete="url"
               :aria-invalid="Boolean(errors.target_url)"
             />
-            <small class="field-hint">示例：http://localhost:3000/</small>
+            <small class="field-hint">示例：{{ defaultTargetUrl }}</small>
             <small v-if="errors.target_url" class="field-error">{{
               errors.target_url
             }}</small>
