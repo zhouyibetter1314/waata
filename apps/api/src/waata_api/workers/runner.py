@@ -66,6 +66,7 @@ class ClaimedRun:
     headless: bool
 
 
+# 工厂按本次 Run 准备引擎。退出 async with 时，它负责清理本次运行占用的资源。
 type EngineFactory = Callable[[ClaimedRun], AbstractAsyncContextManager[Engine]]
 
 
@@ -146,6 +147,7 @@ class Worker:
         self.purge_expired = purge_expired
 
     async def run(self, stop: asyncio.Event) -> None:
+        # active 跟踪外层 _process 任务。领取一条 Run 后，执行和收尾共占用一个并发名额。
         active: dict[asyncio.Task[None], _Execution] = {}
         stopped = asyncio.create_task(stop.wait())
         maintenance = asyncio.create_task(self._maintain())
@@ -161,6 +163,7 @@ class Worker:
                     started = asyncio.get_running_loop().time()
                     try:
                         async with asyncio.timeout(self.heartbeat_seconds):
+                            # 领取事务把数据库记录改为 running、分配执行令牌，并写入 run.started。
                             row = await self.repository.claim_run(
                                 lease_seconds=self.lease_seconds
                             )
@@ -195,6 +198,7 @@ class Worker:
         while True:
             try:
                 async with asyncio.timeout(self.heartbeat_seconds):
+                    # Worker 未能续租时，数据库把过期的 running 记录收尾为 errored。
                     await self.repository.recover_expired()
             except _TRANSIENT:
                 _LOG.warning("The worker could not check expired leases")
@@ -210,6 +214,7 @@ class Worker:
     async def _drain(self, active: dict[asyncio.Task[None], _Execution]) -> None:
         if not active:
             return
+        # 停机时先给已领取的任务时间完成，再通知仍在运行的引擎退出并等待清理。
         grace_period = self.shutdown_seconds / 2
         _, pending = await asyncio.wait(active, timeout=grace_period)
         for task in pending:
@@ -232,6 +237,7 @@ class Worker:
                 async with asyncio.timeout_at(
                     min(execution.deadline, started + self.heartbeat_seconds)
                 ):
+                    # 用执行令牌向数据库续租。返回的任务记录也带有用户请求取消的标记。
                     row = await self.repository.heartbeat(
                         execution.run_id,
                         execution.token,
@@ -252,6 +258,7 @@ class Worker:
                 execution.deadline = started + self.lease_seconds
                 if row["cancellation_requested"]:
                     execution.stop("cancel")
+                # 第一次成功续租后发出信号，让等待中的 _run_engine 继续。
                 ready.set()
             await asyncio.sleep(
                 max(
@@ -260,12 +267,15 @@ class Worker:
                 )
             )
 
+    # _process 管理一条已领取任务。row 是数据库记录，execution 是本进程的执行状态。
     async def _process(self, row: dict, execution: _Execution) -> None:
         ready = asyncio.Event()
+        # 引擎执行测试时，监控协程并行续租并检查是否收到取消请求。
         execution.task = asyncio.create_task(self._run_engine(row, execution, ready))
         monitor = asyncio.create_task(self._monitor(execution, ready))
         try:
             status, error, result = await self._outcome(execution)
+            # 写入终态期间保持监控，让收尾操作仍可续租。
             if not execution.lost:
                 await self._finish(execution, status, error, result)
         except LeaseLost:
@@ -282,6 +292,7 @@ class Worker:
         self, row: dict, execution: _Execution, ready: asyncio.Event
     ) -> TestResult:
         await ready.wait()
+        # TestRequest 给引擎使用。headless 和执行令牌由平台放在 ClaimedRun 中交给工厂。
         options = row["request"].get("options", {})
         request = TestRequest.model_validate(
             {
@@ -301,6 +312,7 @@ class Worker:
         )
 
         async def publish(event: TestEvent) -> None:
+            # 引擎等待此回调。公开字段通过校验和脱敏后写入数据库，API 再从数据库读取。
             values = public_event(event, execution.run_id, self.public_text)
             for attempt in range(3):
                 try:
@@ -325,6 +337,7 @@ class Worker:
         if execution.stop_reason == "shutdown":
             task.cancel()
         try:
+            # 引擎正常返回时，Run 状态是 succeeded。用例判定另外由 result.verdict 表示。
             return "succeeded", None, await asyncio.shield(task)
         except asyncio.CancelledError:
             current = asyncio.current_task()
@@ -349,6 +362,7 @@ class Worker:
     ) -> None:
         report = None
         error = self._public_error(error)
+        # 重试沿用同一个终态事件 ID。若上一次已提交，数据库可以识别这是同一次写入。
         terminal_id, report_id = f"evt_{uuid4().hex}", f"evt_{uuid4().hex}"
         clock = asyncio.get_running_loop().time
         retry_until = clock() + self.lease_seconds
@@ -360,6 +374,7 @@ class Worker:
                     except ValueError:
                         raise InvalidReport("The report cannot be published") from None
                 async with self._write_timeout(execution):
+                    # 由数据库仓库在同一个事务内保存报告、终态事件和任务状态。
                     await self.repository.finish_run(
                         execution.run_id,
                         execution.token,
@@ -408,6 +423,7 @@ class Worker:
         }
 
     def _public_report(self, result: TestResult) -> dict:
+        # 转成可以写入 PostgreSQL 的 JSON 数据，并对前端可见的内容脱敏。
         report = result.model_dump(mode="json")
         report["error"] = self._public_error(result.error)
         execution = report["execution"]

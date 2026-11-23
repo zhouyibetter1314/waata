@@ -438,6 +438,8 @@ class _Run:
                 ) from None
             if response.message.tool_calls or response.finish_reason == "length":
                 continue
+            # `:=` 先把 parse_plan 的返回值赋给 cases，再判断它是否为 None。
+            # 空列表表示计划合法但没有用例，也会从这里返回。
             if (
                 cases := parse_plan(
                     response.message.content,
