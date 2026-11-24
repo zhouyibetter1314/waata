@@ -21,7 +21,7 @@ WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试�
 | [`packages/waata/`](packages/waata/README.md) | 独立的 `waata` Python 包，负责测试编排、Agent 运行、模型调用、浏览器适配与追踪 |
 | [`contracts/`](contracts/README.md) | HTTP、Python 包、工具、事件、证据与平台持久化的 v0.1 契约 |
 | [`migrations/`](migrations/README.md) | PostgreSQL 17 的版本化 SQL 迁移 |
-| [`examples/`](examples/README.md) | 独立调用 `waata` Python 包的示例 |
+| [`examples/`](examples/README.md) | 三个本地 Web 应用的启动步骤和 WAATA 测试场景 |
 | [`testsites/`](testsites/README.md) | 4gaBoards、Admidio、Discourse 的固定版本子模块 |
 | [`infra/`](infra/README.md) | Langfuse 子模块与本地 Compose 配置 |
 | `tests/` | 共享契约自动化测试 |

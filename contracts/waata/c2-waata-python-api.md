@@ -67,6 +67,8 @@ Agent 每启动一个步骤扣一个用例步骤额度，单步允许零个或�
 | `blocked` | 因权限、环境或前置条件受阻，无法完成验证 |
 | `inconclusive` | 执行产生的有效证据不足以支持结论 |
 
+截图受策略限制时，工具调用仍记录 `ACTION_NOT_ALLOWED`，用例判定继续依据必需断言及其证据。覆盖 FR-004 和 FR-007。
+
 `succeeded` 时总体判定按 `failed > blocked > inconclusive > passed` 聚合。空计划作为无有效用例处理，正常生成说明并返回 `inconclusive`。其余生命周期的总体 `verdict` 为 `null`。用例的 `verdict` 在技术故障中断且未判定时可为 `null`。课程若还需要独立分类，参见 [Q-006](../../docs/05-open-questions.md#q-006-结果可信度)。
 
 下列字段为报告模型的固定字段。可空字段序列化为 `null`，空列表序列化为 `[]`。

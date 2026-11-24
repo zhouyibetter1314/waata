@@ -403,6 +403,52 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             credential_ref="demo",
         )
 
+    async def test_screenshot_policy_denial_preserves_checkpoint_failure(self):
+        with login_fixture() as fixture:
+            llm = FakeLLM(
+                [
+                    planning_response(
+                        case_plan(
+                            "Check login destination",
+                            [url_check(fixture.dashboard_url)],
+                        )
+                    ),
+                    tool_turn(
+                        ToolCall("screenshot", "browser.screenshot", {}),
+                        ToolCall(
+                            "observe-screenshot",
+                            "browser.observe",
+                            {"include_screenshot": True},
+                        ),
+                    ),
+                    assistant_text("Verify the login destination."),
+                ]
+            )
+            request = TestRequest(
+                target_url=fixture.login_url,
+                goal="Check the login destination",
+                expected_behavior=f"The final address is {fixture.dashboard_url}",
+            )
+            result = await self._engine(fixture, llm).run(request)
+
+        self.assertEqual((result.status, result.verdict), ("succeeded", "failed"))
+        case = result.cases[0]
+        self.assertIs(case.assertions[0].passed, False)
+        self.assertEqual(case.assertions[0].actual, fixture.login_url)
+        self.assertTrue(case.assertions[0].evidence_ids)
+        self.assertEqual(
+            [
+                (call.tool, call.error_code)
+                for step in case.steps
+                for call in step.tool_calls
+                if not call.success
+            ],
+            [
+                ("browser.screenshot", "ACTION_NOT_ALLOWED"),
+                ("browser.observe", "ACTION_NOT_ALLOWED"),
+            ],
+        )
+
     async def test_login_baseline_and_same_url_regression_preserve_evidence(self):
         for regression in (False, True):
             with (

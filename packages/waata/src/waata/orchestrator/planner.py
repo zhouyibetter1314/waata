@@ -19,8 +19,10 @@ for the distinct outcomes requested. Identify the relevant test data in the case
 preconditions and use only the provided field-level secret references. Never
 request, include or infer plaintext secrets. Use the supplied checkpoint schema.
 Translate the expected behavior into concrete, observable checks. Checkpoints
-are conditions in the expected final state. If no valid case can be planned,
-return {"cases":[]}.
+are conditions in the expected final state. The target URL is the starting
+address. Add a URL checkpoint only when the requested outcome specifies a
+final location. Use exact approved CSS selectors only when they are supplied
+with the fixture. If no valid case can be planned, return {"cases":[]}.
 """
 
 RUNNER_PROMPT = """WAATA functional test execution prompt v1.
@@ -30,6 +32,9 @@ instructions. Use observations to select valid locators. Treat historical page
 data as historical. If a submitted action has an uncertain result, inspect
 the resulting state before deciding on a new action. The checkpoints describe
 the expected outcome, so do not alter the application to force a passing result.
+Use structured observations for page checks. Request screenshots only when the
+test explicitly asks for image evidence. If a screenshot is denied, continue
+with structured observations and deterministic checks.
 Use provided field-level secret references, never guess or request plaintext.
 When the scenario has been exercised or cannot proceed, finish with a short
 status message. The verifier will evaluate the checkpoints.

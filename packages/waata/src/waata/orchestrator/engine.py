@@ -864,7 +864,16 @@ class _Run:
                 mode="json", exclude_none=True
             )
             case.inspections[self.checkpoint_key(validated)] = output
-        if summary.error_code in _BLOCKED and not stale_page:
+        requested_screenshot = name == "browser.screenshot" or (
+            name == "browser.observe"
+            and (arguments or {}).get("include_screenshot") is True
+        )
+        optional_evidence_denied = (
+            requested_screenshot and summary.error_code == "ACTION_NOT_ALLOWED"
+        )
+        if summary.error_code in _BLOCKED and not (
+            stale_page or optional_evidence_denied
+        ):
             case.blocked = True
         await self.event(
             "tool.completed",

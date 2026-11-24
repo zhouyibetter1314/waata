@@ -24,5 +24,5 @@ test('replays C4 events and reviews the C1 report with C5 evidence', async ({
   await page.getByRole('link', { name: '场景与应用' }).click();
   await expect(page).toHaveURL(/\/scenarios$/);
   await expect(page.getByRole('heading', { name: '场景与应用' })).toBeVisible();
-  await expect(page.getByText('创建项目并验证两个位置')).toBeVisible();
+  await expect(page.getByText('还没有场景', { exact: false })).toBeVisible();
 });

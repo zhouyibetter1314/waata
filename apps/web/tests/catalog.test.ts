@@ -5,8 +5,46 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 import { describe, expect, it, vi } from 'vitest';
 import type { CreateRunRequest } from '../src/api';
 import ScenarioWorkspaceView from '../src/features/catalog/ScenarioWorkspaceView.vue';
+import type { CatalogScenario } from '../src/features/catalog/store';
 import { runCreatedFixture } from '../src/mocks/fixtures';
 import { server } from '../src/mocks/server';
+
+const storageKey = 'waata.frontend.catalog.v1';
+const retiredScenario: CatalogScenario = {
+  id: 'scenario_create_project',
+  application_id: 'app_4gaboards',
+  name: '创建项目并验证两个位置',
+  goal: '在本地 4gaBoards 创建名为 Course Test 01 的项目。',
+  expected_behavior: '创建完成后，仪表盘和侧边栏均显示 Course Test 01。',
+  source: 'C1 正式样例',
+};
+const savedScenario: CatalogScenario = {
+  ...retiredScenario,
+  id: 'scenario_login_form',
+  name: '查看登录表单',
+  goal: '打开 4gaBoards 首页并查看登录表单。',
+  expected_behavior: '账号框和密码框可见。',
+  source: '自建场景',
+};
+
+function saveCatalog(scenarios: CatalogScenario[]): void {
+  localStorage.setItem(
+    storageKey,
+    JSON.stringify({
+      applications: [
+        {
+          id: 'app_4gaboards',
+          name: '4gaBoards',
+          base_url: 'http://127.0.0.1:3000/',
+          credential_ref: null,
+          version: '3.2.16',
+        },
+      ],
+      scenarios,
+      maxSteps: 12,
+    }),
+  );
+}
 
 async function mountView() {
   const router = createRouter({
@@ -28,7 +66,28 @@ async function mountView() {
 }
 
 describe('contract-driven local scenario catalog', () => {
+  it('removes the retired sample from a previously saved catalog', async () => {
+    saveCatalog([retiredScenario, savedScenario]);
+    const { wrapper } = await mountView();
+    expect(wrapper.text()).not.toContain(retiredScenario.name);
+    expect(wrapper.text()).toContain(savedScenario.name);
+    expect(JSON.parse(localStorage.getItem(storageKey)!).scenarios).toEqual([
+      savedScenario,
+    ]);
+  });
+
+  it('keeps user edits to the former sample', async () => {
+    const editedScenario = { ...retiredScenario, goal: savedScenario.goal };
+    saveCatalog([editedScenario]);
+    const { wrapper } = await mountView();
+    expect(wrapper.text()).toContain(editedScenario.goal);
+    expect(JSON.parse(localStorage.getItem(storageKey)!).scenarios).toEqual([
+      editedScenario,
+    ]);
+  });
+
   it('converts a saved scenario to a C1 create request', async () => {
+    saveCatalog([savedScenario]);
     let requestBody: CreateRunRequest | null = null;
     server.use(
       http.post('/api/v1/test-runs', async ({ request }) => {
@@ -46,21 +105,18 @@ describe('contract-driven local scenario catalog', () => {
       expect(router.currentRoute.value.path).toContain('/runs/'),
     );
     expect(requestBody).toMatchObject({
-      target_url: 'http://localhost:3000/',
-      goal: '在本地 4gaBoards 创建名为 Course Test 01 的项目。',
-      expected_behavior: '创建完成后，仪表盘和侧边栏均显示 Course Test 01。',
-      credential_ref: 'boards_local_fixture',
+      target_url: 'http://127.0.0.1:3000/',
+      goal: savedScenario.goal,
+      expected_behavior: savedScenario.expected_behavior,
+      credential_ref: null,
       options: { max_steps_per_case: 12 },
     });
   });
 
   it('deletes a local scenario without inventing a Run DELETE endpoint', async () => {
+    saveCatalog([savedScenario]);
     const { wrapper } = await mountView();
-    const deleteButton = wrapper
-      .findAll('button')
-      .find((button) => button.text() === '删除');
-    expect(deleteButton).toBeDefined();
-    await deleteButton!.trigger('click');
+    await wrapper.get('.catalog-actions .text-danger').trigger('click');
     expect(wrapper.text()).toContain('还没有场景');
   });
 });
