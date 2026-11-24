@@ -125,12 +125,8 @@ onBeforeUnmount(() => controller?.abort());
 
     <template v-else-if="run">
       <div class="run-hero">
-        <div class="run-hero-main">
-          <div class="run-id-line">
-            <span>RUN</span><code>{{ run.run_id }}</code>
-          </div>
+        <div>
           <h1>{{ run.goal }}</h1>
-          <p>{{ run.expected_behavior }}</p>
           <div class="badge-group">
             <StateBadge :tone="run.status" :label="statusLabels[run.status]" />
             <StateBadge
@@ -220,14 +216,18 @@ onBeforeUnmount(() => controller?.abort());
 
       <div class="detail-layout">
         <div class="detail-primary">
-          <div class="panel detail-panel">
+          <section
+            class="panel detail-panel"
+            aria-labelledby="run-request-title"
+          >
             <div class="panel-title">
-              <div>
-                <h2>任务信息</h2>
-                <p>本次运行的 C1 请求与生命周期时间。</p>
-              </div>
+              <h2 id="run-request-title">任务信息</h2>
             </div>
             <dl class="detail-list">
+              <dt>自然语言测试目标</dt>
+              <dd class="detail-request-text">{{ run.goal }}</dd>
+              <dt>预期行为</dt>
+              <dd class="detail-request-text">{{ run.expected_behavior }}</dd>
               <dt>目标地址</dt>
               <dd>
                 <a :href="run.target_url" target="_blank" rel="noreferrer">{{
@@ -245,7 +245,7 @@ onBeforeUnmount(() => controller?.abort());
               <dt>结束时间</dt>
               <dd>{{ formatDate(run.finished_at) }}</dd>
             </dl>
-          </div>
+          </section>
           <RunEventTimeline
             :events="events"
             :connection-message="connectionMessage"

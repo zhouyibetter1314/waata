@@ -951,34 +951,11 @@ tbody tr:hover {
   border-radius: 12px;
   box-shadow: 0 10px 30px rgb(15 46 42 / 13%);
 }
-.run-id-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.run-id-line span {
-  color: #6eb2a4;
-  font-size: 9px;
-  font-weight: 850;
-  letter-spacing: 1.7px;
-}
-.run-id-line code {
-  color: #9fc2ba;
-  font-size: 10px;
-}
 .run-hero h1 {
   max-width: 850px;
   margin-bottom: 8px;
   color: white;
   font-size: 24px;
-}
-.run-hero-main > p {
-  max-width: 820px;
-  margin-bottom: 17px;
-  color: #a8c3bc;
-  font-size: 12px;
-  line-height: 1.7;
 }
 .hero-actions {
   margin-top: 17px;
@@ -1093,6 +1070,9 @@ tbody tr:hover {
   margin: 0;
   color: #354b44;
   overflow-wrap: anywhere;
+}
+.detail-list .detail-request-text {
+  white-space: pre-wrap;
 }
 .detail-list code {
   padding: 3px 6px;

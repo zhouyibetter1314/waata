@@ -25,6 +25,15 @@ interface CatalogState {
 
 const STORAGE_KEY = 'waata.frontend.catalog.v1';
 
+const retiredDefaultScenario: CatalogScenario = {
+  id: 'scenario_create_project',
+  application_id: 'app_4gaboards',
+  name: '创建项目并验证两个位置',
+  goal: '在本地 4gaBoards 创建名为 Course Test 01 的项目。',
+  expected_behavior: '创建完成后，仪表盘和侧边栏均显示 Course Test 01。',
+  source: 'C1 正式样例',
+};
+
 const defaults: CatalogState = {
   applications: [
     {
@@ -35,16 +44,7 @@ const defaults: CatalogState = {
       version: '3.2.16',
     },
   ],
-  scenarios: [
-    {
-      id: 'scenario_create_project',
-      application_id: 'app_4gaboards',
-      name: '创建项目并验证两个位置',
-      goal: '在本地 4gaBoards 创建名为 Course Test 01 的项目。',
-      expected_behavior: '创建完成后，仪表盘和侧边栏均显示 Course Test 01。',
-      source: 'C1 正式样例',
-    },
-  ],
+  scenarios: [],
   maxSteps: 12,
 };
 
@@ -59,9 +59,25 @@ function initialState(): CatalogState {
     const parsed = JSON.parse(value) as Partial<CatalogState>;
     if (!Array.isArray(parsed.applications) || !Array.isArray(parsed.scenarios))
       return cloneDefaults();
+    const scenarios = parsed.scenarios.filter(
+      (scenario) =>
+        !Object.entries(retiredDefaultScenario).every(
+          ([key, field]) => scenario?.[key as keyof CatalogScenario] === field,
+        ),
+    );
+    if (scenarios.length !== parsed.scenarios.length) {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ ...parsed, scenarios }),
+        );
+      } catch {
+        // The remaining scenarios can still be loaded if storage is full.
+      }
+    }
     return {
       applications: parsed.applications,
-      scenarios: parsed.scenarios,
+      scenarios,
       maxSteps:
         Number.isInteger(parsed.maxSteps) && Number(parsed.maxSteps) > 0
           ? Number(parsed.maxSteps)

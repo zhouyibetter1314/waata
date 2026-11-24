@@ -37,7 +37,7 @@ Worker 心跳续租时读取取消标记。数据库根据执行令牌和租约�
 | `waata.browser` | 抽象浏览器适配、页面观察与测试工具，封装 Playwright 会话、授权检查及证据采集 |
 | `waata.observability` | 定义 `Observer` 接口，`LangfuseObserver` 可按同一 Run 关联计划、模型元数据、工具动作和判定 |
 
-规划阶段由模型生成用例及可执行检查点。执行阶段由模型根据页面观察选择注册动作，运行时负责预算、参数和权限检查。用例末尾通过 `browser.inspect` 对 URL、标题、文本、控件存在性、可见性或数量做确定性检查。断言以同一用例已登记的观察作为证据，无法取得充分证据时保留无法判定的结论。 [C2 Python API](../contracts/waata/c2-waata-python-api.md) · [C3 浏览器工具](../contracts/tools/c3-browser-tools.md) · [独立调用示例](../examples/README.md)
+规划阶段由模型生成用例及可执行检查点。执行阶段由模型根据页面观察选择注册动作，运行时负责预算、参数和权限检查。用例末尾通过 `browser.inspect` 对 URL、标题、文本、控件存在性、可见性或数量做确定性检查。断言以同一用例已登记的观察作为证据，无法取得充分证据时保留无法判定的结论。 [C2 Python API](../contracts/waata/c2-waata-python-api.md) · [C3 浏览器工具](../contracts/tools/c3-browser-tools.md)
 
 ## 资源与隔离
 

@@ -5,7 +5,6 @@
 | PostgreSQL 17 | WAATA 任务、事件、报告及证据元数据 | [API 与 Worker 启动说明](../apps/api/README.md#准备数据库和依赖) |
 | Langfuse v4.30.0 | 可选的 Worker 运行追踪 | [`infra/langfuse/`](langfuse/)，本页提供 Compose 启动方式 |
 | 4gaBoards、Admidio、Discourse | 按需部署的外部测试站点 | [固定版本与上游部署说明](../testsites/README.md) |
-| 自建登录站点 | 手动验收的基准版和回归版 | [站点启动](../apps/api/README.md#本地登录夹具)及[验收步骤](../docs/04-acceptance.md) |
 
 在仓库根目录检出所有外部依赖，或给命令追加需要的子模块路径。
 

@@ -181,6 +181,7 @@ onBeforeUnmount(() => {
           <span v-else>未判定</span>
         </header>
         <p>{{ testCase.expected_behavior }}</p>
+        <p v-if="testCase.reason">{{ testCase.reason }}</p>
         <details open>
           <summary>执行步骤（{{ testCase.steps.length }}）</summary>
           <div
@@ -208,6 +209,7 @@ onBeforeUnmount(() => {
                         ? '成功'
                         : '失败'
                   }}</span
+                ><code v-if="call.error_code">{{ call.error_code }}</code
                 ><span v-if="call.duration_ms !== null"
                   >{{ call.duration_ms }} ms</span
                 >

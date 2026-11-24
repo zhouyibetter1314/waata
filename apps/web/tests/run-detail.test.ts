@@ -42,6 +42,16 @@ describe('F03 run detail', () => {
     expect(wrapper.text()).toContain('正常完成');
     expect(wrapper.text()).toContain('用例汇总');
     expect(wrapper.text()).toContain('无法判定');
+
+    const taskInfo = wrapper.get('[aria-labelledby="run-request-title"]');
+    expect(taskInfo.get('dt:nth-of-type(1)').text()).toBe('自然语言测试目标');
+    expect(taskInfo.get('dd:nth-of-type(1)').text()).toBe(
+      runDetailFixture.goal,
+    );
+    expect(taskInfo.get('dt:nth-of-type(2)').text()).toBe('预期行为');
+    expect(taskInfo.get('dd:nth-of-type(2)').text()).toBe(
+      runDetailFixture.expected_behavior,
+    );
   });
 
   it.each([

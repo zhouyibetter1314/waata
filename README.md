@@ -7,8 +7,8 @@ WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试�
 ## 从空环境启动
 
 1. 准备 Python 3.12+、uv、Node.js 22.12+、npm 和 Docker。启动独立的 WAATA PostgreSQL 17 容器并应用全部迁移。 [数据库与 Python 环境](apps/api/README.md#准备数据库和依赖)
-2. 配置根目录 `.env`，启动自建登录站点、FastAPI、Worker 和 Vue。使用本地 Mock 浏览页面时，只需启动 Vue。 [真实平台启动](apps/api/README.md#本地登录夹具) · [前端 Mock](apps/web/README.md#本地运行)
-3. 提交基准版和回归版登录场景，依次核对运行状态、判定、事件及证据。 [手工验收](docs/04-acceptance.md)
+2. 配置根目录 `.env` 和自己的测试站点授权，启动 FastAPI、Worker 和 Vue。使用本地 Mock 浏览页面时，只需启动 Vue。 [真实平台启动](apps/api/README.md#本地启动与目标配置) · [前端 Mock](apps/web/README.md#本地运行)
+3. 在自己的测试站点提交一个场景，核对运行状态、判定、事件及证据。 [手工验收](docs/04-acceptance.md)
 
 需要追踪时，从仓库的 Langfuse 子模块启动 `v4.30.0`。需要额外测试站点时，初始化 4gaBoards、Admidio 或 Discourse 的固定版本子模块。 [本地依赖与重建](infra/README.md)
 
@@ -21,10 +21,10 @@ WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试�
 | [`packages/waata/`](packages/waata/README.md) | 独立的 `waata` Python 包，负责测试编排、Agent 运行、模型调用、浏览器适配与追踪 |
 | [`contracts/`](contracts/README.md) | HTTP、Python 包、工具、事件、证据与平台持久化的 v0.1 契约 |
 | [`migrations/`](migrations/README.md) | PostgreSQL 17 的版本化 SQL 迁移 |
-| [`examples/`](examples/README.md) | 独立调用 `waata` Python 包的示例 |
-| [`testsites/`](testsites/README.md) | 4gaBoards、Admidio、Discourse，以及自建登录夹具 |
+| [`examples/`](examples/README.md) | 三个本地 Web 应用的启动步骤和 WAATA 测试场景 |
+| [`testsites/`](testsites/README.md) | 4gaBoards、Admidio、Discourse 的固定版本子模块 |
 | [`infra/`](infra/README.md) | Langfuse 子模块与本地 Compose 配置 |
-| `tests/` | 共享契约和全链路自动化测试 |
+| `tests/` | 共享契约自动化测试 |
 | `artifacts/` | API 与 Worker 的本地证据目录，受 Git 忽略规则覆盖 |
 
 根目录的 uv 工作区包含 `apps/api` 和 `packages/waata`，统一锁定 Python 依赖。后端通过工作区依赖引用 `waata`，前端单独管理 JavaScript 依赖。应用与核心包的职责见 [系统架构](docs/03-architecture.md)。
