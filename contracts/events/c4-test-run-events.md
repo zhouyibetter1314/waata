@@ -43,3 +43,5 @@ Case 事件带 `case_id`，Step 事件另带 `step_id`。工具事件以 `tool_c
 每帧以空行结尾，`id:` 使用十进制 `sequence`，`event:` 使用事件类型，`data:` 包含完整 JSON 信封。服务端按序发送 `sequence > cursor` 的已提交事件，空闲时发送 `: keep-alive` 注释，终态发送后结束连接。存储故障引起的流中断可从上一序号重连。Vue 收到终态后关闭连接并更新详情。[HTTP 契约](../http/c1-test-run-http-api.md) · [SSE 示例](examples/4gaboards-events.sse)
 
 `WAATA_SSE_POLL_SECONDS` 默认 0.25 秒，`WAATA_SSE_KEEPALIVE_SECONDS` 默认 15 秒。[SSE 实现](../../apps/api/src/waata_api/services/run_events.py) · [平台验收](../../docs/04-acceptance.md#ac-05-平台端到端)
+
+运行详情默认显示运行及用例的进展、截图和工具失败。同一用例内相同工具与错误码的失败显示累计次数。通过「查看全部事件」可按序号查阅每条事件和原始数据。

@@ -1,4 +1,5 @@
-import type { PublishedEvent } from '../../api';
+import type { PublishedEvent, Verdict } from '../../api';
+import { verdictLabels } from './presentation';
 
 export const eventTypes = [
   'run.started',
@@ -19,6 +20,47 @@ export const terminalEventTypes = new Set([
   'run.failed',
   'run.cancelled',
 ]);
+
+const progressEventTypes = new Set([
+  'run.started',
+  'plan.created',
+  'case.started',
+  'case.verified',
+  ...terminalEventTypes,
+]);
+
+export function summarizeTimeline(events: PublishedEvent[]) {
+  const entries: { event: PublishedEvent; count: number }[] = [];
+  const failures = new Map<string, (typeof entries)[number]>();
+  for (const event of events) {
+    if (
+      progressEventTypes.has(event.type) ||
+      (event.type === 'tool.completed' &&
+        event.payload.tool === 'browser.screenshot' &&
+        event.payload.success === true)
+    ) {
+      entries.push({ event, count: 1 });
+    } else if (
+      event.type === 'tool.completed' &&
+      event.payload.success === false
+    ) {
+      const key = JSON.stringify([
+        event.case_id,
+        event.payload.tool,
+        event.payload.error_code,
+      ]);
+      const earlier = failures.get(key);
+      if (earlier) {
+        earlier.count += 1;
+      } else {
+        const entry = { event, count: 1 };
+        failures.set(key, entry);
+        entries.push(entry);
+      }
+    }
+  }
+  return entries;
+}
 
 export const eventLabels: Record<string, string> = {
   'run.started': '任务开始运行',
@@ -56,15 +98,18 @@ export function eventSummary(event: PublishedEvent): string {
     case 'tool.called':
       return `调用 ${String(payload.tool)}`;
     case 'tool.completed':
-      return `${String(payload.tool)} · ${payload.success ? '成功' : '失败'} · ${String(payload.duration_ms)} ms`;
+      return payload.success
+        ? `${String(payload.tool)} · ${String(payload.duration_ms)} ms`
+        : `${String(payload.tool)} · ${String(payload.error_code ?? '失败')}`;
     case 'case.verified':
-      return `用例判定：${String(payload.verdict)}`;
+    case 'run.completed':
+      return verdictLabels[payload.verdict as Verdict] ?? '未判定';
     case 'report.generated':
       return '报告已经可以查询';
-    case 'run.completed':
-      return `运行状态 succeeded，测试判定 ${String(payload.verdict)}`;
     case 'run.failed':
-      return `运行状态 errored：${String((payload.error as { code?: string } | undefined)?.code ?? '未知错误')}`;
+      return (
+        (payload.error as { code?: string } | undefined)?.code ?? '未知错误'
+      );
     case 'run.cancelled':
       return '取消已生效，运行资源已完成清理';
     default:

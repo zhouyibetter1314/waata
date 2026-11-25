@@ -57,6 +57,8 @@ class TestEngine:
 
 结果使用 `succeeded` 表示流程完成，总体判定按 `failed > blocked > inconclusive > passed` 聚合。合法空计划得到 `inconclusive`。Verifier 以 `browser.inspect` 的已登记观察支持断言，稳定的同页不匹配才计为失败。未确定的断言使用 `passed=null`。截图受策略限制时工具仍可能返回 `ACTION_NOT_ALLOWED`，断言继续以已登记的检查点观察判定。
 
+用例如果指定终态 URL 路径前缀，Verifier 先检查路径。路径未确认时，页面内容断言保持未判定，避免将编辑器预览或中间页面计作发布结果。
+
 | 模型 | 内容 |
 | --- | --- |
 | `TestResult` | `run_id`、`status`、`verdict`、`error`、`execution`、`cases`、`artifacts`、`langfuse_trace_id` |
@@ -70,8 +72,10 @@ class TestEngine:
 
 ## 5. 故障与取消
 
-- 引擎先停止操作和清理会话，再返回或传播错误。常见运行错误包含 `CONFIGURATION_ERROR`、`MODEL_UNAVAILABLE`、`BROWSER_ERROR`、`RUN_TIMEOUT`、`EVENT_DELIVERY_FAILED`、`CLEANUP_FAILED`、`INTERNAL_ERROR`。
+- 引擎先停止操作和清理会话，再返回或传播错误。常见运行错误包含 `CONFIGURATION_ERROR`、`MODEL_UNAVAILABLE`、`MODEL_RATE_LIMITED`、`BROWSER_ERROR`、`RUN_TIMEOUT`、`EVENT_DELIVERY_FAILED`、`CLEANUP_FAILED`、`INTERNAL_ERROR`。收到模型限流后，在运行期限和重试预算内按供应商给出的等待时间重试。
+- 规划响应经过 JSON 和检查点校验。首轮不合格时，使用字段级诊断及完整检查点结构请求修复一次。仍未得到合法计划时返回 `MODEL_PLAN_INVALID`。
 - Worker 取消执行协程。常规取消在清理后传播 `asyncio.CancelledError`，平台保留已有进度与证据。正常取消分支的报告接口返回 `REPORT_UNAVAILABLE`。必要清理失败时按 `CLEANUP_FAILED` 处理。
 - 步骤、动作或 Runner 模型额度到限后，以剩余期限和可用证据完成验证。规划阶段模型预算不足报 `CONFIGURATION_ERROR`，Run 超时报 `RUN_TIMEOUT`。
+- Agent 一轮只做页面观察且页面未变化时，下一轮由引擎再次刷新页面。如果页面仍未变化，这一轮直接把观察结果提供给 Agent，暂缓再次提供观察工具。
 
 [浏览器工具](../tools/c3-browser-tools.md) · [证据存储](../artifacts/c5-test-evidence-artifacts.md) · [引擎集成测试](../../packages/waata/tests/test_engine_integration.py) · [独立使用验收](../../docs/04-acceptance.md#ac-07-独立使用与可复现性)

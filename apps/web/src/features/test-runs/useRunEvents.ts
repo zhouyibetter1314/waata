@@ -67,7 +67,7 @@ export function useRunEvents(
     if (terminalEventTypes.has(event.type)) {
       close();
       connection.value = 'complete';
-      connectionMessage.value = '终态已接收，正在校准任务详情';
+      connectionMessage.value = '运行事件已同步';
     }
     onEvent(event);
   }

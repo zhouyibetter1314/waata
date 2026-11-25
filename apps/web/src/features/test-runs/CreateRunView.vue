@@ -2,7 +2,11 @@
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { createRun, isApiError, type CreateRunRequest } from '../../api';
-import { validateRunRequest, type RunFormErrors } from './validation';
+import {
+  DEFAULT_AGENT_STEPS,
+  validateRunRequest,
+  type RunFormErrors,
+} from './validation';
 
 const router = useRouter();
 const submitting = ref(false);
@@ -15,7 +19,7 @@ const form = reactive({
   expected_behavior: '',
   credential_ref: '',
   headless: true,
-  max_steps_per_case: 12,
+  max_steps_per_case: DEFAULT_AGENT_STEPS,
 });
 
 function requestValue(): CreateRunRequest {
@@ -120,6 +124,17 @@ async function submit(): Promise<void> {
               :aria-invalid="Boolean(errors.expected_behavior)"
             />
             <small class="field-hint">尽量描述可观察、可判定的页面结果。</small>
+            <small
+              v-if="
+                form.goal.includes('{tag}') ||
+                form.expected_behavior.includes('{tag}')
+              "
+              class="field-hint"
+              role="status"
+            >
+              如果是从场景示例复制的内容，请把目标和预期里的
+              <code>{tag}</code> 换成同一个测试编号。
+            </small>
             <small v-if="errors.expected_behavior" class="field-error">
               {{ errors.expected_behavior }}
             </small>
@@ -148,7 +163,7 @@ async function submit(): Promise<void> {
 
           <div class="form-options">
             <label>
-              <span>每用例最大步骤数</span>
+              <span>每用例 Agent 步骤上限</span>
               <input
                 v-model.number="form.max_steps_per_case"
                 type="number"

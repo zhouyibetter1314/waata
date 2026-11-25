@@ -62,6 +62,14 @@ class ModelResponseError(ModelError):
     """The provider returned a response that cannot be consumed."""
 
 
+class ModelRateLimitError(ModelError):
+    """The provider has temporarily limited request volume."""
+
+    def __init__(self, message: str, *, retry_after: float) -> None:
+        super().__init__(message, retryable=True)
+        self.retry_after = retry_after
+
+
 class LLMProvider(Protocol):
     @property
     def metadata(self) -> ModelMetadata: ...

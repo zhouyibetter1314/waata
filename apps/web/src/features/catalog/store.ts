@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { DEFAULT_AGENT_STEPS } from '../test-runs/validation';
 
 export interface CatalogApplication {
   id: string;
@@ -43,7 +44,7 @@ const retiredDefaultScenario: CatalogScenario = {
 };
 
 function emptyCatalog(): CatalogState {
-  return { applications: [], scenarios: [], maxSteps: 12 };
+  return { applications: [], scenarios: [], maxSteps: DEFAULT_AGENT_STEPS };
 }
 
 function initialState(): CatalogState {
@@ -88,7 +89,7 @@ function initialState(): CatalogState {
       maxSteps:
         Number.isInteger(parsed.maxSteps) && Number(parsed.maxSteps) > 0
           ? Number(parsed.maxSteps)
-          : 12,
+          : DEFAULT_AGENT_STEPS,
     };
   } catch {
     return emptyCatalog();

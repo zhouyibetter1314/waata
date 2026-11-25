@@ -285,7 +285,7 @@ function importScenarios(): void {
               Number(($event.target as HTMLInputElement).value),
             )
           "
-        /><span>本次运行每用例步骤上限</span></label
+        /><span>每用例 Agent 步骤上限</span></label
       >
     </div>
 

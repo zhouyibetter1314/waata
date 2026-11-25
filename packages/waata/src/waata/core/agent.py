@@ -31,6 +31,7 @@ class AgentHistory:
         *,
         summarize: Callable[[ToolCall, ToolResult], dict[str, Any]] | None = None,
         max_summary_chars: int = 2_048,
+        max_recent_turns: int | None = None,
         sanitize_message: Callable[[ChatMessage], ChatMessage] | None = None,
     ) -> None:
         self._turns: deque[tuple[tuple[ChatMessage, ...], list[dict[str, Any]]]] = (
@@ -39,6 +40,7 @@ class AgentHistory:
         self._archived_summaries: deque[str] = deque()
         self._summary_chars = 0
         self._max_summary_chars = max_summary_chars
+        self._max_recent_turns = max_recent_turns
         self._summarize = summarize
         self._sanitize_message = sanitize_message
 
@@ -70,6 +72,12 @@ class AgentHistory:
                 summary.update(self._summarize(call, result))
             summaries.append(summary)
         self._turns.append((tuple(messages), summaries))
+        if (
+            self._max_recent_turns is not None
+            and len(self._turns) > self._max_recent_turns
+        ):
+            _, older = self._turns.popleft()
+            self._archive(older)
 
     def build_messages(
         self,

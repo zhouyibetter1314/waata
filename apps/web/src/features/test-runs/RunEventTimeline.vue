@@ -1,6 +1,12 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import type { PublishedEvent } from '../../api';
-import { eventLabels, eventSummary, eventTone } from './events';
+import {
+  eventLabels,
+  eventSummary,
+  eventTone,
+  summarizeTimeline,
+} from './events';
 import { formatDate } from './presentation';
 
 function screenshotIds(event: PublishedEvent): string[] {
@@ -15,11 +21,16 @@ function screenshotIds(event: PublishedEvent): string[] {
     : [];
 }
 
-defineProps<{
+const props = defineProps<{
   events: PublishedEvent[];
   connectionMessage: string;
-  cursor: number;
 }>();
+const showAll = ref(false);
+const entries = computed(() =>
+  showAll.value
+    ? props.events.map((event) => ({ event, count: 1 }))
+    : summarizeTimeline(props.events),
+);
 </script>
 
 <template>
@@ -29,25 +40,45 @@ defineProps<{
         <h2>执行时间线</h2>
         <p>{{ connectionMessage || '等待连接事件流' }}</p>
       </div>
-      <span class="feature-label">C4 · #{{ cursor }}</span>
+      <button
+        v-if="events.length"
+        type="button"
+        class="text-button"
+        :aria-expanded="showAll"
+        aria-controls="run-event-list"
+        @click="showAll = !showAll"
+      >
+        {{ showAll ? '返回摘要' : `查看全部事件（${events.length}）` }}
+      </button>
     </div>
     <div v-if="!events.length" class="timeline-empty">
       <span class="spinner spinner-dark"></span>
       <p>等待第一条运行事件…</p>
     </div>
-    <ol v-else class="event-timeline">
+    <ol v-else id="run-event-list" class="event-timeline">
       <li
-        v-for="event in events"
+        v-for="{ event, count } in entries"
         :key="`${event.run_id}:${event.sequence}`"
         :class="`event-${eventTone(event)}`"
       >
-        <span class="event-index">{{ event.sequence }}</span>
+        <span class="event-index" :aria-hidden="!showAll">
+          {{ showAll ? event.sequence : '•' }}
+        </span>
         <div>
           <div class="event-heading">
-            <strong>{{ eventLabels[event.type] ?? event.type }}</strong
+            <strong>{{
+              !showAll && event.type === 'tool.completed'
+                ? event.payload.success === false
+                  ? '工具失败'
+                  : '已保存截图'
+                : (eventLabels[event.type] ?? event.type)
+            }}</strong
             ><time>{{ formatDate(event.timestamp) }}</time>
           </div>
-          <p>{{ eventSummary(event) }}</p>
+          <p>
+            {{ eventSummary(event)
+            }}<template v-if="count > 1"> · {{ count }} 次</template>
+          </p>
           <a
             v-for="id in screenshotIds(event)"
             :key="id"
@@ -57,13 +88,13 @@ defineProps<{
             rel="noopener noreferrer"
             >查看本步截图</a
           >
-          <small v-if="event.case_id"
+          <small v-if="showAll && event.case_id"
             >{{ event.case_id
             }}<template v-if="event.step_id">
               / {{ event.step_id }}</template
             ></small
           >
-          <details>
+          <details v-if="showAll">
             <summary>查看事件数据</summary>
             <pre>{{ JSON.stringify(event.payload, null, 2) }}</pre>
           </details>

@@ -3,16 +3,18 @@ import json
 import unittest
 from dataclasses import replace
 from typing import Literal
+from unittest.mock import patch
 
 import httpx
 from pydantic import BaseModel, RootModel
-from waata.browser.models import BROWSER_TOOLS
+from waata.browser.models import BROWSER_TOOLS, model_tool_schema
 from waata.core.agent import AgentHistory, ContextLimitError, agent_step
 from waata.core.model import (
     ChatMessage,
     ChatResponse,
     ModelError,
     ModelMetadata,
+    ModelRateLimitError,
     ModelResponseError,
     ToolCall,
     estimate_request_input_tokens,
@@ -26,6 +28,26 @@ class CountArgs(BaseModel):
 
 
 class RunnerBudgetTests(unittest.TestCase):
+    def test_browser_prompt_schemas_reduce_repeated_request_size(self):
+        tools = [
+            ToolSpec(name, description, model, count)
+            for name, description, model in BROWSER_TOOLS
+        ]
+        compact = [
+            replace(tool, model_schema=model_tool_schema(tool.input_model))
+            for tool in tools
+        ]
+        self.assertLess(
+            estimate_request_input_tokens([], compact),
+            estimate_request_input_tokens([], tools) * 0.5,
+        )
+        inspect = next(tool for tool in compact if tool.name == "browser.inspect")
+        self.assertEqual(inspect.model_input_schema["required"], ["condition"])
+        self.assertIn("oneOf", inspect.input_schema)
+        fill = next(tool for tool in compact if tool.name == "browser.fill")
+        self.assertEqual(fill.model_input_schema["required"], ["locator"])
+        self.assertNotIn("$defs", fill.model_input_schema)
+
     def test_tool_prompt_schema_omits_metadata_but_keeps_constraints(self):
         tools = [
             ToolSpec(name, description, model, count)
@@ -92,6 +114,42 @@ def tool_response(*calls: ToolCall) -> ChatResponse:
 
 
 class OpenAILikeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_official_deepseek_json_mode_is_opt_in_per_request(self):
+        bodies = []
+
+        def transport(request):
+            bodies.append(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"role": "assistant", "content": "{}"}}]},
+            )
+
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(transport)
+        ) as client:
+            model = OpenAILike(
+                base_url="https://api.deepseek.com",
+                model="deepseek-flash",
+                client=client,
+            )
+            self.assertTrue(model.metadata.supports_json)
+            messages = [ChatMessage("user", "Return a JSON object.")]
+            await model.chat(messages, json_mode=True)
+            await model.chat(messages)
+            unknown = OpenAILike(
+                base_url="https://gateway.test", model="deepseek-flash", client=client
+            )
+            self.assertFalse(unknown.metadata.supports_json)
+            override = OpenAILike(
+                base_url="https://api.deepseek.com",
+                model="deepseek-flash",
+                client=client,
+                supports_json=False,
+            )
+            self.assertFalse(override.metadata.supports_json)
+        self.assertEqual(bodies[0]["response_format"], {"type": "json_object"})
+        self.assertNotIn("response_format", bodies[1])
+
     async def test_ark_disables_thinking_to_preserve_completion_budget(self):
         def transport(request):
             self.assertEqual(request.url.path, "/api/v3/chat/completions")
@@ -257,6 +315,32 @@ class OpenAILikeTests(unittest.IsolatedAsyncioTestCase):
                 await llm.chat([ChatMessage("user", "Check a fixture")])
         self.assertTrue(raised.exception.retryable)
 
+    async def test_retry_after_defers_other_calls_on_the_same_provider(self):
+        requests = []
+
+        def transport(request):
+            requests.append(request)
+            return httpx.Response(
+                429,
+                headers={"Retry-After": "18"},
+                json={"error": {"message": "Cluster TPM rate limit exceeded."}},
+            )
+
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(transport)
+        ) as client:
+            model = OpenAILike(
+                base_url="https://model.test", model="fixture", client=client
+            )
+            with patch(
+                "waata.llm.openai_like.monotonic", side_effect=[100, 101, 106, 119, 120]
+            ):
+                for expected in (18, 13, 18):
+                    with self.assertRaises(ModelRateLimitError) as raised:
+                        await model.chat([ChatMessage("user", "Check fixture")])
+                    self.assertEqual(raised.exception.retry_after, expected)
+        self.assertEqual(len(requests), 2)
+
     async def test_http_failure_logs_distinguish_quota_rate_and_format_safely(self):
         for status, code, category, retryable in (
             (429, "InsufficientBalance", "quota_or_balance", False),
@@ -405,3 +489,20 @@ class ToolRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 metadata=ModelMetadata(),
                 max_input_tokens=100,
             )
+
+    def test_runner_summarizes_old_calls_even_when_they_fit_in_context(self):
+        history = AgentHistory(max_recent_turns=2)
+        for index in range(3):
+            history.append(
+                tool_response(ToolCall(f"call_{index}", "demo.count", {})).message,
+                [ToolResult(True, {"large_value": f"raw_result_{index}"})],
+            )
+        messages = history.build_messages(
+            "Use tools", {}, tools=[], metadata=ModelMetadata()
+        )
+        self.assertIn("older_tool_results", messages[1].content)
+        self.assertNotIn("raw_result_0", messages[1].content)
+        self.assertEqual(
+            [message.tool_call_id for message in messages if message.role == "tool"],
+            ["call_1", "call_2"],
+        )

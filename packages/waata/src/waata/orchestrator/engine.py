@@ -17,6 +17,7 @@ from waata.browser import (
     BrowserSetupCleanupError,
     InspectArgs,
 )
+from waata.browser.models import UrlPathStartsWith
 from waata.core.agent import AgentHistory, ContextLimitError, agent_step
 from waata.core.events import EventType, TestEvent
 from waata.core.model import (
@@ -24,6 +25,7 @@ from waata.core.model import (
     ChatResponse,
     LLMProvider,
     ModelError,
+    ModelRateLimitError,
     ModelResponseError,
     ToolCall,
     estimate_request_input_tokens,
@@ -46,7 +48,13 @@ from .models import (
     WAATAError,
     display_url,
 )
-from .planner import RUNNER_PROMPT, CasePlan, parse_plan, planning_messages
+from .planner import (
+    RUNNER_PROMPT,
+    CasePlan,
+    PlanValidationError,
+    parse_plan,
+    planning_messages,
+)
 
 EventCallback = Callable[[TestEvent], Awaitable[None]]
 _LOG = logging.getLogger(__name__)
@@ -54,6 +62,7 @@ _ACTIONS = frozenset(
     {"browser.navigate", "browser.click", "browser.fill", "browser.select_option"}
 )
 _C3_NAMES = _ACTIONS | {"browser.observe", "browser.inspect", "browser.screenshot"}
+_PAGE_FIELDS = ("url", "title", "aria", "elements", "truncated")
 _STALE_ACTION = ToolResult.failed(
     "ACTION_NOT_ALLOWED",
     "Page changed since the model observed it. Reobserve before acting.",
@@ -71,6 +80,14 @@ def _error(code: str, message: str) -> WAATAError:
 
 def _id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex}"
+
+
+def _same_page(before: dict | None, after: dict | None) -> bool:
+    return (
+        before is not None
+        and after is not None
+        and all(before.get(key) == after.get(key) for key in _PAGE_FIELDS)
+    )
 
 
 class _ModelBudgetExhausted(Exception):
@@ -111,6 +128,7 @@ class _CaseExecution:
     needs_observation: bool = True
     completion_retry_used: bool = False
     completion_feedback: str | None = None
+    repeated_observation: bool = False
 
 
 class TestEngine:
@@ -375,23 +393,30 @@ class _Run:
                 )
                 raise
             except (ModelError, TimeoutError) as exc:
+                limited = isinstance(exc, ModelRateLimitError)
+                code = "MODEL_RATE_LIMITED" if limited else "MODEL_UNAVAILABLE"
                 await self.observe(
                     "model.completed",
                     case_id,
                     step_id,
                     phase=phase,
                     duration_ms=self.elapsed_ms(start),
-                    error_code="MODEL_UNAVAILABLE",
+                    error_code=code,
                 )
-                if (isinstance(exc, ModelError) and not exc.retryable) or (
-                    attempt == self.config.model_retries
+                remaining = max(0, self.deadline - self.clock())
+                delay = exc.retry_after if limited else 0.2 * (2**attempt)
+                if (
+                    (isinstance(exc, ModelError) and not exc.retryable)
+                    or (attempt == self.config.model_retries)
+                    or (limited and delay >= remaining)
                 ):
                     raise _error(
-                        "MODEL_UNAVAILABLE", "The model request failed"
+                        code,
+                        "The model provider rate limit was reached"
+                        if limited
+                        else "The model request failed",
                     ) from None
-                await asyncio.sleep(
-                    min(0.2 * (2**attempt), max(0, self.deadline - self.clock()))
-                )
+                await asyncio.sleep(min(delay, remaining))
                 continue
             usage = response.usage
             total = None
@@ -424,11 +449,11 @@ class _Run:
             "max_cases": self.config.max_test_cases,
             "max_checkpoints_per_case": self.config.max_checkpoints_per_case,
         }
-        failure = "The model did not produce a valid test plan"
-        for repair in (False, True):
+        failure = None
+        for _ in range(2):
             try:
                 response = await self.model_request(
-                    planning_messages(data, repair=repair),
+                    planning_messages(data, repair_feedback=failure),
                     phase="planner",
                     json_mode=self.llm.metadata.supports_json,
                 )
@@ -445,20 +470,20 @@ class _Run:
                     "The model hit its output limit before finishing the test plan"
                 )
                 continue
-            failure = "The model did not produce a valid test plan"
             if response.message.tool_calls:
+                failure = (
+                    "The model tried to call tools instead of returning test-plan JSON"
+                )
                 continue
-            # `:=` 先把 parse_plan 的返回值赋给 cases，再判断它是否为 None。
-            # 空列表表示计划合法但没有用例，也会从这里返回。
-            if (
-                cases := parse_plan(
+            try:
+                return parse_plan(
                     response.message.content,
                     max_cases=self.config.max_test_cases,
                     max_checkpoints=self.config.max_checkpoints_per_case,
                 )
-            ) is not None:
-                return cases
-        raise _error("INTERNAL_ERROR", failure)
+            except PlanValidationError as exc:
+                failure = str(exc)
+        raise _error("MODEL_PLAN_INVALID", failure or "The model returned no test plan")
 
     async def execute_case(self, plan: CasePlan) -> None:
         result = TestCaseResult(
@@ -505,6 +530,8 @@ class _Run:
                 ToolRegistry(session.tools),
                 history=AgentHistory(
                     summarize=self.tool_history_summary,
+                    max_recent_turns=2,
+                    max_summary_chars=1024,
                     sanitize_message=self.sanitize_history_message,
                 ),
             )
@@ -540,7 +567,7 @@ class _Run:
                         break
                     reached_target = True
                 reason = await self.run_step(
-                    case, step, plan, can_continue=index + 1 < self.max_steps
+                    case, step, plan, remaining_steps=self.max_steps - index
                 )
                 if reason is not None:
                     result.reason = reason
@@ -632,6 +659,23 @@ class _Run:
                 }
             )
         remaining = self.config.max_browser_actions_per_run - self.actions
+        page = case.session.latest_observation
+        if page is not None:
+            page = {
+                "url": page.get("url"),
+                "title": page.get("title"),
+                "aria": page.get("aria"),
+                "elements": [
+                    {
+                        key: value
+                        for key, value in control.items()
+                        if value is not None
+                        and (key != "text" or value != control.get("name"))
+                    }
+                    for control in page.get("elements", [])
+                ],
+                "truncated": page.get("truncated"),
+            }
         return {
             "name": case.result.name,
             "goal": self.sanitize(self.request.goal),
@@ -641,7 +685,7 @@ class _Run:
             "expected_behavior": case.result.expected_behavior,
             "checkpoints": checkpoints,
             "allowed_secret_refs": case.session.secret_refs,
-            "page": case.session.latest_observation,
+            "page": page,
             "page_is_current": not (
                 case.needs_observation or case.session.observation_stale
             ),
@@ -701,9 +745,16 @@ class _Run:
         step: StepResult,
         plan: CasePlan,
         *,
-        can_continue: bool,
+        remaining_steps: int,
     ) -> str | None:
-        if case.needs_observation or case.session.observation_stale:
+        before_refresh = (
+            case.session.latest_observation if case.repeated_observation else None
+        )
+        if (
+            case.needs_observation
+            or case.session.observation_stale
+            or case.repeated_observation
+        ):
             for _ in range(2):
                 observation = await self.run_tool(case, step, "browser.observe", {})
                 if observation.success and not case.session.observation_stale:
@@ -714,8 +765,12 @@ class _Run:
                 return "The current page could not be observed"
         if self.actions >= self.config.max_browser_actions_per_run:
             return "The browser action limit was reached"
+        tools = case.tools.specs
+        if _same_page(before_refresh, case.session.latest_observation):
+            tools = tuple(tool for tool in tools if tool.name != "browser.observe")
         model_revision = case.session.revision
         state = self.context_state(case, plan)
+        state["remaining_agent_steps"] = remaining_steps
         page = state["page"]
         compact_state = None
         if page:
@@ -725,11 +780,7 @@ class _Run:
                     "url": page.get("url"),
                     "title": page.get("title"),
                     "aria": (page.get("aria") or "")[:3000],
-                    "elements": [
-                        element
-                        for element in page.get("elements", [])
-                        if element.get("locator", {}).get("strategy") == "css"
-                    ][:6],
+                    "elements": page.get("elements", [])[:8],
                     "truncated": True,
                 },
             }
@@ -737,7 +788,7 @@ class _Run:
             messages = case.history.build_messages(
                 RUNNER_PROMPT,
                 state,
-                tools=case.tools.specs,
+                tools=tools,
                 metadata=self.llm.metadata,
                 max_input_tokens=self.config.max_input_tokens,
                 safety_margin=self.config.context_safety_margin,
@@ -746,7 +797,7 @@ class _Run:
             response = await self.model_request(
                 messages,
                 phase="runner",
-                tools=case.tools.specs,
+                tools=tools,
                 case_id=case.result.case_id,
                 step_id=step.step_id,
             )
@@ -770,6 +821,7 @@ class _Run:
             )
 
         paused = False
+        before_turn = case.session.latest_observation
 
         async def execute(call: ToolCall) -> ToolResult:
             nonlocal paused
@@ -809,10 +861,20 @@ class _Run:
             raise _error(
                 "INTERNAL_ERROR", "The model returned invalid tool data"
             ) from None
+        calls = response.message.tool_calls
+        case.repeated_observation = (
+            bool(calls)
+            and all(
+                call.name == "browser.observe"
+                and not (call.arguments or {}).get("include_screenshot")
+                for call in calls
+            )
+            and _same_page(before_turn, case.session.latest_observation)
+        )
         if not acted:
             stop = "The agent returned no tool calls"
             if (
-                can_continue
+                remaining_steps > 1
                 and not case.blocked
                 and not case.completion_retry_used
                 and any(
@@ -938,6 +1000,10 @@ class _Run:
                 "success": output.success,
                 "error_code": summary.error_code,
             }
+            if "locator" in (arguments or {}):
+                action["locator"] = self.sanitize_model_data(arguments["locator"])
+            if "url" in data:
+                action["url"] = data["url"]
             case.recent_actions.append(action)
             if not output.success:
                 case.pending_effect = {
@@ -992,7 +1058,13 @@ class _Run:
         *,
         reached_target: bool,
     ) -> None:
-        for checkpoint in plan.checkpoints:
+        checkpoints = sorted(
+            plan.checkpoints,
+            key=lambda checkpoint: not isinstance(checkpoint.root, UrlPathStartsWith),
+        )
+        final_path_confirmed = True
+        final_url = None
+        for checkpoint in checkpoints:
             arguments = checkpoint.model_dump(mode="json", exclude_none=True)
             expected = arguments.get("expected", True)
             assertion = AssertionResult(
@@ -1002,7 +1074,8 @@ class _Run:
                 else expected,
             )
             case.result.assertions.append(assertion)
-            if not reached_target:
+            path_check = isinstance(checkpoint.root, UrlPathStartsWith)
+            if not reached_target or (not path_check and not final_path_confirmed):
                 continue
             self.refresh_checkpoints(case)
             prior = case.inspections.get(self.checkpoint_key(arguments))
@@ -1036,6 +1109,12 @@ class _Run:
                     )
                     if retry.success:
                         data = refreshed
+            if (
+                not path_check
+                and final_url is not None
+                and data.get("url") != final_url
+            ):
+                continue
             evidence_ids = [
                 value
                 for value in data.get("evidence_ids", [])
@@ -1051,6 +1130,11 @@ class _Run:
                 assertion.evidence_ids = evidence_ids
                 if data.get("matched") is True or stable_mismatch:
                     assertion.passed = data["matched"]
+            if path_check:
+                if assertion.passed is True:
+                    final_url = data.get("url")
+                else:
+                    final_path_confirmed = False
 
         values = [assertion.passed for assertion in case.result.assertions]
         if all(value is True for value in values):

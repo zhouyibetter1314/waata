@@ -97,7 +97,17 @@ test('updates progress via C4, recovers a missing event and displays C5 evidence
     publishTerminal();
   }
   await expect(page.getByText('任务正常完成')).toBeVisible();
-  await expect(page.getByText(`C4 · #${terminalSequence}`)).toBeVisible();
+  const allEvents = page.getByRole('button', {
+    name: `查看全部事件（${terminalSequence}）`,
+  });
+  await expect(allEvents).toBeVisible();
+  await allEvents.click();
+  await expect(page.locator('.event-timeline li')).toHaveCount(
+    sequences.length,
+  );
+  await expect(page.locator('.event-index').last()).toHaveText(
+    String(terminalSequence),
+  );
   await expect(page.getByText('10.70 秒', { exact: true })).toBeVisible();
 
   await expect(page.getByRole('heading', { name: '报告与证据' })).toBeVisible();

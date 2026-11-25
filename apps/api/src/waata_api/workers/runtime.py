@@ -91,7 +91,6 @@ def make_engine_factory(
                     browser=browser,
                     allowed_origins=[target.origin],
                     allowed_actions=target.actions,
-                    allowed_css_selectors=target.css_selectors,
                     allowed_websocket_paths=target.websocket_paths,
                     credential_sets=credentials,
                     screenshot_mask_selectors=target.screenshot_mask_selectors,

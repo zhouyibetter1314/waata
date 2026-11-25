@@ -54,7 +54,7 @@ docker exec -i waata-postgres psql -X -v ON_ERROR_STOP=1 -U waata -d waata -f - 
 ]
 ```
 
-根据场景授权 `browser.fill` 或 `browser.select_option`。需要登录时，在目标的 `credentials` 中为账号登记集合名和字段。每个字段包含受信任的环境变量名 `env` 和定位器 `locator`。任务只填集合名。CSS、WebSocket 和截图分别通过目标策略选择启用。配置修改后重启 API 和 Worker。[配置实例](../../examples/README.md#目标策略与凭据引用) · [凭据填充契约](../../contracts/tools/c3-browser-tools.md#54-browserfill)
+根据场景授权 `browser.fill` 或 `browser.select_option`。Agent 从页面观察选择控件定位器。需要登录时，在目标的 `credentials` 中为账号登记集合名和字段。每个字段包含受信任的环境变量名 `env` 和定位器 `locator`，用于绑定秘密与登录输入框。任务只填集合名。同源 WebSocket 和截图通过目标策略启用。配置修改后重启 API 和 Worker。[配置实例](../../examples/README.md#目标策略与凭据引用) · [凭据填充契约](../../contracts/tools/c3-browser-tools.md#54-browserfill)
 
 ### 启动平台
 
@@ -73,6 +73,7 @@ uv run --locked python -m waata_api.workers
 | --- | --- |
 | 共享部署 | 设置 `WAATA_AUTH_MODE=gateway`、`WAATA_GATEWAY_TOKEN`、`WAATA_ALLOWED_HOSTS` 和 `WAATA_WEB_ORIGINS`。后两者为逗号分隔的精确 Host 和 origin。可信同源网关校验用户会话，剥除外来身份头，再用 `X-WAATA-Principal` 与 `X-WAATA-Gateway-Token` 转发。限制 API 仅可由网关访问 |
 | 并发与预算 | `WAATA_ENGINE_CONFIG` 以 JSON 配置引擎预算。每个 Worker 的槽数由 `WAATA_WORKER_CONCURRENCY` 决定，默认使用引擎的 `max_concurrent_runs`，其默认值为 2 |
+| 模型限流 | `MODEL_RATE_LIMITED` 表示供应商限制了请求量。同一 Worker 在 `Retry-After` 指定的时间内暂停发送模型请求，缺少该响应头时等待 30 秒。引擎在运行期限和 `model_retries` 预算内重试。共享配额较紧时可设置 `WAATA_WORKER_CONCURRENCY=1`，让本机任务串行 |
 | Worker 定时 | `WAATA_WORKER_POLL_SECONDS`、`WAATA_WORKER_HEARTBEAT_SECONDS`、`WAATA_WORKER_LEASE_SECONDS`、`WAATA_WORKER_SHUTDOWN_SECONDS` 分别默认为 0.25、2、15 和 15 秒。租约须长于两次心跳间隔 |
 | SSE 定时 | `WAATA_SSE_POLL_SECONDS` 默认 0.25 秒，`WAATA_SSE_KEEPALIVE_SECONDS` 默认 15 秒。网关关闭 SSE 缓冲，流空闲超时设为大于保活间隔 |
 | 证据存储 | `WAATA_ARTIFACT_ROOT` 默认 `artifacts/platform`，须由 API 与 Worker 共用，支持文件锁和原子重命名。`WAATA_ARTIFACT_RETENTION_SECONDS` 默认七天。`WAATA_ARTIFACT_MAX_BYTES` 以 JSON 按证据类型覆盖写入上限。[C5](../../contracts/artifacts/c5-test-evidence-artifacts.md) |

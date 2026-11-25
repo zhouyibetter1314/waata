@@ -10,7 +10,13 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from waata.browser import CredentialField, LocatorSpec
 from waata.browser.policy import Origin, redaction_variants, safe_url, sanitize
 from waata.orchestrator.config import EngineConfig
@@ -63,10 +69,17 @@ class TargetPolicy(BaseModel):
     owners: list[str]
     actions: list[Action] = []
     credentials: dict[str, dict[str, CredentialSource]] = {}
-    css_selectors: list[str] = []
     websocket_paths: list[str] = []
     screenshot_mask_selectors: list[str] = []
     allow_screenshots: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def read_existing_policy(cls, value):
+        # Accept policies saved before locator selection moved into the browser.
+        if isinstance(value, dict) and "css_selectors" in value:
+            return {key: item for key, item in value.items() if key != "css_selectors"}
+        return value
 
     @field_validator("origin")
     @classmethod

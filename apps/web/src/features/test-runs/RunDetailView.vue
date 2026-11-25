@@ -81,7 +81,7 @@ async function load(id: string, clear = true): Promise<void> {
   }
 }
 
-const { events, connectionMessage, cursor } = useRunEvents(
+const { events, connectionMessage } = useRunEvents(
   runId,
   eventsEnabled,
   applyRunEvent,
@@ -336,9 +336,9 @@ onBeforeUnmount(() => {
             </dl>
           </section>
           <RunEventTimeline
+            :key="run.run_id"
             :events="events"
             :connection-message="connectionMessage"
-            :cursor="cursor"
           />
         </div>
 
