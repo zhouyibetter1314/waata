@@ -3,6 +3,12 @@ import type { PublishedEvent } from '../../api';
 import { eventLabels, eventSummary, eventTone } from './events';
 import { formatDate } from './presentation';
 
+function screenshotIds(event: PublishedEvent): string[] {
+  if (event.type !== 'tool.completed' || event.payload.tool !== 'browser.screenshot') return [];
+  const ids = event.payload.evidence_ids;
+  return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+}
+
 defineProps<{
   events: PublishedEvent[];
   connectionMessage: string;
@@ -36,6 +42,14 @@ defineProps<{
             ><time>{{ formatDate(event.timestamp) }}</time>
           </div>
           <p>{{ eventSummary(event) }}</p>
+          <a
+            v-for="id in screenshotIds(event)"
+            :key="id"
+            class="text-button"
+            :href="'/api/v1/artifacts/' + encodeURIComponent(id)"
+            target="_blank"
+            rel="noopener noreferrer"
+          >查看本步截图</a>
           <small v-if="event.case_id"
             >{{ event.case_id
             }}<template v-if="event.step_id">

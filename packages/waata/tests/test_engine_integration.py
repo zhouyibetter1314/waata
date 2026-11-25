@@ -14,11 +14,13 @@ from uuid import uuid4
 
 from waata.artifacts import ArtifactInput, ArtifactRef
 from waata.browser import CredentialField, PlaywrightAdapter
+from waata.browser.observation import COLLECT_CONTROLS
 from waata.core.model import ChatMessage, ChatResponse, ToolCall
 from waata.core.tools import ToolContext, ToolRegistry, ToolResult
 from waata.llm import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest, WAATAError
 from waata.orchestrator.config import EngineConfig
+from waata.orchestrator.planner import parse_plan
 
 try:
     from playwright.async_api import async_playwright
@@ -252,6 +254,57 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
         self.browser = await playwright.chromium.launch()
         self.addAsyncCleanup(self.browser.close)
 
+    async def test_planner_accepts_one_fenced_json_object_not_surrounding_prose(self):
+        raw = '{"cases":[]}'
+        fenced = "```json\n" + raw + "\n```"
+        self.assertEqual(parse_plan(fenced, max_cases=1, max_checkpoints=1), [])
+        self.assertIsNone(
+            parse_plan("Here's the plan:\n" + fenced, max_cases=1, max_checkpoints=1)
+        )
+
+    async def test_automatic_final_screenshot_without_model_tool_call(self):
+        with login_fixture() as fixture:
+            url = f"{fixture.origin}/controls"
+            model = FakeLLM(
+                [planning_response(case_plan("Controls page", [url_check(url)])),
+                 assistant_text("Done")]
+            )
+            store = MemoryArtifacts()
+            engine = TestEngine(
+                llm=model,
+                browser=PlaywrightAdapter(
+                    browser=self.browser,
+                    allowed_origins={fixture.origin},
+                    allow_screenshots=True,
+                ),
+                artifact_store=store,
+                config=EngineConfig(capture_final_screenshot=True),
+            )
+            result = await engine.run(
+                TestRequest(target_url=url, goal="Open controls", expected_behavior="Controls load")
+            )
+            self.assertEqual(result.verdict, "passed")
+            screenshots = [item for item in result.artifacts if item.kind == "screenshot"]
+            self.assertEqual(len(screenshots), 1)
+            self.assertTrue(store.saved[screenshots[0].artifact_id].content.startswith(b"\x89PNG"))
+
+    async def test_observation_keeps_approved_control_after_long_sidebar(self):
+        page = await self.browser.new_page()
+        self.addAsyncCleanup(page.close)
+        await page.set_content(
+            "<button>Old item</button>" * 250
+            + '<button id="hidden" hidden>Hidden action</button>'
+            + '<button id="rename">Rename Project</button>'
+        )
+        observed = await page.evaluate(
+            COLLECT_CONTROLS,
+            {"limit": 2, "textLimit": 100, "approvedSelectors": ["#hidden", "#rename"]},
+        )
+        self.assertTrue(observed["truncated"])
+        self.assertEqual(observed["elements"][0]["approved_css"], "#rename")
+        self.assertEqual(observed["elements"][0]["name"], "Rename Project")
+        self.assertEqual(observed["elements"][1]["name"], "Old item")
+
     async def test_native_select_zero_count_and_browser_evidence_registration(self):
         class ArtifactStoreWithFailure(MemoryArtifacts):
             reject = False
@@ -268,6 +321,7 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
                 browser=self.browser,
                 allowed_origins={fixture.origin},
                 allow_screenshots=True,
+                allowed_css_selectors={"input#note", "input"},
             )
             session = await adapter.open_case(
                 url, credential_ref=None, artifact_store=artifacts
@@ -329,6 +383,8 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             stored_observation = json.loads(artifacts.saved[observation_id].content)
             self.assertEqual(stored_observation["evidence_ids"], [screenshot_id])
             self.assertNotIn("temporary form draft", json.dumps(observation.data))
+            locators = [item["locator"] for item in observation.data["elements"]]
+            self.assertIn({"strategy": "css", "value": "input#note"}, locators)
 
             artifacts.reject = True
             count_before = len(artifacts.saved)
@@ -449,6 +505,33 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             ],
         )
 
+    async def test_premature_stop_continues_once_when_checkpoint_is_unmet(self):
+        with login_fixture() as fixture:
+            llm = FakeLLM(
+                [
+                    planning_response(
+                        case_plan("Sign in then return", [url_check(fixture.login_url)])
+                    ),
+                    login_actions("valid")[0],
+                    tool_turn(ToolCall("observe", "browser.observe", {})),
+                    assistant_text("Stop before returning."),
+                    tool_turn(
+                        ToolCall(
+                            "return", "browser.navigate", {"url": fixture.login_url}
+                        )
+                    ),
+                    assistant_text("Returned to the login page."),
+                ]
+            )
+            result = await self._engine(fixture, llm).run(self._request(fixture))
+
+        self.assertEqual(result.verdict, "passed")
+        observed = llm.requests[3]
+        self.assertIn("Signed in", observed.messages[1].content)
+        self.assertNotIn("aria", json.loads(observed.messages[-1].content)["data"])
+        self.assertIn("checkpoint is unmet", message_text(llm.requests[4]))
+        self.assertEqual(len(llm.requests), 6)
+
     async def test_login_baseline_and_same_url_regression_preserve_evidence(self):
         for regression in (False, True):
             with (
@@ -460,6 +543,11 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
                         login_plan(fixture),
                         *login_actions("valid"),
                         *login_actions("invalid"),
+                        *(
+                            [assistant_text("The regression remains.")]
+                            if regression
+                            else []
+                        ),
                     ]
                 )
                 artifacts = MemoryArtifacts()
@@ -533,7 +621,12 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
                 self.assertNotIn("demo.valid", published)
 
     def _assert_model_turns(self, llm, fixture):
-        _, valid_first, valid_finished, invalid_first, invalid_finished = llm.requests
+        _, valid_first, valid_finished, invalid_first, invalid_finished, *extra = (
+            llm.requests
+        )
+        if extra:
+            self.assertEqual(len(extra), 1)
+            self.assertIn("checkpoint is unmet", message_text(extra[0]))
         self.assertEqual(valid_first.messages[0].role, "system")
         self.assertIn("Demo login", valid_first.messages[1].content)
         self.assertIn("Signed in", valid_finished.messages[1].content)

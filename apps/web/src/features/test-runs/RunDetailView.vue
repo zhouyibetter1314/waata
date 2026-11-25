@@ -39,6 +39,14 @@ const verdictText = computed(() =>
   run.value?.verdict ? verdictLabels[run.value.verdict] : '未产生',
 );
 const eventsEnabled = computed(() => Boolean(run.value));
+const elapsed = computed(() => {
+  const { started_at, finished_at } = run.value ?? {};
+  if (!started_at || !finished_at) return '—';
+  const seconds = (Date.parse(finished_at) - Date.parse(started_at)) / 1000;
+  return Number.isFinite(seconds) && seconds >= 0 ? `${seconds.toFixed(2)} 秒` : '—';
+});
+const localLiveView =
+  window.location.hostname === '127.0.0.1' && window.location.port === '5173';
 
 async function load(id: string, clear = true): Promise<void> {
   controller?.abort();
@@ -139,6 +147,13 @@ onBeforeUnmount(() => controller?.abort());
             >
           </div>
           <div v-if="!isTerminal" class="hero-actions">
+            <a
+              v-if="localLiveView"
+              class="button button-hero"
+              href="/live/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >本机浏览器画面</a>
             <button
               class="button button-hero"
               type="button"
@@ -244,6 +259,8 @@ onBeforeUnmount(() => controller?.abort());
               <dd>{{ formatDate(run.started_at) }}</dd>
               <dt>结束时间</dt>
               <dd>{{ formatDate(run.finished_at) }}</dd>
+              <dt>运行耗时</dt>
+              <dd>{{ elapsed }}</dd>
             </dl>
           </section>
           <RunEventTimeline

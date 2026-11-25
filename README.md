@@ -12,6 +12,8 @@ WAATA（Web App Auto Test App）是面向 Web 应用功能测试和回归测试�
 
 需要追踪时，从仓库的 Langfuse 子模块启动 `v4.30.0`。需要额外测试站点时，初始化 4gaBoards、Admidio 或 Discourse 的固定版本子模块。 [本地依赖与重建](infra/README.md)
 
+需要节省模型额度时，可用浏览器脚本先验证 4gaBoards 的五条仓库练习及夹具。该脚本直接操作页面，生成步骤记录和截图。 [课程验收记录与复现命令](docs/testing/4gaboards-integration.md#课程验收快跑)
+
 ## 项目结构
 
 | 路径 | 职责 |
