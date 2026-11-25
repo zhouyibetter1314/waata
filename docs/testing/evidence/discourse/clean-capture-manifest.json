@@ -1,0 +1,277 @@
+{
+  "captured_date": "2026-11-26",
+  "scope": "Only current-state screenshots; historical Run reports/verdicts unchanged; no model called or business state changed.",
+  "captures": [
+    {
+      "file": "DC04-larger-clean.png",
+      "captured_at": "2026-11-26T01:43:41.068756+08:00",
+      "url": "http://127.0.0.1:4200/u/waata_member/preferences/interface",
+      "account_role": "member",
+      "source": "fresh authenticated session; read-only current-state recapture",
+      "related_historical_runs": [
+        "dc04-agent-6b4588eb9f"
+      ],
+      "mask_applied": false,
+      "page_content_modified": false,
+      "capture_area": "full page",
+      "filter_text": null,
+      "checks": [
+        {
+          "check": "persisted Text Size",
+          "actual": "Larger",
+          "expected": "Larger",
+          "passed": true
+        }
+      ],
+      "sha256": "6661faed6e0a0b4d3086ef72ff2d5636157c588ce539a5f92a03ca7d35af8c51"
+    },
+    {
+      "file": "DC06-first-bookmarks-clean.png",
+      "captured_at": "2026-11-26T01:43:43.910113+08:00",
+      "url": "http://127.0.0.1:4200/u/waata_member/activity/bookmarks?q=WAATA%20bookmark%20practice%2011250730-97ca",
+      "account_role": "member",
+      "source": "fresh authenticated session; read-only current-state recapture",
+      "related_historical_runs": [
+        "dc06-agent-860315d135"
+      ],
+      "mask_applied": false,
+      "page_content_modified": false,
+      "capture_area": "full page",
+      "filter_text": "WAATA bookmark practice 11250730-97ca",
+      "checks": [
+        {
+          "check": "exact bookmark title count",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "sha256": "b11b9ade23f3a315fa022db0a1138a5d9e44074873de599387dd4e82d0c70583"
+    },
+    {
+      "file": "DC06-bookmarks-clean.png",
+      "captured_at": "2026-11-26T01:43:46.791024+08:00",
+      "url": "http://127.0.0.1:4200/u/waata_member/activity/bookmarks?q=WAATA%20bookmark%20practice%2011251212-7b87",
+      "account_role": "member",
+      "source": "fresh authenticated session; read-only current-state recapture",
+      "related_historical_runs": [
+        "dc06-agent-79b4a5a95d"
+      ],
+      "mask_applied": false,
+      "page_content_modified": false,
+      "capture_area": "full page",
+      "filter_text": "WAATA bookmark practice 11251212-7b87",
+      "checks": [
+        {
+          "check": "exact bookmark title count",
+          "expected": 1,
+          "actual": 1,
+          "passed": true
+        }
+      ],
+      "sha256": "52c6dd3a61181941f33a7e97dfcf6de4cc8bdcf9749652c7be694775d3cd4b9f"
+    },
+    {
+      "file": "DC06-round2-bookmarks-clean.png",
+      "captured_at": "2026-11-26T01:43:49.604101+08:00",
+      "url": "http://127.0.0.1:4200/u/waata_member/activity/bookmarks?q=WAATA%20bookmark%20practice%2011250946-e107",
+      "account_role": "member",
+      "source": "fresh authenticated session; read-only current-state recapture",
+      "related_historical_runs": [
+        "dc06-agent-062fe3873b"
+      ],
+      "mask_applied": false,
+      "page_content_modified": false,
+      "capture_area": "full page",
+      "filter_text": "WAATA bookmark practice 11250946-e107",
+      "checks": [
+        {
+          "check": "exact bookmark title count",
+          "expected": 0,
+          "actual": 0,
+          "passed": true
+        }
+      ],
+      "sha256": "b82a73d9bfaa3c38c182b659912588a2f465a1f8819ecc1098305fe78ad6c9c6"
+    },
+    {
+      "file": "DC08-pending-clean.png",
+      "captured_at": "2026-11-26T01:43:56.616453+08:00",
+      "url": "http://127.0.0.1:4200/u/waata_admin/invited/pending",
+      "account_role": "admin",
+      "source": "fresh authenticated session; read-only current-state recapture",
+      "related_historical_runs": [
+        "dc08-agent-bc292a3596"
+      ],
+      "mask_applied": false,
+      "page_content_modified": false,
+      "capture_area": "viewport",
+      "filter_text": null,
+      "checks": [
+        {
+          "check": "WAATA practice invite 11250946-e107",
+          "expected": [
+            0,
+            1
+          ],
+          "actual": {
+            "rows": 1,
+            "redemption": [
+              0,
+              1
+            ]
+          },
+          "passed": true
+        }
+      ],
+      "sha256": "df3666945cb4c604bf295f4aa7a19300453a177bdbaea627034c0b9271a4a205"
+    },
+    {
+      "file": "DC11-removed-clean.png",
+      "captured_at": "2026-11-26T01:43:59.614115+08:00",
+      "url": "http://127.0.0.1:4200/u/waata_admin/invited/pending",
+      "account_role": "admin",
+      "source": "fresh authenticated session; read-only current-state recapture",
+      "related_historical_runs": [
+        "dc11-agent-f5c849595b"
+      ],
+      "mask_applied": false,
+      "page_content_modified": false,
+      "capture_area": "full page",
+      "filter_text": null,
+      "checks": [
+        {
+          "check": "WAATA scoped invite 11251212-7b87",
+          "expected": null,
+          "actual": {
+            "rows": 0,
+            "redemption": null
+          },
+          "passed": true
+        },
+        {
+          "check": "WAATA keep invite 11251212-7b87",
+          "expected": [
+            0,
+            2
+          ],
+          "actual": {
+            "rows": 1,
+            "redemption": [
+              0,
+              2
+            ]
+          },
+          "passed": true
+        }
+      ],
+      "sha256": "e1d04eaa3a16b42cd6ebd25cee042fefd1f2dcdb0a628a3570a22e702560b519"
+    },
+    {
+      "file": "DC11-scoped-remains-clean.png",
+      "captured_at": "2026-11-26T01:44:02.119524+08:00",
+      "url": "http://127.0.0.1:4200/u/waata_admin/invited/pending",
+      "account_role": "admin",
+      "source": "fresh authenticated session; read-only current-state recapture",
+      "related_historical_runs": [
+        "dc11-agent-a69f38e044"
+      ],
+      "mask_applied": false,
+      "page_content_modified": false,
+      "capture_area": "viewport",
+      "filter_text": null,
+      "checks": [
+        {
+          "check": "WAATA scoped invite 11250946-e107",
+          "expected": [
+            0,
+            2
+          ],
+          "actual": {
+            "rows": 1,
+            "redemption": [
+              0,
+              2
+            ]
+          },
+          "passed": true
+        },
+        {
+          "check": "WAATA keep invite 11250946-e107",
+          "expected": [
+            0,
+            2
+          ],
+          "actual": {
+            "rows": 1,
+            "redemption": [
+              0,
+              2
+            ]
+          },
+          "passed": true
+        }
+      ],
+      "sha256": "350232bc151913cc1ac05fbb23d2af5ab84c91e4a44f93773b07ce8341d434ec"
+    }
+  ],
+  "retired_images": [
+    {
+      "file": "DC04-larger.png",
+      "sha256": "91e7b662cb5a3a303628c15b4ea0fca890adbddfea4bc1b5aabd6c528c8a0034",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    },
+    {
+      "file": "DC04-normal.png",
+      "sha256": "edcd06ecceec3a3e8817e3283aeaa6e72b9bb625cf5aa0214c4463b76dde212a",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    },
+    {
+      "file": "DC06-bookmark-stage.png",
+      "sha256": "921d207f66ebbbcb2da2372baed59a1d87e0a56444f791563fd52ba9bb0c02dc",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    },
+    {
+      "file": "DC06-bookmarks-round3.png",
+      "sha256": "a179e179ada61ac0137662c55490b9b9eb9c1ccf589e85763de0ac563b7d3a3a",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    },
+    {
+      "file": "DC06-round2-bookmarks.png",
+      "sha256": "5024397b5b75f5b1447afb58f163ac49da7c3764e720f425276f1a302ceb13b0",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    },
+    {
+      "file": "DC08-pending-recheck.png",
+      "sha256": "8c4d4ba55fb6b0a800ebe2ee2bacc04cef8a280908f9fe0ac9304eae423b1ec4",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    },
+    {
+      "file": "DC11-removed.png",
+      "sha256": "5aa0505f55e08c33db160284bc18ad50bc4bdf2f96042274b00e3f90fc995337",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    },
+    {
+      "file": "DC11-scoped-remains.png",
+      "sha256": "750ea58fb0301aabfe1c2243f584ebeb0f7fcaeb08355cbbff4c980928131caf",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    },
+    {
+      "file": "DC11-updated-stage.png",
+      "sha256": "fc0f7364e80310597e0625e8ed8d365b2053ce8ea51692a4edbf244568fb7641",
+      "reason": "Removed screenshot with pink privacy masks; immutable historical Run originals stay local."
+    }
+  ],
+  "historical_states_not_recreated": [
+    {
+      "scene": "DC04",
+      "state": "Normal after the first failed run",
+      "reason": "The shared account now persists Larger; the old run report remains authoritative."
+    },
+    {
+      "scene": "DC11",
+      "state": "Target invite 0/1 before deletion",
+      "reason": "The invitation was deleted by the historical Run. The structured stage JSON remains authoritative; no invitation was recreated."
+    }
+  ]
+}

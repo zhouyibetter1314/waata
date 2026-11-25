@@ -21,5 +21,6 @@ WAATA（Web App Auto Test App）面向授权测试环境中的 Web 功能测试�
 | 能力范围、需求编号与验证步骤 | [项目愿景](docs/01-project-vision.md) · [软件需求](docs/02-requirements.md) · [验收](docs/04-acceptance.md) · [开放问题](docs/05-open-questions.md) |
 | 接口、事件、证据和数据库 | [C1～C6](contracts/README.md) · [契约样例](contracts/examples/README.md) · [SQL 迁移](migrations/README.md) |
 | 可在本地上游站点复现的测试场景 | [场景手册](examples/README.md) |
+| Discourse DC-01–DC-11 联调状态、Windows 启停、Agent 复核和重跑 | [结果摘要](docs/testing/discourse-summary.md) · [联调记录](docs/testing/discourse-integration.md) |
 | 4gaBoards 五条练习的零模型调用验证、步骤和截图 | [联调记录与复现](docs/testing/4gaboards-integration.md#课程验收快跑) · [验收摘要](docs/testing/4gaboards-summary.md) |
 | 开发协作、检查和 PR 流程 | [团队协作](CONTRIBUTING.md) · [仓库约定](AGENTS.md) |
