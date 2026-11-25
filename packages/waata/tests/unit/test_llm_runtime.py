@@ -6,6 +6,7 @@ from typing import Literal
 
 import httpx
 from pydantic import BaseModel, RootModel
+from waata.browser.models import BROWSER_TOOLS
 from waata.core.agent import AgentHistory, ContextLimitError, agent_step
 from waata.core.model import (
     ChatMessage,
@@ -14,6 +15,7 @@ from waata.core.model import (
     ModelMetadata,
     ModelResponseError,
     ToolCall,
+    estimate_request_input_tokens,
 )
 from waata.core.tools import ToolContext, ToolRegistry, ToolResult, ToolSpec
 from waata.llm import OpenAILike
@@ -21,6 +23,52 @@ from waata.llm import OpenAILike
 
 class CountArgs(BaseModel):
     count: int
+
+
+class RunnerBudgetTests(unittest.TestCase):
+    def test_tool_prompt_schema_omits_metadata_but_keeps_constraints(self):
+        tools = [
+            ToolSpec(name, description, model, count)
+            for name, description, model in BROWSER_TOOLS
+        ]
+        full = sum(len(json.dumps(tool.input_schema)) for tool in tools)
+        compact = sum(len(json.dumps(tool.model_input_schema)) for tool in tools)
+        self.assertLess(compact, full * 0.9)
+        fill = next(tool for tool in tools if tool.name == "browser.fill")
+        schema = fill.model_input_schema
+        self.assertIn("locator", schema["required"])
+        self.assertEqual(
+            schema["properties"]["locator"]["oneOf"],
+            fill.input_schema["properties"]["locator"]["oneOf"],
+        )
+        self.assertEqual(
+            schema["$defs"]["CssLocator"]["properties"]["strategy"]["const"], "css"
+        )
+        self.assertFalse(schema["$defs"]["CssLocator"]["additionalProperties"])
+
+    def test_full_browser_schema_uses_compact_state_under_input_pressure(self):
+        tools = [
+            ToolSpec(name, description, model, count)
+            for name, description, model in BROWSER_TOOLS
+        ]
+        metadata = ModelMetadata(
+            context_window=32_768,
+            max_output_tokens=2_048,
+            supports_tools=True,
+            supports_json=False,
+        )
+        state = {"page": {"aria": "Add Project", "elements": ["extra data" * 1800]}}
+        compact = {"page": {"aria": "Add Project", "truncated": True}}
+        messages = AgentHistory().build_messages(
+            "Run the scenario",
+            state,
+            tools=tools,
+            metadata=metadata,
+            compact_state=compact,
+        )
+        self.assertIn("Add Project", messages[1].content)
+        self.assertNotIn("extra data", messages[1].content)
+        self.assertLess(estimate_request_input_tokens(messages, tools), 30_592)
 
 
 class PageCheck(BaseModel):
@@ -44,6 +92,34 @@ def tool_response(*calls: ToolCall) -> ChatResponse:
 
 
 class OpenAILikeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_ark_disables_thinking_to_preserve_completion_budget(self):
+        def transport(request):
+            self.assertEqual(request.url.path, "/api/v3/chat/completions")
+            self.assertEqual(
+                json.loads(request.content)["thinking"], {"type": "disabled"}
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"role": "assistant", "content": "Done"},
+                        }
+                    ]
+                },
+            )
+
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(transport)
+        ) as client:
+            model = OpenAILike(
+                base_url="https://ark.cn-beijing.volces.com/api/v3",
+                model="fixture",
+                client=client,
+            )
+            await model.chat([ChatMessage("user", "Test")])
+
     async def test_chat_completions_replays_complete_tool_pair(self):
         bodies = []
 
@@ -180,6 +256,28 @@ class OpenAILikeTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(ModelError, "HTTP 429$") as raised:
                 await llm.chat([ChatMessage("user", "Check a fixture")])
         self.assertTrue(raised.exception.retryable)
+
+    async def test_http_failure_logs_distinguish_quota_rate_and_format_safely(self):
+        for status, code, category, retryable in (
+            (429, "InsufficientBalance", "quota_or_balance", False),
+            (429, "RateLimitExceeded", "rate_limit", True),
+            (400, "InvalidParameter", "request_format", False),
+        ):
+            response = httpx.Response(
+                status, json={"error": {"code": code, "message": "private-data"}}
+            )
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(lambda _: response)
+            ) as client:
+                llm = OpenAILike(
+                    base_url="https://model.test", model="fixture", client=client
+                )
+                with self.assertLogs("waata.llm.openai_like", level="WARNING") as log:
+                    with self.assertRaises(ModelError) as raised:
+                        await llm.chat([ChatMessage("user", "Check a fixture")])
+                self.assertEqual(raised.exception.retryable, retryable)
+                self.assertIn(f"HTTP {status}: category={category}", log.output[0])
+                self.assertNotIn("private-data", log.output[0])
 
     async def test_bad_argument_json_is_left_for_tool_rejection(self):
         response = {

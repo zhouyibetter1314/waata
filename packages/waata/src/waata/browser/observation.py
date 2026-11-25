@@ -7,11 +7,18 @@ from .models import AriaRole
 
 ROLES = frozenset(get_args(AriaRole))
 
-COLLECT_CONTROLS = """({limit, textLimit}) => {
-    const candidates = document.querySelectorAll(
-        'a[href], button, input:not([type=hidden]), select, textarea, [role], [contenteditable]'
-    );
+COLLECT_CONTROLS = """({limit, textLimit, approvedSelectors}) => {
+    const controlSelector =
+        'a[href], button, input:not([type=hidden]), select, textarea, [role], [contenteditable]';
+    const candidates = document.querySelectorAll(controlSelector);
     const elements = [];
+    const approved = new Map();
+    for (const selector of approvedSelectors) {
+        try {
+            const matches = document.querySelectorAll(selector);
+            if (matches.length === 1) approved.set(matches[0], selector);
+        } catch { /* Playwright-only syntax has no DOM selector equivalent. */ }
+    }
     const scanLimit = Math.min(candidates.length, Math.max(200, 5 * limit));
     const text = value => value && value.trim().slice(0, textLimit) || null;
     const naturalRole = element => {
@@ -28,8 +35,12 @@ COLLECT_CONTROLS = """({limit, textLimit}) => {
         if (element.matches('input,textarea,[contenteditable=true]')) return 'textbox';
         return null;
     };
-    for (let index = 0; index < scanLimit; index++) {
-        const element = candidates[index];
+    // Keep exact, authorized matches before long lists of repeated controls.
+    const priority = [...approved.keys()].filter(element => element.matches(controlSelector));
+    const prioritized = new Set(priority);
+    for (let index = 0; index < priority.length + scanLimit; index++) {
+        const element = index < priority.length ? priority[index] : candidates[index - priority.length];
+        if (index >= priority.length && prioritized.has(element)) continue;
         if (element.closest('[inert],[aria-hidden=true]') || !element.getClientRects().length ||
             getComputedStyle(element).visibility !== 'visible') continue;
         if (elements.length === limit) return {elements, truncated: true};
@@ -46,6 +57,7 @@ COLLECT_CONTROLS = """({limit, textLimit}) => {
             label,
             placeholder: text(element.getAttribute('placeholder')),
             test_id: text(element.getAttribute('data-testid')),
+            approved_css: approved.get(element),
             enabled: !element.matches(':disabled') && !element.closest('[aria-disabled=true]'),
         });
     }
@@ -87,6 +99,8 @@ def omit_form_values(snapshot: str) -> str:
 
 
 def suggested_locator(control: dict) -> dict[str, str] | None:
+    if control.get("approved_css"):
+        return {"strategy": "css", "value": control["approved_css"]}
     if control["test_id"]:
         return {"strategy": "test_id", "value": control["test_id"]}
     if control["label"]:

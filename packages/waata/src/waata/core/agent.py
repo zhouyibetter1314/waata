@@ -80,6 +80,7 @@ class AgentHistory:
         metadata: ModelMetadata,
         max_input_tokens: int | None = None,
         safety_margin: int = 128,
+        compact_state: Mapping[str, Any] | None = None,
     ) -> tuple[ChatMessage, ...]:
         limit = input_token_limit(metadata, max_input_tokens, safety_margin)
         system_message = ChatMessage("system", system)
@@ -101,6 +102,8 @@ class AgentHistory:
                 self._archive(summaries)
             elif self._archived_summaries:
                 self._summary_chars -= len(self._archived_summaries.popleft())
+            elif compact_state is not None:
+                state, compact_state = compact_state, None
             else:
                 raise ContextLimitError(
                     "Required agent context exceeds the model window"

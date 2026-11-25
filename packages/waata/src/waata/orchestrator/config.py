@@ -19,6 +19,7 @@ class EngineConfig(BaseModel):
     cleanup_timeout_seconds: float = Field(default=5, gt=0)
     tool_timeout_seconds: float = Field(default=5, gt=0)
     verification_settle_seconds: float = Field(default=0.25, ge=0)
+    capture_final_screenshot: bool = False
     observer_timeout_seconds: float = Field(default=0.25, gt=0)
     max_model_requests_per_run: int = Field(default=48, gt=0)
     max_model_tokens_per_run: int = Field(default=200_000, gt=0)

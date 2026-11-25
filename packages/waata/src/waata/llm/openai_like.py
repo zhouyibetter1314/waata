@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 from collections.abc import Sequence
@@ -22,6 +23,38 @@ from waata.core.model import (
 from waata.core.tools import ToolSpec
 
 _FUNCTION_NAME = re.compile(r"[A-Za-z0-9_-]{1,64}")
+_LOG = logging.getLogger(__name__)
+_QUOTA_CODES = {
+    "accountoverdue",
+    "insufficientbalance",
+    "insufficient_quota",
+    "quotaexceeded",
+}
+
+
+def _http_failure(response: httpx.Response) -> tuple[str, bool]:
+    status = response.status_code
+    try:
+        body = response.json()
+        error = body.get("error") if isinstance(body, dict) else None
+        code = error.get("code") if isinstance(error, dict) else None
+    except (ValueError, RecursionError):
+        code = None
+    if status == 402 or (isinstance(code, str) and code.lower() in _QUOTA_CODES):
+        return "quota_or_balance", False
+    if status == 429:
+        return "rate_limit", True
+    if status in {400, 422}:
+        return "request_format", False
+    if status in {401, 403}:
+        return "authentication_or_permission", False
+    if status == 408:
+        return "timeout", True
+    return (
+        ("provider_error", True)
+        if status == 425 or status >= 500
+        else ("http_error", False)
+    )
 
 
 class OpenAILike:
@@ -65,7 +98,10 @@ class OpenAILike:
         self._model = model
         self._api_key = api_key
         self._timeout = timeout
-        self._disable_thinking = thinking is False or url.host == "api.deepseek.com"
+        self._disable_thinking = thinking is False or url.host in {
+            "api.deepseek.com",
+            "ark.cn-beijing.volces.com",
+        }
         self._metadata = ModelMetadata(
             context_window=context_window,
             max_output_tokens=max_output_tokens,
@@ -132,14 +168,24 @@ class OpenAILike:
                 timeout=self._timeout,
                 follow_redirects=False,
             )
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError):
+        except httpx.TimeoutException:
+            _LOG.warning("Model request failed: category=timeout")
+            raise ModelError(
+                "Model service request timed out", retryable=True
+            ) from None
+        except (httpx.NetworkError, httpx.RemoteProtocolError):
+            _LOG.warning("Model request failed: category=network")
             raise ModelError("Model service request failed", retryable=True) from None
         except httpx.HTTPError:
+            _LOG.warning("Model request failed: category=transport")
             raise ModelError("Model service request failed") from None
 
         if not response.is_success:
-            retryable = response.status_code in {408, 425, 429} or (
-                500 <= response.status_code < 600
+            category, retryable = _http_failure(response)
+            _LOG.warning(
+                "Model service returned HTTP %s: category=%s",
+                response.status_code,
+                category,
             )
             raise ModelError(
                 f"Model service returned HTTP {response.status_code}",
@@ -169,7 +215,7 @@ def _encode_tools(
         if alias in names:
             raise ModelError("Registered tools map to the same function name")
         names[alias] = tool.name
-        parameters = tool.input_schema
+        parameters = tool.model_input_schema
         parameters.setdefault("type", "object")
         definitions.append(
             {
