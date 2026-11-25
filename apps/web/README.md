@@ -1,55 +1,29 @@
 # WAATA Web
 
-WAATA 的 Vue 3 + TypeScript 前端。任务、进度、报告和证据接口遵循 [C1、C4 和 C5](../../contracts/README.md)。
-
-## 当前功能
-
-- 提交测试任务，分页查询运行记录，跟踪 SSE 进度或申请取消。
-- 查看用例、步骤与断言，打开结构化观察和已登记截图。报告支持下载已登记的 Trace ZIP。现有 Worker 默认交付结构化观察，原始 Playwright Trace 采集关闭。
-- 本地场景库支持应用配置、JSON 导入与批量提交。场景模板保存在当前浏览器，运行时逐项发送 C1 创建请求。
+Vue 3 和 TypeScript 前端。开发服务器监听 `127.0.0.1:5173`，将 `/api` 转发给 `127.0.0.1:8000`，并使用原生 `EventSource` 订阅运行事件。页面读取任务、运行进度、报告和证据时使用同源 API。[启动 FastAPI 和 Worker](../api/README.md#本地启动与目标配置) · [C1、C4 和 C5](../../contracts/README.md)
 
 ## 本地运行
 
-使用 Node.js 22.12 或更高版本及 npm 10.9.2。在仓库根目录运行以下命令。
+使用 Node.js 22.12+ 和 npm。在 `apps/web` 安装锁定依赖并启动开发服务器。端口占用时服务器会报错。
 
 ```bash
-cd apps/web
 npm ci
 npm run dev
 ```
 
-开发服务器使用 <http://127.0.0.1:5173>。端口被占用时启动失败。
+## 页面与数据
 
-开发模式默认用 MSW 加载共享 JSON 和 SSE 样例。联调时禁用 Mock，`/api` 会代理到 `http://127.0.0.1:8000`。 [后端启动与联调](../api/README.md)
+| 页面       | 入口             | 数据来源                                                             |
+| ---------- | ---------------- | -------------------------------------------------------------------- |
+| 场景与应用 | `/scenarios`     | 浏览器本地存储。先建应用，再维护或导入场景。批量运行时各场景独立提交 |
+| 新建任务   | `/runs/new`      | 用户填写目标地址、测试目标和预期行为后提交 C1                        |
+| 运行与报告 | `/runs`          | C1 分页查询。界面搜索和筛选应用于当前已加载的记录                    |
+| 运行详情   | `/runs/{run_id}` | C1 详情与报告、C4 事件和 C5 观察或截图                               |
+| 环境与设置 | `/settings`      | 前端接口和环境信息                                                   |
 
-Bash
+场景 JSON 的 `application_id` 使用场景库中已有应用的实际 ID。场景库属于当前浏览器与站点 origin。平台运行和报告由服务端持久化。报告页可以预览观察和截图，并下载仍有效的已登记 Trace。
 
-```bash
-VITE_API_MOCKING=disabled npm run dev
-```
-
-PowerShell
-
-```powershell
-$env:VITE_API_MOCKING='disabled'
-npm run dev
-```
-
-## 页面与数据来源
-
-| 页面       | 路径             | 数据来源                       |
-| ---------- | ---------------- | ------------------------------ |
-| 场景与应用 | `/scenarios`     | 浏览器本地存储，提交时调用 C1  |
-| 新建任务   | `/runs/new`      | C1 `POST /api/v1/test-runs`    |
-| 运行与报告 | `/runs`          | C1 分页列表                    |
-| 运行详情   | `/runs/{run_id}` | C1 详情与报告、C4 SSE、C5 证据 |
-| 环境与设置 | `/settings`      | 前端构建配置和静态契约信息     |
-
-## 手工验收与开发检查
-
-连到真实后端后，可以在自己的授权站点提交场景，核对 SSE、报告判定、证据读取及重启后的事件重放。 [手工验收步骤](../../docs/04-acceptance.md)
-
-从 `apps/web/` 运行开发检查。
+## 开发检查
 
 ```bash
 npm run format:check
@@ -61,16 +35,10 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-单元及组件测试位于 `tests/`，浏览器测试位于 `e2e/`。已有 Chrome 时，可用 `WAATA_BROWSER_EXECUTABLE` 指定浏览器路径。
+`tests/` 包含单元与组件测试，`e2e/` 使用 Playwright 验证浏览器流程，测试响应只在这些检查中加载。可用 `WAATA_BROWSER_EXECUTABLE` 指定已安装的浏览器。完整平台联调使用授权站点和实际服务。[手工验收](../../docs/04-acceptance.md)
 
-前端测试覆盖场景库、创建任务、查询、事件处理、排队取消、报告和 JSON 证据。
+HTTP 模型变更后，先按后端说明导出 OpenAPI，再在 `apps/web` 运行 `npm run generate:api` 和 `npm run typecheck`。生成文件为 `src/api/schema.d.ts`，SSE 信封由 `src/api/types.ts` 按 C4 定义。[导出 OpenAPI](../api/README.md#校验)
 
-## API 类型
+## 部署
 
-`src/api/types.ts` 从生成的 HTTP 类型导出 C1 和 C5 数据模型，同时按 C4 定义 SSE 信封。后端更新 `contracts/http/openapi.json` 后，从 `apps/web/` 重新生成类型。
-
-```bash
-npm run generate:api
-```
-
-生成结果写入 `src/api/schema.d.ts`。运行 `npm run typecheck` 验证 C1-AT-06。
+`npm run build` 生成 `dist/`。同源网关把 `/api` 转到 FastAPI，并将前端路由回退到 `index.html`。SSE 路径需要流式转发。[共享部署](../api/README.md#运行设置)

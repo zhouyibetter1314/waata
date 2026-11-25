@@ -1,6 +1,6 @@
 # WAATA 本地 Web 应用测试手册
 
-这里的 36 个英文场景是根据课程给出的版本、数量、难度和功能范围编写的练习场景。截图提到开发阶段的 5 个 4gaBoards 示例及最终评测场景由课程方发放，4gaBoards 的 5 条基础练习可先用于调试，收到课程原题后另记。
+本手册提供 36 个可在固定版本上游站点练习的英文场景。每条列出数据前置条件、测试目标、预期行为和参考操作。运行时按实际报告与证据记录结果。
 
 | 分工 | 固定版本与提交 | 本地入口 | 基础 / 进阶 / 综合 | 小计 |
 | --- | --- | --- | --- | ---: |
@@ -9,20 +9,12 @@
 | [组员 C · Discourse](#discourse-组员-c) | `v2025.12.0-latest` · `3e7317b3` | `http://127.0.0.1:4200` | 4 / 4 / 3 | 11 |
 | **合计** | | | **13 / 13 / 10** | **36** |
 
-## 组员通用流程
+## 通用流程
 
-1. 在仓库根目录运行对应应用的脚本。首次部署时，脚本会初始化所需子模块并核对固定提交。启动后在浏览器确认能打开站点并登录测试账号。 [子模块版本](../testsites/README.md)
-2. 使用支持工具调用的模型和 PostgreSQL 启动 WAATA 的 API、Worker、Vue。启动 Vue 时设置 `VITE_API_MOCKING=disabled`。在项目根目录的 `.env` 中指定 `WAATA_TARGET_POLICY=.local/targets.json`，按自己的站点追加目标策略，并在修改后重启 API 和 Worker。不同电脑分别配置本机 origin，`localhost` 与 `127.0.0.1` 在 WAATA 策略中要按实际地址匹配。 [平台启动](../apps/api/README.md#本地启动与目标配置)
-3. 在应用里提前准备每个场景的 `Fixture`，将界面设为英文。用专用测试账号和虚构数据，同一场景的对象名在本次夹具中保持唯一。复跑前按前置条件恢复对象状态或换一组名称，并同步替换英文输入和预期里的名字。测试账号和业务数据由应用保留，每个 WAATA 用例会打开新的浏览器会话。
-4. 打开 [新建任务](http://127.0.0.1:5173/runs/new)。每个场景单独提交，填写应用部分指定的入口和账号引用。将 `Goal` 复制到「自然语言测试目标」，将 `Expected` 复制到「预期行为」。如果任务从登录页开始，把 `Sign in using the supplied test credential, then perform the scenario.` 加到目标里。必要时把前置条件中的公开对象名、页面位置或已有夹具附在目标后。`Steps` 是组员核对轨迹时使用的参考操作路径。WAATA 在用例收尾检查当前页面，跨页面和临时状态应按 `Evidence` 在出现时记录。
-5. 完成后打开[运行记录](http://127.0.0.1:5173/runs)，按 Run ID 查看报告、事件和证据。对照 `Expected` 核对实际值，逐项标明通过、失败、受阻或无法判定。技术异常另记运行状态和错误码。需要观察临时提示、前后状态变化或下载结果时，同时核对当时的观察证据，避免只用最后一页判断。 [手工验收 AC-01～AC-05](../docs/04-acceptance.md)
-
-### 运行环境
-
-- Linux 使用 Bash，先确认 `git`、`curl`、`openssl`、`docker info` 和 `docker compose version` 可用。Compose 需要支持 `up --wait`。在 WAATA 仓库根目录运行下方命令。
-- Windows 建议用 **WSL2（例如 Ubuntu）**。在 Docker Desktop 开启对应发行版的 WSL 集成，把仓库克隆到 WSL 的 Linux 文件系统，例如 `~/projects/waata`，再从 WSL 终端运行 `bash scripts/…`。PowerShell 和 CMD 有各自的语法。 [Docker Desktop 的 WSL2 配置](https://docs.docker.com/desktop/features/wsl/)
-- macOS 使用 Bash 和 Docker Desktop，核对镜像是否支持本机 CPU 架构。Discourse 优先使用 Linux x86_64 或 WSL2。若端口已被占用，先处理冲突，并让站点地址与 WAATA 目标策略一致。
-- 三个脚本都支持 `status`、`logs` 和 `stop`。例如运行 `bash scripts/4gaboards.sh status` 查看容器，运行 `bash scripts/4gaboards.sh stop` 暂停站点。下次用 `start` 恢复。
+1. 用下方脚本启动站点。脚本需要 Bash、Git、curl、OpenSSL、Docker 和支持 `up --wait` 的 Compose。在 Windows 上从启用 Docker 集成的 WSL2 运行。Discourse 优先用 Linux x86_64 或 WSL2。
+2. 按场景准备英文界面、专用账号和可重置数据。把目标加入本地策略，启动 WAATA 的 API、Worker 和 Vue。[平台启动](../apps/api/README.md#本地启动与目标配置)
+3. 在 [新建任务](http://127.0.0.1:5173/runs/new) 填写本地 URL、`Goal`、`Expected` 和专用凭据引用。如需先登录，在目标中说明。将场景中的标记替换为当次测试数据。`Steps` 用于复核执行路径，`Evidence` 用于核对过程中的状态。
+4. 从 [运行记录](http://127.0.0.1:5173/runs) 按 Run ID 打开报告，核对实际结果、判定和证据。复跑前恢复前置条件。各场景预算是预估，执行结果由当次证据确定。[验收](../docs/04-acceptance.md)
 
 ### 目标策略与凭据引用
 
@@ -65,7 +57,7 @@
 
 ## 4gaBoards 组员 A
 
-负责本应用的组员使用 `testsites/4gaboards` 固定子模块 `b76dcc95`。以下第一个练习参考仓库的项目创建示例，其余为本组编写。[子模块版本](../testsites/README.md) · [项目创建参考](../contracts/examples/README.md)
+项目创建场景参考跨模块契约示例。[子模块版本](../testsites/README.md) · [项目创建参考](../contracts/examples/README.md)
 
 ### 本地启动 4gaBoards
 
@@ -73,7 +65,7 @@
 bash scripts/4gaboards.sh start
 ```
 
-脚本沿用 `.local/temp.md` 的部署方式，使用独立 Compose 项目、固定版本镜像和本地数据卷。首次部署会生成 `.local/4gaboards/docker-compose.yml` 和本机凭据文件。新库的测试管理员是 `waataadmin`，密码在 `.local/4gaboards/.env` 的 `BOARDS_ADMIN_PASSWORD` 中。已有 Compose 配置和数据库卷会继续使用原有账号。
+脚本使用独立 Compose 项目、固定版本镜像和本地数据卷。首次部署会生成 `.local/4gaboards/docker-compose.yml` 和本机凭据文件。新库的测试管理员是 `waataadmin`，密码在 `.local/4gaboards/.env` 的 `BOARDS_ADMIN_PASSWORD` 中。已有 Compose 配置和数据库卷会继续使用原有账号。
 
 打开 [4gaBoards](http://127.0.0.1:3000/)，登录后确认项目面板和侧边栏可见。 [启动脚本](../scripts/4gaboards.sh) · [固定版本部署说明](../testsites/4gaboards/README.md#deploy)
 

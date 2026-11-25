@@ -15,7 +15,7 @@
 
 ## 应用迁移
 
-由单一发布步骤负责迁移，在启动依赖新结构的 FastAPI 和 Worker 前完成。应用进程只使用已迁移的库。连接配置通过 PostgreSQL 客户端环境提供，并确认目标数据库。
+由单一发布步骤在启动 FastAPI 和 Worker 前执行迁移。两者启动时都核对 `schema_migrations` 是否包含版本 2。先通过 PostgreSQL 客户端环境指定目标库，使用 Docker 时可按后端说明执行同一组 SQL。[PostgreSQL 启动示例](../apps/api/README.md#准备数据库和依赖)
 
 从仓库根目录对空库按序应用全部迁移。
 
@@ -24,12 +24,10 @@ psql -X -v ON_ERROR_STOP=1 -f migrations/0001_platform_persistence.sql
 psql -X -v ON_ERROR_STOP=1 -f migrations/0002_run_execution_lease.sql
 ```
 
-升级已有库时，先核对已应用的版本和文件名，再按编号升序逐个执行待应用的文件。遇到错误时停止，确认当前版本已回滚后再重试。[PostgreSQL 17 psql 文档](https://www.postgresql.org/docs/17/app-psql.html#APP-PSQL-VARIABLES-ON-ERROR-STOP)
-
-执行 [Worker 租约迁移](0002_run_execution_lease.sql)前，先停止使用旧结构的 Worker 并确保其浏览器执行已停止。迁移保留已有记录。新版 Worker 会按 C6 将遗留的无租约 `running` 记录收敛为 `errored + null`，原有排队任务可以继续领取。
+升级已有库时，查询已应用的版本和文件名，按编号升序执行待应用的 SQL。应用中止时先核对该版本是否已回滚。已有表且缺少版本记录的库应先核对结构和数据。[PostgreSQL 17 psql](https://www.postgresql.org/docs/17/app-psql.html#APP-PSQL-VARIABLES-ON-ERROR-STOP)
 
 ```sql
 SELECT version, filename, applied_at FROM schema_migrations ORDER BY version;
 ```
 
-已有表但缺少版本记录的库须先核对结构和数据，再制定接入迁移的方案。
+执行 0002 前停止旧 Worker 及其浏览器执行。新版 Worker 会将遗留的无租约 `running` 记录收尾为 `errored`、判定为空，并继续领取原有排队任务。[C6](../contracts/database/c6-platform-persistence.md)
