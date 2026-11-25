@@ -142,6 +142,7 @@ async def run_worker(
                     base_url=settings.model_base_url,
                     model=settings.model_name,
                     api_key=settings.model_api_key,
+                    thinking=settings.model_enable_thinking,
                 )
             )
         # Langfuse 接收规划、工具执行和判定等观测信息。启用时需要同时提供两把密钥。
