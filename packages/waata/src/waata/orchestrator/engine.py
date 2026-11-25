@@ -554,8 +554,12 @@ class _Run:
                 # Optional evidence uses normal browser policy and budgets, and
                 # never changes the independently calculated business verdict.
                 try:
-                    await self.run_tool(case, result.steps[-1], "browser.screenshot", {})
-                except WAATAError:
+                    await self.run_tool(
+                        case, result.steps[-1], "browser.screenshot", {}
+                    )
+                except WAATAError as exc:
+                    if exc.error.code != "BROWSER_ERROR":
+                        raise
                     _LOG.warning("Automatic final screenshot could not be captured")
             await self.case_verified(result)
         except (WAATAError, asyncio.CancelledError) as exc:

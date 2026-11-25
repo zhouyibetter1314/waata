@@ -67,7 +67,9 @@ def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
             value = {name: _compact_schema(item) for name, item in value.items()}
         elif key in {"anyOf", "allOf", "oneOf", "prefixItems"}:
             value = [_compact_schema(item) for item in value]
-        elif key in {"items", "additionalProperties", "not"} and isinstance(value, dict):
+        elif key in {"items", "additionalProperties", "not"} and isinstance(
+            value, dict
+        ):
             value = _compact_schema(value)
         result[key] = value
     return result

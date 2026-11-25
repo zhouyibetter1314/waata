@@ -148,7 +148,7 @@ onMounted(() => store.load(1));
         <span class="spinner spinner-dark"></span>正在加载任务…
       </div>
       <EmptyState
-        v-else-if="!store.items.length"
+        v-else-if="!store.error && !store.items.length"
         title="还没有测试任务"
         description="创建第一个自然语言 Web 测试任务，运行记录会显示在这里。"
         icon="＋"
@@ -158,7 +158,7 @@ onMounted(() => store.load(1));
         >
       </EmptyState>
       <EmptyState
-        v-else-if="!visibleItems.length"
+        v-else-if="!store.error && !visibleItems.length"
         title="没有匹配的任务"
         description="请调整搜索内容或状态筛选。"
         icon="⌕"
@@ -174,7 +174,7 @@ onMounted(() => store.load(1));
           清除筛选
         </button>
       </EmptyState>
-      <div v-else class="table-wrap">
+      <div v-else-if="visibleItems.length" class="table-wrap">
         <table>
           <thead>
             <tr>

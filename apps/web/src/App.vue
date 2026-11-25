@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
-const isMock = computed(() => import.meta.env.VITE_API_MOCKING !== 'disabled');
 </script>
 
 <template>
@@ -37,14 +35,6 @@ const isMock = computed(() => import.meta.env.VITE_API_MOCKING !== 'disabled');
           >
         </RouterLink>
       </nav>
-
-      <div class="sidebar-note">
-        <span class="status-dot"></span>
-        <div>
-          <strong>{{ isMock ? 'Mock 工作空间' : 'API 工作空间' }}</strong>
-          <small>契约驱动 · 证据可追溯</small>
-        </div>
-      </div>
     </aside>
 
     <main class="main-content">
@@ -53,10 +43,6 @@ const isMock = computed(() => import.meta.env.VITE_API_MOCKING !== 'disabled');
           <span class="breadcrumb">WAATA /</span>
           <strong>{{ route.meta.title ?? '测试工作台' }}</strong>
         </div>
-        <span class="environment">
-          <span class="status-dot"></span>
-          {{ isMock ? 'Mock 开发环境' : '后端 API' }}
-        </span>
       </header>
       <RouterView />
     </main>

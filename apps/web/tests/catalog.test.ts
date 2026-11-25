@@ -5,14 +5,29 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 import { describe, expect, it, vi } from 'vitest';
 import type { CreateRunRequest } from '../src/api';
 import ScenarioWorkspaceView from '../src/features/catalog/ScenarioWorkspaceView.vue';
-import type { CatalogScenario } from '../src/features/catalog/store';
-import { runCreatedFixture } from '../src/mocks/fixtures';
-import { server } from '../src/mocks/server';
+import type {
+  CatalogApplication,
+  CatalogScenario,
+} from '../src/features/catalog/store';
+import { runCreatedFixture } from './fixtures/api';
+import { server } from './fixtures/server';
 
 const storageKey = 'waata.frontend.catalog.v1';
+const retiredApplication: CatalogApplication = {
+  id: 'app_4gaboards',
+  name: '4gaBoards',
+  base_url: 'http://localhost:3000/',
+  credential_ref: 'boards_local_fixture',
+  version: '3.2.16',
+};
+const savedApplication: CatalogApplication = {
+  ...retiredApplication,
+  base_url: 'http://127.0.0.1:3000/',
+  credential_ref: null,
+};
 const retiredScenario: CatalogScenario = {
   id: 'scenario_create_project',
-  application_id: 'app_4gaboards',
+  application_id: retiredApplication.id,
   name: '创建项目并验证两个位置',
   goal: '在本地 4gaBoards 创建名为 Course Test 01 的项目。',
   expected_behavior: '创建完成后，仪表盘和侧边栏均显示 Course Test 01。',
@@ -27,19 +42,14 @@ const savedScenario: CatalogScenario = {
   source: '自建场景',
 };
 
-function saveCatalog(scenarios: CatalogScenario[]): void {
+function saveCatalog(
+  scenarios: CatalogScenario[],
+  application = savedApplication,
+): void {
   localStorage.setItem(
     storageKey,
     JSON.stringify({
-      applications: [
-        {
-          id: 'app_4gaboards',
-          name: '4gaBoards',
-          base_url: 'http://127.0.0.1:3000/',
-          credential_ref: null,
-          version: '3.2.16',
-        },
-      ],
+      applications: [application],
       scenarios,
       maxSteps: 12,
     }),
@@ -66,14 +76,25 @@ async function mountView() {
 }
 
 describe('contract-driven local scenario catalog', () => {
-  it('removes the retired sample from a previously saved catalog', async () => {
-    saveCatalog([retiredScenario, savedScenario]);
+  it('removes an unmodified sample application and scenario', async () => {
+    saveCatalog([retiredScenario], retiredApplication);
+    const { wrapper } = await mountView();
+    expect(wrapper.text()).toContain('请先添加被测应用');
+    expect(JSON.parse(localStorage.getItem(storageKey)!)).toMatchObject({
+      applications: [],
+      scenarios: [],
+    });
+  });
+
+  it('keeps the former sample application when a saved scenario uses it', async () => {
+    saveCatalog([retiredScenario, savedScenario], retiredApplication);
     const { wrapper } = await mountView();
     expect(wrapper.text()).not.toContain(retiredScenario.name);
     expect(wrapper.text()).toContain(savedScenario.name);
-    expect(JSON.parse(localStorage.getItem(storageKey)!).scenarios).toEqual([
-      savedScenario,
-    ]);
+    expect(JSON.parse(localStorage.getItem(storageKey)!)).toMatchObject({
+      applications: [retiredApplication],
+      scenarios: [savedScenario],
+    });
   });
 
   it('keeps user edits to the former sample', async () => {

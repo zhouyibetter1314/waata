@@ -18,7 +18,6 @@ ERRORS = {
     "RUN_NOT_CANCELLABLE": (409, "此任务已结束，无法取消"),
     "ARTIFACT_EXPIRED": (410, "测试证据已过期"),
     "VALIDATION_ERROR": (422, "请求字段无效或超出允许范围"),
-    "TOO_MANY_REQUESTS": (429, "请求超出当前配额"),
     "INTERNAL_ERROR": (500, "服务处理请求时发生错误"),
     "SERVICE_UNAVAILABLE": (503, "服务暂时不可用"),
     "ARTIFACT_UNAVAILABLE": (503, "测试证据暂时不可读取"),

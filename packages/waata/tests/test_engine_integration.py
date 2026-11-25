@@ -17,10 +17,10 @@ from waata.browser import CredentialField, PlaywrightAdapter
 from waata.browser.observation import COLLECT_CONTROLS
 from waata.core.model import ChatMessage, ChatResponse, ToolCall
 from waata.core.tools import ToolContext, ToolRegistry, ToolResult
-from waata.llm import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest, WAATAError
 from waata.orchestrator.config import EngineConfig
 from waata.orchestrator.planner import parse_plan
+from waata_test_support.model import FakeLLM
 
 try:
     from playwright.async_api import async_playwright
@@ -266,8 +266,10 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
         with login_fixture() as fixture:
             url = f"{fixture.origin}/controls"
             model = FakeLLM(
-                [planning_response(case_plan("Controls page", [url_check(url)])),
-                 assistant_text("Done")]
+                [
+                    planning_response(case_plan("Controls page", [url_check(url)])),
+                    assistant_text("Done"),
+                ]
             )
             store = MemoryArtifacts()
             engine = TestEngine(
@@ -281,12 +283,20 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
                 config=EngineConfig(capture_final_screenshot=True),
             )
             result = await engine.run(
-                TestRequest(target_url=url, goal="Open controls", expected_behavior="Controls load")
+                TestRequest(
+                    target_url=url,
+                    goal="Open controls",
+                    expected_behavior="Controls load",
+                )
             )
             self.assertEqual(result.verdict, "passed")
-            screenshots = [item for item in result.artifacts if item.kind == "screenshot"]
+            screenshots = [
+                item for item in result.artifacts if item.kind == "screenshot"
+            ]
             self.assertEqual(len(screenshots), 1)
-            self.assertTrue(store.saved[screenshots[0].artifact_id].content.startswith(b"\x89PNG"))
+            self.assertTrue(
+                store.saved[screenshots[0].artifact_id].content.startswith(b"\x89PNG")
+            )
 
     async def test_observation_keeps_approved_control_after_long_sidebar(self):
         page = await self.browser.new_page()
@@ -754,6 +764,32 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             self.assertEqual(fixture.submissions, 0)
             self.assertEqual(self.browser.contexts, [])
             self.assertTrue(self.browser.is_connected())
+
+    async def test_final_screenshot_does_not_hide_event_delivery_failure(self):
+        with login_fixture() as fixture:
+            llm = FakeLLM(
+                [
+                    planning_response(
+                        case_plan("Open login", [url_check(fixture.login_url)])
+                    ),
+                    assistant_text("Done"),
+                ]
+            )
+
+            async def failing_callback(event):
+                if (
+                    event.type == "tool.called"
+                    and event.payload["tool"] == "browser.screenshot"
+                ):
+                    raise RuntimeError("event storage unavailable")
+
+            with self.assertRaises(WAATAError) as captured:
+                await self._engine(fixture, llm, capture_final_screenshot=True).run(
+                    self._request(fixture), on_event=failing_callback
+                )
+
+            self.assertEqual(captured.exception.error.code, "EVENT_DELIVERY_FAILED")
+            self.assertEqual(self.browser.contexts, [])
 
     async def test_cancellation_closes_owned_context_and_leaves_browser_usable(self):
         with login_fixture() as fixture:

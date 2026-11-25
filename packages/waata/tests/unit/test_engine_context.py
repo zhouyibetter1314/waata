@@ -4,11 +4,11 @@ import unittest
 from datetime import UTC, datetime
 
 from waata.artifacts import ArtifactInput, ArtifactRef
-from waata.browser import FakeBrowserAdapter
 from waata.core.model import ChatMessage, ChatResponse, ToolCall
 from waata.core.tools import ToolResult
-from waata.llm import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest
+from waata_test_support.browser import FakeBrowserAdapter
+from waata_test_support.model import FakeLLM
 
 _START = "http://fixture.test/start"
 _NEXT = "http://fixture.test/next"

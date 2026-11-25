@@ -1,84 +1,164 @@
 id: 1
 event: run.started
-data: {"schema_version":1,"event_id":"evt_4ga_001","run_id":"run_4gaboards_001","sequence":1,"type":"run.started","timestamp":"2026-11-21T02:00:02Z","case_id":null,"step_id":null,"payload":{}}
+data: {"schema_version":1,"event_id":"evt_000001","run_id":"run_4gaboards_001","sequence":1,"type":"run.started","timestamp":"2026-11-21T02:00:02Z","case_id":null,"step_id":null,"payload":{}}
 
 id: 2
 event: plan.created
-data: {"schema_version":1,"event_id":"evt_4ga_002","run_id":"run_4gaboards_001","sequence":2,"type":"plan.created","timestamp":"2026-11-21T02:00:03Z","case_id":null,"step_id":null,"payload":{"total_cases":1}}
+data: {"schema_version":1,"event_id":"evt_000002","run_id":"run_4gaboards_001","sequence":2,"type":"plan.created","timestamp":"2026-11-21T02:00:02.350000Z","case_id":null,"step_id":null,"payload":{"total_cases":1}}
 
 id: 3
 event: case.started
-data: {"schema_version":1,"event_id":"evt_4ga_003","run_id":"run_4gaboards_001","sequence":3,"type":"case.started","timestamp":"2026-11-21T02:00:04Z","case_id":"case_create_project","step_id":null,"payload":{"name":"创建项目并验证两个位置"}}
+data: {"schema_version":1,"event_id":"evt_000003","run_id":"run_4gaboards_001","sequence":3,"type":"case.started","timestamp":"2026-11-21T02:00:02.700000Z","case_id":"case_create_project","step_id":null,"payload":{"name":"创建项目并验证两个位置"}}
 
 id: 4
 event: agent.step.started
-data: {"schema_version":1,"event_id":"evt_4ga_004","run_id":"run_4gaboards_001","sequence":4,"type":"agent.step.started","timestamp":"2026-11-21T02:00:05Z","case_id":"case_create_project","step_id":"step_open","payload":{"summary":"打开已登录的本地仪表盘并打开创建项目表单"}}
+data: {"schema_version":1,"event_id":"evt_000004","run_id":"run_4gaboards_001","sequence":4,"type":"agent.step.started","timestamp":"2026-11-21T02:00:03.050000Z","case_id":"case_create_project","step_id":"step_open","payload":{"summary":"Observe and exercise the test case"}}
 
 id: 5
 event: tool.called
-data: {"schema_version":1,"event_id":"evt_4ga_005","run_id":"run_4gaboards_001","sequence":5,"type":"tool.called","timestamp":"2026-11-21T02:00:06Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_001","tool":"browser.navigate"}}
+data: {"schema_version":1,"event_id":"evt_000005","run_id":"run_4gaboards_001","sequence":5,"type":"tool.called","timestamp":"2026-11-21T02:00:03.400000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_001","tool":"browser.navigate"}}
 
 id: 6
 event: tool.completed
-data: {"schema_version":1,"event_id":"evt_4ga_006","run_id":"run_4gaboards_001","sequence":6,"type":"tool.completed","timestamp":"2026-11-21T02:00:07Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_001","tool":"browser.navigate","success":true,"duration_ms":280,"error_code":null,"evidence_ids":[]}}
+data: {"schema_version":1,"event_id":"evt_000006","run_id":"run_4gaboards_001","sequence":6,"type":"tool.completed","timestamp":"2026-11-21T02:00:03.680000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_001","tool":"browser.navigate","success":true,"duration_ms":280,"error_code":null,"evidence_ids":[]}}
 
 id: 7
 event: tool.called
-data: {"schema_version":1,"event_id":"evt_4ga_007","run_id":"run_4gaboards_001","sequence":7,"type":"tool.called","timestamp":"2026-11-21T02:00:08Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_002","tool":"browser.click"}}
+data: {"schema_version":1,"event_id":"evt_000007","run_id":"run_4gaboards_001","sequence":7,"type":"tool.called","timestamp":"2026-11-21T02:00:04.030000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_002","tool":"browser.observe"}}
 
 id: 8
 event: tool.completed
-data: {"schema_version":1,"event_id":"evt_4ga_008","run_id":"run_4gaboards_001","sequence":8,"type":"tool.completed","timestamp":"2026-11-21T02:00:09Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_002","tool":"browser.click","success":true,"duration_ms":140,"error_code":null,"evidence_ids":[]}}
+data: {"schema_version":1,"event_id":"evt_000008","run_id":"run_4gaboards_001","sequence":8,"type":"tool.completed","timestamp":"2026-11-21T02:00:04.110000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_002","tool":"browser.observe","success":true,"duration_ms":80,"error_code":null,"evidence_ids":["art_4ga_login"]}}
 
 id: 9
-event: agent.step.started
-data: {"schema_version":1,"event_id":"evt_4ga_009","run_id":"run_4gaboards_001","sequence":9,"type":"agent.step.started","timestamp":"2026-11-21T02:00:10Z","case_id":"case_create_project","step_id":"step_create","payload":{"summary":"填写本次使用的唯一项目名并提交"}}
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000009","run_id":"run_4gaboards_001","sequence":9,"type":"tool.called","timestamp":"2026-11-21T02:00:04.460000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_003","tool":"browser.fill"}}
 
 id: 10
-event: tool.called
-data: {"schema_version":1,"event_id":"evt_4ga_010","run_id":"run_4gaboards_001","sequence":10,"type":"tool.called","timestamp":"2026-11-21T02:00:11Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_003","tool":"browser.fill"}}
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000010","run_id":"run_4gaboards_001","sequence":10,"type":"tool.completed","timestamp":"2026-11-21T02:00:04.555000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_003","tool":"browser.fill","success":true,"duration_ms":95,"error_code":null,"evidence_ids":[]}}
 
 id: 11
-event: tool.completed
-data: {"schema_version":1,"event_id":"evt_4ga_011","run_id":"run_4gaboards_001","sequence":11,"type":"tool.completed","timestamp":"2026-11-21T02:00:12Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_003","tool":"browser.fill","success":true,"duration_ms":95,"error_code":null,"evidence_ids":[]}}
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000011","run_id":"run_4gaboards_001","sequence":11,"type":"tool.called","timestamp":"2026-11-21T02:00:04.905000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_004","tool":"browser.fill"}}
 
 id: 12
-event: tool.called
-data: {"schema_version":1,"event_id":"evt_4ga_012","run_id":"run_4gaboards_001","sequence":12,"type":"tool.called","timestamp":"2026-11-21T02:00:13Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_004","tool":"browser.click"}}
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000012","run_id":"run_4gaboards_001","sequence":12,"type":"tool.completed","timestamp":"2026-11-21T02:00:05Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_004","tool":"browser.fill","success":true,"duration_ms":95,"error_code":null,"evidence_ids":[]}}
 
 id: 13
-event: tool.completed
-data: {"schema_version":1,"event_id":"evt_4ga_013","run_id":"run_4gaboards_001","sequence":13,"type":"tool.completed","timestamp":"2026-11-21T02:00:14Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_004","tool":"browser.click","success":true,"duration_ms":168,"error_code":null,"evidence_ids":[]}}
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000013","run_id":"run_4gaboards_001","sequence":13,"type":"tool.called","timestamp":"2026-11-21T02:00:05.350000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_005","tool":"browser.click"}}
 
 id: 14
-event: agent.step.started
-data: {"schema_version":1,"event_id":"evt_4ga_014","run_id":"run_4gaboards_001","sequence":14,"type":"agent.step.started","timestamp":"2026-11-21T02:00:15Z","case_id":"case_create_project","step_id":"step_verify","payload":{"summary":"分别检查仪表盘项目卡片和侧边栏项目入口"}}
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000014","run_id":"run_4gaboards_001","sequence":14,"type":"tool.completed","timestamp":"2026-11-21T02:00:05.518000Z","case_id":"case_create_project","step_id":"step_open","payload":{"tool_call_id":"call_005","tool":"browser.click","success":true,"duration_ms":168,"error_code":null,"evidence_ids":[]}}
 
 id: 15
-event: tool.called
-data: {"schema_version":1,"event_id":"evt_4ga_015","run_id":"run_4gaboards_001","sequence":15,"type":"tool.called","timestamp":"2026-11-21T02:00:16Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_005","tool":"browser.inspect"}}
+event: agent.step.started
+data: {"schema_version":1,"event_id":"evt_000015","run_id":"run_4gaboards_001","sequence":15,"type":"agent.step.started","timestamp":"2026-11-21T02:00:05.868000Z","case_id":"case_create_project","step_id":"step_create","payload":{"summary":"Observe and exercise the test case"}}
 
 id: 16
-event: tool.completed
-data: {"schema_version":1,"event_id":"evt_4ga_016","run_id":"run_4gaboards_001","sequence":16,"type":"tool.completed","timestamp":"2026-11-21T02:00:17Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_005","tool":"browser.inspect","success":true,"duration_ms":115,"error_code":null,"evidence_ids":["art_4ga_dashboard"]}}
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000016","run_id":"run_4gaboards_001","sequence":16,"type":"tool.called","timestamp":"2026-11-21T02:00:06.218000Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_006","tool":"browser.observe"}}
 
 id: 17
-event: tool.called
-data: {"schema_version":1,"event_id":"evt_4ga_017","run_id":"run_4gaboards_001","sequence":17,"type":"tool.called","timestamp":"2026-11-21T02:00:18Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_006","tool":"browser.inspect"}}
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000017","run_id":"run_4gaboards_001","sequence":17,"type":"tool.completed","timestamp":"2026-11-21T02:00:06.298000Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_006","tool":"browser.observe","success":true,"duration_ms":80,"error_code":null,"evidence_ids":["art_4ga_home"]}}
 
 id: 18
-event: tool.completed
-data: {"schema_version":1,"event_id":"evt_4ga_018","run_id":"run_4gaboards_001","sequence":18,"type":"tool.completed","timestamp":"2026-11-21T02:00:19Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_006","tool":"browser.inspect","success":true,"duration_ms":115,"error_code":null,"evidence_ids":["art_4ga_sidebar"]}}
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000018","run_id":"run_4gaboards_001","sequence":18,"type":"tool.called","timestamp":"2026-11-21T02:00:06.648000Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_007","tool":"browser.click"}}
 
 id: 19
-event: case.verified
-data: {"schema_version":1,"event_id":"evt_4ga_019","run_id":"run_4gaboards_001","sequence":19,"type":"case.verified","timestamp":"2026-11-21T02:00:20Z","case_id":"case_create_project","step_id":null,"payload":{"verdict":"passed"}}
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000019","run_id":"run_4gaboards_001","sequence":19,"type":"tool.completed","timestamp":"2026-11-21T02:00:06.788000Z","case_id":"case_create_project","step_id":"step_create","payload":{"tool_call_id":"call_007","tool":"browser.click","success":true,"duration_ms":140,"error_code":null,"evidence_ids":[]}}
 
 id: 20
-event: report.generated
-data: {"schema_version":1,"event_id":"evt_4ga_020","run_id":"run_4gaboards_001","sequence":20,"type":"report.generated","timestamp":"2026-11-21T02:00:22Z","case_id":null,"step_id":null,"payload":{"artifact_id":null}}
+event: agent.step.started
+data: {"schema_version":1,"event_id":"evt_000020","run_id":"run_4gaboards_001","sequence":20,"type":"agent.step.started","timestamp":"2026-11-21T02:00:07.138000Z","case_id":"case_create_project","step_id":"step_submit","payload":{"summary":"Observe and exercise the test case"}}
 
 id: 21
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000021","run_id":"run_4gaboards_001","sequence":21,"type":"tool.called","timestamp":"2026-11-21T02:00:07.488000Z","case_id":"case_create_project","step_id":"step_submit","payload":{"tool_call_id":"call_008","tool":"browser.observe"}}
+
+id: 22
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000022","run_id":"run_4gaboards_001","sequence":22,"type":"tool.completed","timestamp":"2026-11-21T02:00:07.568000Z","case_id":"case_create_project","step_id":"step_submit","payload":{"tool_call_id":"call_008","tool":"browser.observe","success":true,"duration_ms":80,"error_code":null,"evidence_ids":["art_4ga_form"]}}
+
+id: 23
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000023","run_id":"run_4gaboards_001","sequence":23,"type":"tool.called","timestamp":"2026-11-21T02:00:07.918000Z","case_id":"case_create_project","step_id":"step_submit","payload":{"tool_call_id":"call_009","tool":"browser.fill"}}
+
+id: 24
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000024","run_id":"run_4gaboards_001","sequence":24,"type":"tool.completed","timestamp":"2026-11-21T02:00:08.013000Z","case_id":"case_create_project","step_id":"step_submit","payload":{"tool_call_id":"call_009","tool":"browser.fill","success":true,"duration_ms":95,"error_code":null,"evidence_ids":[]}}
+
+id: 25
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000025","run_id":"run_4gaboards_001","sequence":25,"type":"tool.called","timestamp":"2026-11-21T02:00:08.363000Z","case_id":"case_create_project","step_id":"step_submit","payload":{"tool_call_id":"call_010","tool":"browser.click"}}
+
+id: 26
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000026","run_id":"run_4gaboards_001","sequence":26,"type":"tool.completed","timestamp":"2026-11-21T02:00:08.531000Z","case_id":"case_create_project","step_id":"step_submit","payload":{"tool_call_id":"call_010","tool":"browser.click","success":true,"duration_ms":168,"error_code":null,"evidence_ids":[]}}
+
+id: 27
+event: agent.step.started
+data: {"schema_version":1,"event_id":"evt_000027","run_id":"run_4gaboards_001","sequence":27,"type":"agent.step.started","timestamp":"2026-11-21T02:00:08.881000Z","case_id":"case_create_project","step_id":"step_return","payload":{"summary":"Observe and exercise the test case"}}
+
+id: 28
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000028","run_id":"run_4gaboards_001","sequence":28,"type":"tool.called","timestamp":"2026-11-21T02:00:09.231000Z","case_id":"case_create_project","step_id":"step_return","payload":{"tool_call_id":"call_011","tool":"browser.observe"}}
+
+id: 29
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000029","run_id":"run_4gaboards_001","sequence":29,"type":"tool.completed","timestamp":"2026-11-21T02:00:09.311000Z","case_id":"case_create_project","step_id":"step_return","payload":{"tool_call_id":"call_011","tool":"browser.observe","success":true,"duration_ms":80,"error_code":null,"evidence_ids":["art_4ga_project"]}}
+
+id: 30
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000030","run_id":"run_4gaboards_001","sequence":30,"type":"tool.called","timestamp":"2026-11-21T02:00:09.661000Z","case_id":"case_create_project","step_id":"step_return","payload":{"tool_call_id":"call_012","tool":"browser.navigate"}}
+
+id: 31
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000031","run_id":"run_4gaboards_001","sequence":31,"type":"tool.completed","timestamp":"2026-11-21T02:00:09.941000Z","case_id":"case_create_project","step_id":"step_return","payload":{"tool_call_id":"call_012","tool":"browser.navigate","success":true,"duration_ms":280,"error_code":null,"evidence_ids":[]}}
+
+id: 32
+event: agent.step.started
+data: {"schema_version":1,"event_id":"evt_000032","run_id":"run_4gaboards_001","sequence":32,"type":"agent.step.started","timestamp":"2026-11-21T02:00:10.291000Z","case_id":"case_create_project","step_id":"step_verify","payload":{"summary":"Observe and exercise the test case"}}
+
+id: 33
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000033","run_id":"run_4gaboards_001","sequence":33,"type":"tool.called","timestamp":"2026-11-21T02:00:10.641000Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_013","tool":"browser.observe"}}
+
+id: 34
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000034","run_id":"run_4gaboards_001","sequence":34,"type":"tool.completed","timestamp":"2026-11-21T02:00:10.721000Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_013","tool":"browser.observe","success":true,"duration_ms":80,"error_code":null,"evidence_ids":["art_4ga_completed"]}}
+
+id: 35
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000035","run_id":"run_4gaboards_001","sequence":35,"type":"tool.called","timestamp":"2026-11-21T02:00:11.071000Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_014","tool":"browser.inspect"}}
+
+id: 36
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000036","run_id":"run_4gaboards_001","sequence":36,"type":"tool.completed","timestamp":"2026-11-21T02:00:11.186000Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_014","tool":"browser.inspect","success":true,"duration_ms":115,"error_code":null,"evidence_ids":["art_4ga_dashboard"]}}
+
+id: 37
+event: tool.called
+data: {"schema_version":1,"event_id":"evt_000037","run_id":"run_4gaboards_001","sequence":37,"type":"tool.called","timestamp":"2026-11-21T02:00:11.536000Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_015","tool":"browser.inspect"}}
+
+id: 38
+event: tool.completed
+data: {"schema_version":1,"event_id":"evt_000038","run_id":"run_4gaboards_001","sequence":38,"type":"tool.completed","timestamp":"2026-11-21T02:00:11.651000Z","case_id":"case_create_project","step_id":"step_verify","payload":{"tool_call_id":"call_015","tool":"browser.inspect","success":true,"duration_ms":115,"error_code":null,"evidence_ids":["art_4ga_sidebar"]}}
+
+id: 39
+event: case.verified
+data: {"schema_version":1,"event_id":"evt_000039","run_id":"run_4gaboards_001","sequence":39,"type":"case.verified","timestamp":"2026-11-21T02:00:12.001000Z","case_id":"case_create_project","step_id":null,"payload":{"verdict":"passed"}}
+
+id: 40
+event: report.generated
+data: {"schema_version":1,"event_id":"evt_000040","run_id":"run_4gaboards_001","sequence":40,"type":"report.generated","timestamp":"2026-11-21T02:00:12.351000Z","case_id":null,"step_id":null,"payload":{"artifact_id":null}}
+
+id: 41
 event: run.completed
-data: {"schema_version":1,"event_id":"evt_4ga_021","run_id":"run_4gaboards_001","sequence":21,"type":"run.completed","timestamp":"2026-11-21T02:00:22Z","case_id":null,"step_id":null,"payload":{"status":"succeeded","verdict":"passed","error":null}}
+data: {"schema_version":1,"event_id":"evt_000041","run_id":"run_4gaboards_001","sequence":41,"type":"run.completed","timestamp":"2026-11-21T02:00:12.701000Z","case_id":null,"step_id":null,"payload":{"status":"succeeded","verdict":"passed","error":null}}
 

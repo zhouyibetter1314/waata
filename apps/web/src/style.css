@@ -167,36 +167,6 @@ code {
 .primary-nav a.router-link-exact-active small {
   color: #9fc4bb;
 }
-.sidebar-note {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: auto;
-  padding: 14px;
-  border: 1px solid #294b45;
-  border-radius: 9px;
-  background: rgb(255 255 255 / 3%);
-}
-.sidebar-note div {
-  display: grid;
-  gap: 3px;
-}
-.sidebar-note strong {
-  font-size: 11px;
-}
-.sidebar-note small {
-  color: #789990;
-  font-size: 9px;
-}
-.status-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  flex: 0 0 7px;
-  border-radius: 50%;
-  background: #4fbc91;
-  box-shadow: 0 0 0 4px rgb(79 188 145 / 12%);
-}
 .main-content {
   width: calc(100% - 252px);
   min-width: 0;
@@ -219,21 +189,6 @@ code {
 }
 .breadcrumb {
   color: var(--muted-light);
-}
-.environment {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 11px;
-  color: #5b6f67;
-  background: #f4f8f6;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 11px;
-}
-.environment .status-dot {
-  width: 6px;
-  height: 6px;
 }
 
 .page {
@@ -1770,34 +1725,6 @@ tbody tr:hover {
 .settings-page {
   max-width: 1220px;
 }
-.settings-status {
-  display: flex;
-  gap: 13px;
-  align-items: center;
-  margin-bottom: 18px;
-  padding: 16px 19px;
-  color: #27634f;
-  background: #e9f7f0;
-  border: 1px solid #bfe1d2;
-  border-radius: 9px;
-}
-.settings-status-mock {
-  color: #725217;
-  background: #fff7e6;
-  border-color: #ead29f;
-}
-.settings-status-mock .status-dot {
-  background: #d39a38;
-}
-.settings-status strong {
-  font-size: 11px;
-}
-.settings-status p {
-  margin: 3px 0 0;
-  color: inherit;
-  opacity: 0.8;
-  font-size: 9px;
-}
 .settings-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1837,7 +1764,7 @@ tbody tr:hover {
 }
 .contract-list > div {
   display: grid;
-  grid-template-columns: 35px 1fr auto;
+  grid-template-columns: 35px 1fr;
   gap: 11px;
   align-items: center;
   padding: 11px;
@@ -1865,10 +1792,6 @@ tbody tr:hover {
 .contract-list small {
   color: var(--muted);
   font-size: 8px;
-}
-.contract-list b {
-  color: #277357;
-  font-size: 9px;
 }
 .boundary-grid {
   display: grid;
@@ -1974,8 +1897,7 @@ tbody tr:hover {
   .brand-mark {
     font-size: 22px;
   }
-  .brand-copy,
-  .sidebar-note {
+  .brand-copy {
     display: none;
   }
   .primary-nav {

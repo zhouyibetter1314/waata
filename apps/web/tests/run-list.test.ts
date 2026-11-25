@@ -4,8 +4,8 @@ import { http, HttpResponse } from 'msw';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { describe, expect, it, vi } from 'vitest';
 import RunListView from '../src/features/test-runs/RunListView.vue';
-import { runDetailFixture, toRunSummary } from '../src/mocks/fixtures';
-import { server } from '../src/mocks/server';
+import { runDetailFixture, toRunSummary } from './fixtures/api';
+import { server } from './fixtures/server';
 
 async function mountView() {
   const router = createRouter({
@@ -74,5 +74,6 @@ describe('F03 run list', () => {
     await flushPromises();
     await vi.waitFor(() => expect(wrapper.text()).toContain('列表服务不可用'));
     expect(wrapper.text()).toContain('重试');
+    expect(wrapper.text()).not.toContain('还没有测试任务');
   });
 });

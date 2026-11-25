@@ -13,23 +13,55 @@
   "cases": [
     {
       "case_id": "case_001",
-      "name": "有效凭据登录",
-      "preconditions": ["使用独立的未登录夹具", "准备有效测试凭据"],
-      "expected_behavior": "进入控制台并显示已登录状态",
-      "verdict": "passed",
-      "reason": null,
+      "name": "打开登录页并核对标题",
+      "preconditions": [
+        "使用独立浏览器会话及已授权的测试站点"
+      ],
+      "expected_behavior": "页面标题为登录",
+      "verdict": "failed",
+      "reason": "A required checkpoint did not match the expected behavior",
       "steps": [
         {
-          "step_id": "step_002",
-          "summary": "检查提交后的控制台状态",
+          "step_id": "step_001",
+          "summary": "Observe and exercise the test case",
           "tool_calls": [
+            {
+              "tool_call_id": "call_001",
+              "tool": "browser.navigate",
+              "success": true,
+              "duration_ms": 140,
+              "error_code": null,
+              "evidence_ids": []
+            },
             {
               "tool_call_id": "call_002",
               "tool": "browser.observe",
               "success": true,
-              "duration_ms": 110,
+              "duration_ms": 90,
               "error_code": null,
-              "evidence_ids": ["art_001"]
+              "evidence_ids": [
+                "art_001"
+              ]
+            },
+            {
+              "tool_call_id": "call_003",
+              "tool": "browser.inspect",
+              "success": true,
+              "duration_ms": 115,
+              "error_code": null,
+              "evidence_ids": [
+                "art_002"
+              ]
+            },
+            {
+              "tool_call_id": "call_004",
+              "tool": "browser.inspect",
+              "success": true,
+              "duration_ms": 115,
+              "error_code": null,
+              "evidence_ids": [
+                "art_003"
+              ]
             }
           ]
         }
@@ -37,71 +69,12 @@
       "assertions": [
         {
           "assertion_id": "assert_001",
-          "expected": "https://demo-app.test/dashboard",
-          "actual": "https://demo-app.test/dashboard",
-          "passed": true,
-          "evidence_ids": ["art_001"]
-        },
-        {
-          "assertion_id": "assert_002",
-          "expected": "已登录",
-          "actual": "已登录",
-          "passed": true,
-          "evidence_ids": ["art_001"]
-        }
-      ]
-    },
-    {
-      "case_id": "case_002",
-      "name": "错误密码登录",
-      "preconditions": ["使用独立的未登录夹具", "准备错误密码测试数据"],
-      "expected_behavior": "停留在登录页并显示约定的错误提示",
-      "verdict": "failed",
-      "reason": null,
-      "steps": [
-        {
-          "step_id": "step_003",
-          "summary": "保存提交错误密码后的页面截图",
-          "tool_calls": [
-            {
-              "tool_call_id": "call_003",
-              "tool": "browser.screenshot",
-              "success": true,
-              "duration_ms": 100,
-              "error_code": null,
-              "evidence_ids": ["art_003"]
-            }
-          ]
-        },
-        {
-          "step_id": "step_004",
-          "summary": "检查登录页的提示文本",
-          "tool_calls": [
-            {
-              "tool_call_id": "call_004",
-              "tool": "browser.inspect",
-              "success": true,
-              "duration_ms": 120,
-              "error_code": null,
-              "evidence_ids": ["art_002"]
-            }
-          ]
-        }
-      ],
-      "assertions": [
-        {
-          "assertion_id": "assert_003",
-          "expected": "https://demo-app.test/login",
-          "actual": "https://demo-app.test/login",
-          "passed": true,
-          "evidence_ids": ["art_002"]
-        },
-        {
-          "assertion_id": "assert_004",
-          "expected": "用户名或密码错误",
+          "expected": "登录",
           "actual": "服务暂不可用",
           "passed": false,
-          "evidence_ids": ["art_002"]
+          "evidence_ids": [
+            "art_003"
+          ]
         }
       ]
     }
@@ -111,40 +84,40 @@
       "artifact_id": "art_001",
       "run_id": "run_001",
       "case_id": "case_001",
-      "step_id": "step_002",
+      "step_id": "step_001",
       "tool_call_id": "call_002",
       "kind": "observation",
       "mime_type": "application/json",
-      "captured_at": "2026-11-21T00:59:32Z",
-      "size_bytes": 277,
-      "url": "/api/v1/artifacts/art_001",
-      "expires_at": null
-    },
-    {
-      "artifact_id": "art_003",
-      "run_id": "run_001",
-      "case_id": "case_002",
-      "step_id": "step_003",
-      "tool_call_id": "call_003",
-      "kind": "screenshot",
-      "mime_type": "image/png",
       "captured_at": "2026-11-21T01:00:00Z",
-      "size_bytes": 7602,
-      "url": "/api/v1/artifacts/art_003",
-      "expires_at": null
+      "size_bytes": 211,
+      "url": "/api/v1/artifacts/art_001",
+      "expires_at": "2026-11-28T01:00:00Z"
     },
     {
       "artifact_id": "art_002",
       "run_id": "run_001",
-      "case_id": "case_002",
-      "step_id": "step_004",
-      "tool_call_id": "call_004",
+      "case_id": "case_001",
+      "step_id": "step_001",
+      "tool_call_id": "call_003",
       "kind": "observation",
       "mime_type": "application/json",
       "captured_at": "2026-11-21T01:00:03Z",
-      "size_bytes": 204,
+      "size_bytes": 152,
       "url": "/api/v1/artifacts/art_002",
-      "expires_at": null
+      "expires_at": "2026-11-28T01:00:03Z"
+    },
+    {
+      "artifact_id": "art_003",
+      "run_id": "run_001",
+      "case_id": "case_001",
+      "step_id": "step_001",
+      "tool_call_id": "call_004",
+      "kind": "observation",
+      "mime_type": "application/json",
+      "captured_at": "2026-11-21T01:00:04Z",
+      "size_bytes": 152,
+      "url": "/api/v1/artifacts/art_003",
+      "expires_at": "2026-11-28T01:00:04Z"
     }
   ],
   "langfuse_trace_id": null

@@ -1,4 +1,4 @@
-"""A deterministic model substitute for local and contract checks (NFR-003)."""
+"""Scripted model responses for testing the injectable model interface (NFR-003)."""
 
 from __future__ import annotations
 

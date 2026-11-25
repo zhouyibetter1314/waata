@@ -6,10 +6,10 @@
 | Langfuse v4.30.0 | 可选的 Worker 运行追踪 | [`infra/langfuse/`](langfuse/)，本页提供 Compose 启动方式 |
 | 4gaBoards、Admidio、Discourse | 按需部署的外部测试站点 | [固定版本与上游部署说明](../testsites/README.md) |
 
-在仓库根目录检出所有外部依赖，或给命令追加需要的子模块路径。
+按需检出子模块。平台基本运行使用 PostgreSQL、模型服务和授权测试站点，Langfuse 独立启用。
 
 ```bash
-git submodule update --init
+git submodule update --init -- infra/langfuse
 git submodule status
 ```
 
@@ -17,10 +17,9 @@ git submodule status
 
 [`infra/langfuse/`](langfuse/) 固定到上游 `v4.30.0`（`2f00fd4`）。该版本自带的 Compose 使用浮动 `:4` 镜像。[本地覆盖文件](docker/langfuse.local.yaml) 将 Web 和 Worker 固定为 `4.30.0`，使用独立 Compose 项目 `waata-langfuse`，并且只向回环地址发布 Web `13038` 和 MinIO `9090`。Docker Compose 需为 2.24.4 或更新版本。 [Langfuse 发布记录](https://github.com/langfuse/langfuse/releases/tag/v4.30.0) · [Docker Compose 合并规则](https://docs.docker.com/reference/compose-file/merge/#replace-value)
 
-在单独的终端从仓库根目录检出子模块并复制环境文件。Compose 变量会读取同名的终端环境变量，在该终端避免复用 WAATA 平台数据库的 `POSTGRES_*` 配置。
+在单独的终端从仓库根目录复制环境文件。Compose 会优先读取终端中同名的变量，请使用 Langfuse 独立配置。
 
 ```bash
-git submodule update --init -- infra/langfuse
 cp -n infra/docker/.env.langfuse.example infra/docker/.env.langfuse
 ```
 

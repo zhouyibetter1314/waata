@@ -59,7 +59,7 @@ function openApplication(value?: CatalogApplication): void {
   Object.assign(applicationForm, {
     id: value?.id ?? '',
     name: value?.name ?? '',
-    base_url: value?.base_url ?? 'http://localhost:3000/',
+    base_url: value?.base_url ?? '',
     credential_ref: value?.credential_ref ?? '',
     version: value?.version ?? '',
   });
@@ -314,6 +314,7 @@ function importScenarios(): void {
         <div>
           <strong>{{ application.name }}</strong
           ><small>{{ application.base_url }}</small>
+          <small>应用 ID {{ application.id }}</small>
         </div>
         <span class="catalog-chip">{{
           application.version || '版本未记录'
@@ -347,6 +348,7 @@ function importScenarios(): void {
           <button
             class="button button-secondary"
             type="button"
+            :disabled="!catalog.applications.length"
             @click="importDialog = true"
           >
             导入 JSON</button
@@ -361,7 +363,11 @@ function importScenarios(): void {
         </div>
       </div>
       <div v-if="!catalog.scenarios.length" class="catalog-empty">
-        还没有场景，点击“新建场景”开始。
+        {{
+          catalog.applications.length
+            ? '还没有场景，点击“新建场景”开始。'
+            : '还没有场景。'
+        }}
       </div>
       <div v-else class="table-wrap">
         <table>
@@ -441,9 +447,7 @@ function importScenarios(): void {
           >应用地址 <b>*</b><input v-model="applicationForm.base_url" /></label
         ><label>版本<input v-model="applicationForm.version" /></label
         ><label
-          >C1 凭据引用<input
-            v-model="applicationForm.credential_ref"
-            placeholder="例如：boards_local_fixture"
+          >C1 凭据引用<input v-model="applicationForm.credential_ref"
         /></label>
         <p>这里只填写服务端授权的引用名称，不输入真实凭据。</p>
         <div class="form-actions">
@@ -511,12 +515,21 @@ function importScenarios(): void {
         </div>
         <p>
           输入场景数组，每项包含 application_id、name、goal、expected_behavior
-          和可选 source。
+          和可选 source。使用应用配置中显示的应用 ID。
         </p>
         <textarea
           v-model="importedJson"
           rows="14"
-          placeholder='[{"application_id":"app_4gaboards","name":"...","goal":"...","expected_behavior":"..."}]'
+          :placeholder="
+            JSON.stringify([
+              {
+                application_id: catalog.applications[0]?.id,
+                name: '...',
+                goal: '...',
+                expected_behavior: '...',
+              },
+            ])
+          "
         />
         <div class="form-actions">
           <button

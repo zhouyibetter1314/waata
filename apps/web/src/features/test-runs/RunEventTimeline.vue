@@ -4,9 +4,15 @@ import { eventLabels, eventSummary, eventTone } from './events';
 import { formatDate } from './presentation';
 
 function screenshotIds(event: PublishedEvent): string[] {
-  if (event.type !== 'tool.completed' || event.payload.tool !== 'browser.screenshot') return [];
+  if (
+    event.type !== 'tool.completed' ||
+    event.payload.tool !== 'browser.screenshot'
+  )
+    return [];
   const ids = event.payload.evidence_ids;
-  return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+  return Array.isArray(ids)
+    ? ids.filter((id): id is string => typeof id === 'string')
+    : [];
 }
 
 defineProps<{
@@ -49,7 +55,8 @@ defineProps<{
             :href="'/api/v1/artifacts/' + encodeURIComponent(id)"
             target="_blank"
             rel="noopener noreferrer"
-          >查看本步截图</a>
+            >查看本步截图</a
+          >
           <small v-if="event.case_id"
             >{{ event.case_id
             }}<template v-if="event.step_id">
