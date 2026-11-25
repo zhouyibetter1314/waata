@@ -16,9 +16,9 @@ from waata.artifacts import ArtifactInput, ArtifactRef
 from waata.browser import CredentialField, PlaywrightAdapter
 from waata.core.model import ChatMessage, ChatResponse, ToolCall
 from waata.core.tools import ToolContext, ToolRegistry, ToolResult
-from waata.llm import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest, WAATAError
 from waata.orchestrator.config import EngineConfig
+from waata_test_support.model import FakeLLM
 
 try:
     from playwright.async_api import async_playwright

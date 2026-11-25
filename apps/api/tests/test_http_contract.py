@@ -383,10 +383,22 @@ class HttpContractTests(unittest.TestCase):
         with ZipFile(buffer, "w") as synthetic_trace:
             synthetic_trace.writestr("trace.txt", "Synthetic C5 fixture")
         trace_content = buffer.getvalue()
+        trace_id = "art_http_contract_trace"
+        result["artifacts"].append(
+            {
+                "artifact_id": trace_id,
+                "run_id": run_id,
+                "case_id": None,
+                "step_id": None,
+                "tool_call_id": None,
+                "kind": "playwright_trace",
+                "mime_type": "application/zip",
+                "captured_at": _NOW.isoformat(),
+                "size_bytes": len(trace_content),
+            }
+        )
         for reference in result["artifacts"]:
             reference["run_id"] = run_id
-            if reference["kind"] == "playwright_trace":
-                reference["size_bytes"] = len(trace_content)
             artifact_id = reference["artifact_id"]
             self.repository.artifacts[artifact_id] = {
                 **reference,
@@ -406,7 +418,7 @@ class HttpContractTests(unittest.TestCase):
         trace = next(
             item
             for item in report.json()["artifacts"]
-            if item["kind"] == "playwright_trace"
+            if item["artifact_id"] == trace_id
         )
         self.assertNotIn("storage_key", trace)
         url = trace["url"]
@@ -417,6 +429,7 @@ class HttpContractTests(unittest.TestCase):
         self.storage.files[trace_row["storage_key"]] = trace_content
         attachment = self.client.get(url, headers=_OWNER_HEADERS)
         self.assertEqual(attachment.status_code, 200)
+        self.assertEqual(attachment.content, trace_content)
         self.assertEqual(attachment.headers["cache-control"], "private, no-store")
         self.assertEqual(attachment.headers["content-type"], "application/zip")
         self.assertIn("attachment", attachment.headers["content-disposition"])

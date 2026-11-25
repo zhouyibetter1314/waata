@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { cancelRun, getRun, isApiError, type RunDetail } from '../../api';
+import {
+  cancelRun,
+  getRun,
+  isApiError,
+  type PublishedEvent,
+  type RunDetail,
+} from '../../api';
 import EmptyState from '../../components/EmptyState.vue';
 import ProgressBar from '../../components/ProgressBar.vue';
 import StateBadge from '../../components/StateBadge.vue';
+import { terminalEventTypes } from './events';
 import { formatDate, statusLabels, verdictLabels } from './presentation';
 import RunEventTimeline from './RunEventTimeline.vue';
 import RunReportPanel from './RunReportPanel.vue';
@@ -19,7 +26,9 @@ const cancelBusy = ref(false);
 const cancelMessage = ref('');
 const cancelError = ref('');
 let controller: AbortController | null = null;
+let cancelController: AbortController | null = null;
 let requestSequence = 0;
+const verifiedCases = new Set<string>();
 
 const runId = computed(() => String(route.params.runId ?? ''));
 const progressPercent = computed(() => {
@@ -38,7 +47,7 @@ const isTerminal = computed(() =>
 const verdictText = computed(() =>
   run.value?.verdict ? verdictLabels[run.value.verdict] : '未产生',
 );
-const eventsEnabled = computed(() => Boolean(run.value));
+const eventsEnabled = computed(() => run.value?.run_id === runId.value);
 
 async function load(id: string, clear = true): Promise<void> {
   controller?.abort();
@@ -64,38 +73,97 @@ async function load(id: string, clear = true): Promise<void> {
 const { events, connectionMessage, cursor } = useRunEvents(
   runId,
   eventsEnabled,
-  () => load(runId.value, false),
+  applyRunEvent,
 );
 
+function resetCancellation(): void {
+  cancelController?.abort();
+  cancelController = null;
+  cancelBusy.value = false;
+  cancelMessage.value = '';
+  cancelError.value = '';
+}
+
+function applyRunEvent(event: PublishedEvent): void {
+  const detail = run.value;
+  if (detail?.run_id !== event.run_id || runId.value !== event.run_id) return;
+  if (terminalEventTypes.has(event.type)) {
+    resetCancellation();
+    void load(event.run_id, false);
+    return;
+  }
+  if (event.type === 'run.started') {
+    if (detail.status === 'queued') detail.status = 'running';
+    detail.started_at ??= event.timestamp;
+  }
+  const total = event.payload.total_cases;
+  if (
+    event.type === 'plan.created' &&
+    detail.progress.total_cases === null &&
+    typeof total === 'number' &&
+    Number.isSafeInteger(total) &&
+    total >= 0
+  ) {
+    detail.progress.total_cases = total;
+  }
+  if (event.type === 'case.verified' && event.case_id) {
+    verifiedCases.add(event.case_id);
+    detail.progress.completed_cases = Math.max(
+      detail.progress.completed_cases,
+      verifiedCases.size,
+    );
+  }
+}
+
 async function requestCancel(): Promise<void> {
-  if (!run.value || cancelBusy.value || isTerminal.value) return;
+  const id = runId.value;
+  if (run.value?.run_id !== id || cancelBusy.value || isTerminal.value) return;
+  const pending = new AbortController();
+  cancelController = pending;
+  const isCurrent = () => cancelController === pending && runId.value === id;
   cancelBusy.value = true;
   cancelMessage.value = '';
   cancelError.value = '';
   try {
-    const result = await cancelRun(run.value.run_id);
+    const result = await cancelRun(id, pending.signal);
+    if (!isCurrent() || run.value?.run_id !== id || isTerminal.value) return;
     run.value.status = result.status;
     run.value.cancellation_requested = result.cancellation_requested;
     cancelMessage.value =
       result.status === 'cancelled'
         ? '任务已取消'
         : '取消已请求，正在等待 Worker 完成清理';
-    if (result.status === 'cancelled') await load(runId.value, false);
+    if (result.status === 'cancelled') await load(id, false);
   } catch (cause) {
+    if (!isCurrent() || run.value?.run_id !== id || isTerminal.value) return;
     if (isApiError(cause) && cause.code === 'RUN_NOT_CANCELLABLE') {
       cancelMessage.value = '任务状态已经变化，详情已重新同步';
-      await load(runId.value, false);
+      await load(id, false);
     } else {
       cancelError.value =
         cause instanceof Error ? cause.message : '取消任务失败';
     }
   } finally {
-    cancelBusy.value = false;
+    if (isCurrent()) {
+      cancelController = null;
+      cancelBusy.value = false;
+    }
   }
 }
 
-watch(runId, (id) => load(id), { immediate: true });
-onBeforeUnmount(() => controller?.abort());
+watch(
+  runId,
+  (id) => {
+    resetCancellation();
+    verifiedCases.clear();
+    return load(id);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => {
+  controller?.abort();
+  resetCancellation();
+});
 </script>
 
 <template>

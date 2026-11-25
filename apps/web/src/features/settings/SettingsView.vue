@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { API_BASE } from '../../api';
-
-const isMock = computed(
-  () => import.meta.env.DEV && import.meta.env.VITE_API_MOCKING !== 'disabled',
-);
-const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
 </script>
 
 <template>
@@ -20,41 +14,22 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
       </div>
     </div>
 
-    <div class="settings-status" :class="{ 'settings-status-mock': isMock }">
-      <span class="status-dot"></span>
-      <div>
-        <strong>{{
-          isMock ? '当前使用契约 Mock' : '当前使用真实 API 模式'
-        }}</strong>
-        <p>
-          {{
-            isMock
-              ? '适合独立验证前端交付条件，不代表真实 Agent 已运行。'
-              : '请求通过同源 /api/v1 发送到平台后端。'
-          }}
-        </p>
-      </div>
-    </div>
-
     <div class="settings-layout">
       <div class="panel settings-card">
         <div class="panel-title">
           <div>
             <h2>前端运行配置</h2>
-            <p>由构建环境决定，不包含服务器秘密。</p>
           </div>
         </div>
         <dl class="settings-list">
-          <dt>运行模式</dt>
-          <dd>{{ mode }}</dd>
           <dt>API 前缀</dt>
           <dd>
             <code>{{ API_BASE }}</code>
           </dd>
-          <dt>认证策略</dt>
-          <dd>同源凭据（same-origin）</dd>
+          <dt>请求凭据</dt>
+          <dd>同源（same-origin）</dd>
           <dt>SSE 客户端</dt>
-          <dd>{{ isMock ? '正式 SSE 样例重放' : '原生 EventSource' }}</dd>
+          <dd>原生 EventSource</dd>
           <dt>场景库位置</dt>
           <dd>当前浏览器 Local Storage</dd>
           <dt>界面语言</dt>
@@ -65,8 +40,7 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
       <div class="panel settings-card">
         <div class="panel-title">
           <div>
-            <h2>契约状态</h2>
-            <p>页面功能只消费 WAATA v0.1 正式接口。</p>
+            <h2>接口契约</h2>
           </div>
         </div>
         <div class="contract-list">
@@ -76,7 +50,6 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
               <strong>任务 HTTP API</strong
               ><small>提交、列表、详情、取消、报告与证据入口</small>
             </div>
-            <b>已接入</b>
           </div>
           <div>
             <span>C4</span>
@@ -84,7 +57,6 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
               <strong>运行事件</strong
               ><small>SSE 重放、事件顺序、终态校准</small>
             </div>
-            <b>已接入</b>
           </div>
           <div>
             <span>C5</span>
@@ -92,7 +64,6 @@ const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
               <strong>报告证据</strong
               ><small>同源授权 URL、JSON、截图与 ZIP</small>
             </div>
-            <b>已接入</b>
           </div>
         </div>
       </div>

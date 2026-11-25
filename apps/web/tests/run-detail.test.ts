@@ -1,10 +1,14 @@
 import { mount } from '@vue/test-utils';
 import { delay, http, HttpResponse } from 'msw';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import RunDetailView from '../src/features/test-runs/RunDetailView.vue';
-import { cloneFixture, runDetailFixture } from '../src/mocks/fixtures';
-import { server } from '../src/mocks/server';
+import {
+  cloneFixture,
+  runDetailFixture,
+  runReportFixture,
+} from './fixtures/api';
+import { server } from './fixtures/server';
 import type { RunDetail } from '../src/api';
 
 async function mountView(runId = 'run_4gaboards_001') {
@@ -26,6 +30,14 @@ function detail(overrides: Partial<RunDetail>): RunDetail {
 }
 
 describe('F03 run detail', () => {
+  beforeEach(() => {
+    server.use(
+      http.get('/api/v1/test-runs/:runId/report', () =>
+        HttpResponse.json(runReportFixture),
+      ),
+    );
+  });
+
   it('renders succeeded + failed and preserves zero summary values', async () => {
     server.use(
       http.get('/api/v1/test-runs/:runId', () =>

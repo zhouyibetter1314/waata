@@ -1,0 +1,1 @@
+{"observation_id":"obs_4ga_home","url":"http://localhost:3000/","title":"4ga Boards","aria":"- button \"Add Project\"","elements":[{"locator":{"strategy":"role","role":"button","name":"Add Project"},"role":"button","name":"Add Project","text":"Add Project","enabled":true}],"truncated":false,"observed_at":"2026-11-21T02:00:06.297000+00:00"}

@@ -23,14 +23,14 @@ export function eventDisposition(
 export function useRunEvents(
   runId: Ref<string>,
   enabled: Ref<boolean>,
-  onTerminal: () => void | Promise<void>,
+  onEvent: (event: PublishedEvent) => void,
 ) {
   const events = ref<PublishedEvent[]>([]);
   const connection = ref<ConnectionState>('idle');
   const connectionMessage = ref('');
   const cursor = ref(0);
   let source: EventSource | null = null;
-  let mockController: AbortController | null = null;
+  let recoveryTimer: number | undefined;
   let activeRunId = '';
   let recoveryAttempts = 0;
   let stopped = false;
@@ -38,47 +38,8 @@ export function useRunEvents(
   function close(): void {
     source?.close();
     source = null;
-    mockController?.abort();
-    mockController = null;
-  }
-
-  async function connectMock(id: string, after: number): Promise<void> {
-    mockController = new AbortController();
-    const currentController = mockController;
-    try {
-      const response = await fetch(runEventsUrl(id, after), {
-        credentials: 'same-origin',
-        headers: { Accept: 'text/event-stream' },
-        signal: currentController.signal,
-      });
-      if (response.status === 204) {
-        connection.value = 'complete';
-        connectionMessage.value = '终态事件已经全部读取';
-        return;
-      }
-      if (!response.ok) {
-        connection.value = 'error';
-        connectionMessage.value = `事件流请求失败（HTTP ${response.status}）`;
-        return;
-      }
-      connection.value = 'connected';
-      connectionMessage.value = '正在重放契约事件样例';
-      const body = await response.text();
-      for (const block of body.split(/\r?\n\r?\n/)) {
-        if (currentController.signal.aborted || activeRunId !== id) return;
-        const data = block
-          .split(/\r?\n/)
-          .filter((line) => line.startsWith('data:'))
-          .map((line) => line.slice(5).trimStart())
-          .join('\n');
-        if (!data) continue;
-        apply(JSON.parse(data) as PublishedEvent);
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      connection.value = 'error';
-      connectionMessage.value = '无法读取 Mock 事件样例';
-    }
+    window.clearTimeout(recoveryTimer);
+    recoveryTimer = undefined;
   }
 
   function apply(event: PublishedEvent): void {
@@ -94,7 +55,10 @@ export function useRunEvents(
       recoveryAttempts += 1;
       connection.value = 'reconnecting';
       connectionMessage.value = `正在从序号 ${cursor.value} 补读缺失事件`;
-      window.setTimeout(() => connect(activeRunId, cursor.value), 150);
+      recoveryTimer = window.setTimeout(
+        () => connect(event.run_id, cursor.value),
+        150,
+      );
       return;
     }
     events.value.push(event);
@@ -104,8 +68,8 @@ export function useRunEvents(
       close();
       connection.value = 'complete';
       connectionMessage.value = '终态已接收，正在校准任务详情';
-      void onTerminal();
     }
+    onEvent(event);
   }
 
   function connect(id: string, after = 0): void {
@@ -119,13 +83,6 @@ export function useRunEvents(
     activeRunId = id;
     connection.value = after ? 'reconnecting' : 'connecting';
     connectionMessage.value = after ? '正在恢复事件连接' : '正在连接事件流';
-    if (
-      import.meta.env.DEV &&
-      import.meta.env.VITE_API_MOCKING !== 'disabled'
-    ) {
-      void connectMock(id, after);
-      return;
-    }
     const next = new EventSource(runEventsUrl(id, after));
     source = next;
     next.onopen = () => {
@@ -136,8 +93,8 @@ export function useRunEvents(
     next.onerror = () => {
       if (source !== next) return;
       if (next.readyState === EventSource.CLOSED) {
-        connection.value = 'complete';
-        connectionMessage.value = '事件流已结束';
+        connection.value = 'error';
+        connectionMessage.value = '事件流已关闭，可以刷新页面重试';
         close();
         return;
       }

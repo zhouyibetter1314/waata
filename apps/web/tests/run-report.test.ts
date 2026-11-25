@@ -2,8 +2,8 @@ import { mount } from '@vue/test-utils';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import RunReportPanel from '../src/features/test-runs/RunReportPanel.vue';
-import { cloneFixture, runReportFixture } from '../src/mocks/fixtures';
-import { server } from '../src/mocks/server';
+import { cloneFixture, runReportFixture } from './fixtures/api';
+import { server } from './fixtures/server';
 
 describe('F06 report and evidence', () => {
   it('keeps false and null distinct in a partial report', async () => {

@@ -12,8 +12,8 @@ import {
   runEventsUrl,
   type CreateRunRequest,
 } from '../src/api';
-import { createRunFixture, runCreatedFixture } from '../src/mocks/fixtures';
-import { server } from '../src/mocks/server';
+import { createRunFixture, runCreatedFixture } from './fixtures/api';
+import { server } from './fixtures/server';
 
 describe('C1 API client', () => {
   it('submits the create payload with POST', async () => {
@@ -29,17 +29,6 @@ describe('C1 API client', () => {
     await createRun(createRunFixture);
     expect(method).toBe('POST');
     expect(body).toEqual(createRunFixture);
-  });
-
-  it('keeps existing Mock runs and assigns a unique ID to every submission', async () => {
-    const first = await createRun(createRunFixture);
-    const second = await createRun(createRunFixture);
-    const result = await listRuns();
-    expect(first.run_id).toBe('run_4gaboards_002');
-    expect(second.run_id).toBe('run_4gaboards_003');
-    expect(new Set(result.items.map((run) => run.run_id))).toEqual(
-      new Set(['run_4gaboards_001', 'run_4gaboards_002', 'run_4gaboards_003']),
-    );
   });
 
   it('sends C1 pagination parameters', async () => {

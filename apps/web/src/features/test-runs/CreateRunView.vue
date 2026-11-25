@@ -9,9 +9,8 @@ const submitting = ref(false);
 const requestError = ref('');
 const requestId = ref('');
 const errors = ref<RunFormErrors>({});
-const defaultTargetUrl = 'http://127.0.0.1:3000/';
 const form = reactive({
-  target_url: defaultTargetUrl,
+  target_url: '',
   goal: '',
   expected_behavior: '',
   credential_ref: '',
@@ -89,9 +88,9 @@ async function submit(): Promise<void> {
               v-model="form.target_url"
               name="target_url"
               autocomplete="url"
+              placeholder="例如：https://app.example.test/"
               :aria-invalid="Boolean(errors.target_url)"
             />
-            <small class="field-hint">示例：{{ defaultTargetUrl }}</small>
             <small v-if="errors.target_url" class="field-error">{{
               errors.target_url
             }}</small>
@@ -103,7 +102,7 @@ async function submit(): Promise<void> {
               v-model="form.goal"
               name="goal"
               rows="4"
-              placeholder="例如：在本地 4gaBoards 创建 Course Test 01 项目"
+              placeholder="例如：打开登录页并查看表单"
               :aria-invalid="Boolean(errors.goal)"
             />
             <small v-if="errors.goal" class="field-error">{{
@@ -117,7 +116,7 @@ async function submit(): Promise<void> {
               v-model="form.expected_behavior"
               name="expected_behavior"
               rows="4"
-              placeholder="例如：仪表盘和侧边栏均显示新创建的项目"
+              placeholder="例如：登录页显示邮箱和密码输入框"
               :aria-invalid="Boolean(errors.expected_behavior)"
             />
             <small class="field-hint">尽量描述可观察、可判定的页面结果。</small>
@@ -144,7 +143,6 @@ async function submit(): Promise<void> {
               v-model="form.credential_ref"
               name="credential_ref"
               autocomplete="off"
-              placeholder="例如：boards_local_fixture"
             />
           </label>
 

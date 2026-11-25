@@ -16,7 +16,7 @@
       "success": true,
       "data": {
         "action": "navigate",
-        "url": "http://localhost:3000/"
+        "url": "http://localhost:3000/login"
       },
       "error": null
     }
@@ -27,6 +27,164 @@
       "case_id": "case_create_project",
       "step_id": "step_open",
       "tool_call_id": "call_002"
+    },
+    "call": {
+      "tool": "browser.observe",
+      "arguments": {}
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "observation_id": "obs_4ga_login",
+        "url": "http://localhost:3000/login",
+        "title": "4ga Boards",
+        "aria": "- heading \"Log in\":\n- button \"Log in\"",
+        "elements": [
+          {
+            "locator": {
+              "strategy": "role",
+              "role": "button",
+              "name": "Log in"
+            },
+            "role": "button",
+            "name": "Log in",
+            "text": "Log in",
+            "enabled": true
+          }
+        ],
+        "truncated": false,
+        "observed_at": "2026-11-21T02:00:04.109000+00:00",
+        "evidence_ids": [
+          "art_4ga_login"
+        ]
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_open",
+      "tool_call_id": "call_003"
+    },
+    "call": {
+      "tool": "browser.fill",
+      "arguments": {
+        "locator": {
+          "strategy": "css",
+          "value": "input[name=\"emailOrUsername\"]"
+        },
+        "secret_ref": "boards_fixture_login"
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "action": "fill",
+        "url": "http://localhost:3000/login"
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_open",
+      "tool_call_id": "call_004"
+    },
+    "call": {
+      "tool": "browser.fill",
+      "arguments": {
+        "locator": {
+          "strategy": "css",
+          "value": "input[name=\"password\"]"
+        },
+        "secret_ref": "boards_fixture_password"
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "action": "fill",
+        "url": "http://localhost:3000/login"
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_open",
+      "tool_call_id": "call_005"
+    },
+    "call": {
+      "tool": "browser.click",
+      "arguments": {
+        "locator": {
+          "strategy": "role",
+          "role": "button",
+          "name": "Log in"
+        }
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "action": "click",
+        "url": "http://localhost:3000/"
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_create",
+      "tool_call_id": "call_006"
+    },
+    "call": {
+      "tool": "browser.observe",
+      "arguments": {}
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "observation_id": "obs_4ga_home",
+        "url": "http://localhost:3000/",
+        "title": "4ga Boards",
+        "aria": "- button \"Add Project\"",
+        "elements": [
+          {
+            "locator": {
+              "strategy": "role",
+              "role": "button",
+              "name": "Add Project"
+            },
+            "role": "button",
+            "name": "Add Project",
+            "text": "Add Project",
+            "enabled": true
+          }
+        ],
+        "truncated": false,
+        "observed_at": "2026-11-21T02:00:06.297000+00:00",
+        "evidence_ids": [
+          "art_4ga_home"
+        ]
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_create",
+      "tool_call_id": "call_007"
     },
     "call": {
       "tool": "browser.click",
@@ -50,8 +208,47 @@
     "context": {
       "run_id": "run_4gaboards_001",
       "case_id": "case_create_project",
-      "step_id": "step_create",
-      "tool_call_id": "call_003"
+      "step_id": "step_submit",
+      "tool_call_id": "call_008"
+    },
+    "call": {
+      "tool": "browser.observe",
+      "arguments": {}
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "observation_id": "obs_4ga_form",
+        "url": "http://localhost:3000/",
+        "title": "4ga Boards",
+        "aria": "- textbox \"Enter project name...\"\n- button \"Add Project\"",
+        "elements": [
+          {
+            "locator": {
+              "strategy": "placeholder",
+              "value": "Enter project name..."
+            },
+            "role": "textbox",
+            "name": null,
+            "text": null,
+            "enabled": true
+          }
+        ],
+        "truncated": false,
+        "observed_at": "2026-11-21T02:00:07.567000+00:00",
+        "evidence_ids": [
+          "art_4ga_form"
+        ]
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_submit",
+      "tool_call_id": "call_009"
     },
     "call": {
       "tool": "browser.fill",
@@ -76,8 +273,8 @@
     "context": {
       "run_id": "run_4gaboards_001",
       "case_id": "case_create_project",
-      "step_id": "step_create",
-      "tool_call_id": "call_004"
+      "step_id": "step_submit",
+      "tool_call_id": "call_010"
     },
     "call": {
       "tool": "browser.click",
@@ -92,6 +289,68 @@
       "success": true,
       "data": {
         "action": "click",
+        "url": "http://localhost:3000/projects/42"
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_return",
+      "tool_call_id": "call_011"
+    },
+    "call": {
+      "tool": "browser.observe",
+      "arguments": {}
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "observation_id": "obs_4ga_project",
+        "url": "http://localhost:3000/projects/42",
+        "title": "4ga Boards",
+        "aria": "- button \"Course Test 01\"",
+        "elements": [
+          {
+            "locator": {
+              "strategy": "role",
+              "role": "button",
+              "name": "Course Test 01"
+            },
+            "role": "button",
+            "name": "Course Test 01",
+            "text": "Course Test 01",
+            "enabled": true
+          }
+        ],
+        "truncated": false,
+        "observed_at": "2026-11-21T02:00:09.310000+00:00",
+        "evidence_ids": [
+          "art_4ga_project"
+        ]
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_return",
+      "tool_call_id": "call_012"
+    },
+    "call": {
+      "tool": "browser.navigate",
+      "arguments": {
+        "url": "http://localhost:3000/"
+      }
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "action": "navigate",
         "url": "http://localhost:3000/"
       },
       "error": null
@@ -102,7 +361,47 @@
       "run_id": "run_4gaboards_001",
       "case_id": "case_create_project",
       "step_id": "step_verify",
-      "tool_call_id": "call_005"
+      "tool_call_id": "call_013"
+    },
+    "call": {
+      "tool": "browser.observe",
+      "arguments": {}
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "observation_id": "obs_4ga_completed",
+        "url": "http://localhost:3000/",
+        "title": "4ga Boards",
+        "aria": "- link \"Course Test 01\"\n- button \"Course Test 01\"",
+        "elements": [
+          {
+            "locator": {
+              "strategy": "role",
+              "role": "button",
+              "name": "Course Test 01"
+            },
+            "role": "button",
+            "name": "Course Test 01",
+            "text": "Course Test 01",
+            "enabled": true
+          }
+        ],
+        "truncated": false,
+        "observed_at": "2026-11-21T02:00:10.720000+00:00",
+        "evidence_ids": [
+          "art_4ga_completed"
+        ]
+      },
+      "error": null
+    }
+  },
+  {
+    "context": {
+      "run_id": "run_4gaboards_001",
+      "case_id": "case_create_project",
+      "step_id": "step_verify",
+      "tool_call_id": "call_014"
     },
     "call": {
       "tool": "browser.inspect",
@@ -121,7 +420,7 @@
         "actual": true,
         "matched": true,
         "url": "http://localhost:3000/",
-        "observed_at": "2026-11-21T02:00:17Z",
+        "observed_at": "2026-11-21T02:00:11.185000+00:00",
         "evidence_ids": [
           "art_4ga_dashboard"
         ]
@@ -134,7 +433,7 @@
       "run_id": "run_4gaboards_001",
       "case_id": "case_create_project",
       "step_id": "step_verify",
-      "tool_call_id": "call_006"
+      "tool_call_id": "call_015"
     },
     "call": {
       "tool": "browser.inspect",
@@ -154,7 +453,7 @@
         "actual": true,
         "matched": true,
         "url": "http://localhost:3000/",
-        "observed_at": "2026-11-21T02:00:19Z",
+        "observed_at": "2026-11-21T02:00:11.650000+00:00",
         "evidence_ids": [
           "art_4ga_sidebar"
         ]

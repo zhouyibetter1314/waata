@@ -3,8 +3,8 @@ import { delay, http, HttpResponse } from 'msw';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { describe, expect, it, vi } from 'vitest';
 import CreateRunView from '../src/features/test-runs/CreateRunView.vue';
-import { runCreatedFixture } from '../src/mocks/fixtures';
-import { server } from '../src/mocks/server';
+import { runCreatedFixture } from './fixtures/api';
+import { server } from './fixtures/server';
 
 async function mountView() {
   const router = createRouter({
@@ -28,6 +28,7 @@ async function mountView() {
 }
 
 async function fillRequired(wrapper: ReturnType<typeof mount>) {
+  await wrapper.find('[name="target_url"]').setValue('http://127.0.0.1:3000/');
   await wrapper.find('[name="goal"]').setValue('创建 Course Test 01');
   await wrapper
     .find('[name="expected_behavior"]')
@@ -46,12 +47,21 @@ describe('F02 create run', () => {
     expect(wrapper.text()).toContain('请输入预期行为');
   });
 
-  it('redirects to the opaque run_id after a Mock 202 response', async () => {
+  it('redirects to the opaque run_id returned by the API', async () => {
+    const runId = 'returned-run-2026';
+    server.use(
+      http.post('/api/v1/test-runs', () =>
+        HttpResponse.json(
+          { ...runCreatedFixture, run_id: runId },
+          { status: 202 },
+        ),
+      ),
+    );
     const { wrapper, router } = await mountView();
     await fillRequired(wrapper);
     await wrapper.find('form').trigger('submit');
     await vi.waitFor(() =>
-      expect(router.currentRoute.value.params.runId).toBe('run_4gaboards_002'),
+      expect(router.currentRoute.value.params.runId).toBe(runId),
     );
   });
 
