@@ -13,6 +13,7 @@ from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from waata.browser import CredentialField, LocatorSpec
 from waata.browser.policy import Origin, redaction_variants, safe_url, sanitize
+from waata.llm.openai_like import validate_thinking_configuration
 from waata.orchestrator.config import EngineConfig
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "[::1]")
@@ -181,12 +182,19 @@ class Settings:
     allow_headful: bool = False
     model_base_url: str | None = None
     model_name: str | None = None
+    model_enable_thinking: bool | None = None
     model_api_key: str | None = field(default=None, repr=False)
     langfuse_base_url: str | None = None
     langfuse_public_key: str | None = field(default=None, repr=False)
     langfuse_secret_key: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
+        try:
+            validate_thinking_configuration(
+                self.model_base_url, self.model_enable_thinking
+            )
+        except ValueError as exc:
+            raise ValueError(f"Invalid WAATA_MODEL_ENABLE_THINKING: {exc}") from None
         if self.auth_mode not in {"disabled", "local", "gateway"}:
             raise ValueError("Invalid WAATA_AUTH_MODE")
         if self.auth_mode == "gateway" and not self.gateway_token:
@@ -253,6 +261,11 @@ class Settings:
             except ValueError:
                 raise ValueError(f"Invalid numeric configuration for {name}") from None
 
+        thinking = values.get("WAATA_MODEL_ENABLE_THINKING", "").strip().lower()
+        if thinking not in {"", "false"}:
+            raise ValueError(
+                "WAATA_MODEL_ENABLE_THINKING must be false or unset; enabling thinking is unsupported"
+            )
         allow_headful = values.get("WAATA_ALLOW_HEADFUL", "false").lower()
         if allow_headful not in {"true", "false"}:
             raise ValueError("WAATA_ALLOW_HEADFUL must be true or false")
@@ -304,6 +317,7 @@ class Settings:
             model_name=values.get("WAATA_MODEL_NAME")
             or values.get("DEEPSEEK_MODEL")
             or None,
+            model_enable_thinking=False if thinking == "false" else None,
             model_api_key=values.get("WAATA_MODEL_API_KEY")
             or values.get("DEEPSEEK_API_KEY")
             or None,

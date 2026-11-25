@@ -57,6 +57,55 @@ def _http_failure(response: httpx.Response) -> tuple[str, bool]:
     )
 
 
+_THINKING_HOSTS = {"api.deepseek.com", "ark.cn-beijing.volces.com"}
+_BAILIAN_SHARED_HOSTS = {
+    "dashscope.aliyuncs.com",
+    "dashscope-intl.aliyuncs.com",
+    "dashscope-us.aliyuncs.com",
+    "cn-hongkong.dashscope.aliyuncs.com",
+}
+_BAILIAN_WORKSPACE_HOST = re.compile(
+    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\."
+    r"(?:cn-beijing|ap-southeast-1|ap-northeast-1|eu-central-1|us-east-1|cn-hongkong)"
+    r"\.maas\.aliyuncs\.com"
+)
+_BAILIAN_CHAT_PATHS = {
+    "/compatible-mode/v1",
+    "/compatible-mode/v1/chat/completions",
+}
+
+
+def _is_bailian_host(host: str) -> bool:
+    return host in _BAILIAN_SHARED_HOSTS or bool(
+        _BAILIAN_WORKSPACE_HOST.fullmatch(host)
+    )
+
+
+def validate_thinking_configuration(
+    base_url: str | None, thinking: bool | None
+) -> None:
+    """Validate an explicit deployment override without changing provider defaults."""
+    if thinking is None:
+        return
+    if thinking is not False:
+        raise ValueError("Only disabling thinking (false) is supported")
+    try:
+        url = httpx.URL(base_url or "")
+    except httpx.InvalidURL:
+        raise ValueError("Thinking configuration requires a valid model URL") from None
+    if url.scheme not in {"http", "https"} or url.userinfo or url.query or url.fragment:
+        raise ValueError("Thinking configuration requires a plain HTTP(S) model URL")
+    if url.host in _THINKING_HOSTS:
+        return
+    if _is_bailian_host(url.host):
+        if url.path.rstrip("/") not in _BAILIAN_CHAT_PATHS:
+            raise ValueError("Bailian thinking control requires /compatible-mode/v1")
+        return
+    raise ValueError(
+        "Explicit thinking configuration is unsupported for this model host"
+    )
+
+
 class OpenAILike:
     """Call a compatible provider using an optional caller-owned HTTP client."""
 
@@ -88,6 +137,8 @@ class OpenAILike:
             raise ValueError("Model base URL must be an absolute HTTP(S) URL")
         if not model.strip() or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("A model name and positive finite timeout are required")
+        if thinking is not None and type(thinking) is not bool:
+            raise ValueError("Thinking must be a boolean or None")
         if thinking is True:
             raise ValueError("Thinking mode requires a dedicated provider adapter")
 
@@ -98,10 +149,10 @@ class OpenAILike:
         self._model = model
         self._api_key = api_key
         self._timeout = timeout
-        self._disable_thinking = thinking is False or url.host in {
-            "api.deepseek.com",
-            "ark.cn-beijing.volces.com",
-        }
+        self._bailian = _is_bailian_host(url.host)
+        if self._bailian and thinking is False:
+            validate_thinking_configuration(base_url, thinking)
+        self._disable_thinking = thinking is False or url.host in _THINKING_HOSTS
         self._metadata = ModelMetadata(
             context_window=context_window,
             max_output_tokens=max_output_tokens,
@@ -157,7 +208,10 @@ class OpenAILike:
         if json_mode:
             body["response_format"] = {"type": "json_object"}
         if self._disable_thinking:
-            body["thinking"] = {"type": "disabled"}
+            if self._bailian:
+                body["enable_thinking"] = False
+            else:
+                body["thinking"] = {"type": "disabled"}
 
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
         try:

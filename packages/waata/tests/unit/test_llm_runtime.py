@@ -405,3 +405,111 @@ class ToolRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 metadata=ModelMetadata(),
                 max_input_tokens=100,
             )
+
+
+class BailianThinkingTests(unittest.IsolatedAsyncioTestCase):
+    async def assert_request(self, url, thinking, expected):
+        requests = []
+
+        def transport(request):
+            requests.append(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"role": "assistant", "content": "Done"},
+                        }
+                    ]
+                },
+            )
+
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(transport)
+        ) as client:
+            model = OpenAILike(
+                base_url=url, model="fixture", client=client, thinking=thinking
+            )
+            await model.chat([ChatMessage("user", "Plan a local fixture")])
+            self.assertEqual(model.metadata.max_output_tokens, 2048)
+        self.assertEqual(len(requests), 1)
+        body = requests[0]
+        self.assertEqual(body["max_tokens"], 2048)
+        self.assertFalse(body["stream"])
+        self.assertEqual(
+            {key: body[key] for key in ("enable_thinking", "thinking") if key in body},
+            expected,
+        )
+
+    async def test_bailian_shared_and_workspace_endpoints_disable_thinking(self):
+        hosts = [
+            "dashscope.aliyuncs.com",
+            "dashscope-intl.aliyuncs.com",
+            "dashscope-us.aliyuncs.com",
+            "cn-hongkong.dashscope.aliyuncs.com",
+            *[
+                f"workspace.{region}.maas.aliyuncs.com"
+                for region in (
+                    "cn-beijing",
+                    "ap-southeast-1",
+                    "ap-northeast-1",
+                    "eu-central-1",
+                    "us-east-1",
+                    "cn-hongkong",
+                )
+            ],
+            "trial.cn-beijing.maas.aliyuncs.com",
+        ]
+        for host in hosts:
+            with self.subTest(host=host):
+                await self.assert_request(
+                    f"https://{host}/compatible-mode/v1",
+                    False,
+                    {"enable_thinking": False},
+                )
+        for suffix in ("/", "/chat/completions", "/chat/completions/"):
+            await self.assert_request(
+                "https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+                + suffix,
+                False,
+                {"enable_thinking": False},
+            )
+
+    async def test_unset_bailian_configuration_preserves_request(self):
+        for host in (
+            "dashscope.aliyuncs.com",
+            "workspace.cn-beijing.maas.aliyuncs.com",
+        ):
+            await self.assert_request(f"https://{host}/compatible-mode/v1", None, {})
+
+    async def test_deepseek_and_ark_keep_original_parameters(self):
+        for url in (
+            "https://api.deepseek.com/v1",
+            "https://ark.cn-beijing.volces.com/api/v3",
+        ):
+            for thinking in (None, False):
+                with self.subTest(url=url, thinking=thinking):
+                    await self.assert_request(
+                        url, thinking, {"thinking": {"type": "disabled"}}
+                    )
+
+    async def test_bailian_rejects_non_chat_compatible_paths(self):
+        for path in ("/api/v1", "/apps/anthropic", "/v1"):
+            with self.subTest(path=path):
+                with self.assertRaisesRegex(ValueError, "compatible-mode"):
+                    OpenAILike(
+                        base_url="https://dashscope.aliyuncs.com" + path,
+                        model="fixture",
+                        thinking=False,
+                    )
+
+    async def test_invalid_thinking_values_are_not_silently_ignored(self):
+        for value in (True, "false", 0, 1):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    OpenAILike(
+                        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                        model="fixture",
+                        thinking=value,
+                    )

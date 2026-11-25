@@ -38,7 +38,28 @@ docker exec -i waata-postgres psql -X -v ON_ERROR_STOP=1 -U waata -d waata -f - 
 | `WAATA_AUTH_MODE` | 本地联调用 `local`。接受回环访问，默认主体为 `local`，可由 `WAATA_LOCAL_OWNER_ID` 指定 |
 | `WAATA_TARGET_POLICY` | 目标授权 JSON 路径，例如 `.local/targets.json` |
 | `WAATA_MODEL_BASE_URL`、`WAATA_MODEL_NAME`、`WAATA_MODEL_API_KEY` | OpenAI 兼容服务根地址、支持工具调用的模型 ID 和访问密钥。服务端允许匿名时密钥可省略。对应的 `DEEPSEEK_*` 变量仍可用作回退 |
+| `WAATA_MODEL_ENABLE_THINKING` | 可选，仅接受 `false` 或留空。留空保持原行为；`false` 显式关闭支持的提供商思考模式，详见下节 |
 | `LANGFUSE_BASE_URL`、`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY` | 可选，配置追踪地址和一对项目密钥。[本地 Langfuse](../../infra/README.md#langfuse) |
+
+### 显式关闭模型思考
+
+为 FR-002 提供百炼兼容参数，保持 NFR-006 的资源边界。对服务商明确支持关闭思考的模型，可在本地 `.env` 设置：
+
+```dotenv
+WAATA_MODEL_ENABLE_THINKING=false
+```
+
+百炼发送顶层 `enable_thinking=false`，不发送其他提供商的 `thinking` 字段。
+支持官方 OpenAI 兼容路径 `/compatible-mode/v1`（也可填写完整的 `/chat/completions` 地址），包括：
+
+- 工作空间/试用域名：`{WorkspaceId}.{region}.maas.aliyuncs.com`，地域为 `cn-beijing`、`ap-southeast-1`、`ap-northeast-1`、`eu-central-1`、`us-east-1`、`cn-hongkong`。
+- 共享域名：`dashscope.aliyuncs.com`、`dashscope-intl.aliyuncs.com`、`dashscope-us.aliyuncs.com`、`cn-hongkong.dashscope.aliyuncs.com`。
+
+[百炼官方接入地址](https://help.aliyun.com/en/model-studio/base-url) · [DeepSeek-V4.1-Flash-1017 关闭思考示例](https://www.alibabacloud.com/blog/deepseek-v4-1-flash-1017-is-now-on-alibaba-cloud-token-plan-how-to-build-with-it-from-%246-a-month_603653)
+
+留空或不设置时，百炼不额外发送思考参数；DeepSeek 官方和火山方舟仍按原逻辑默认发送 `thinking={"type":"disabled"}`。这两个提供商也接受本配置的 `false`，请求格式保持不变。`true`、其他取值、未知提供商、百炼非兼容路径会在加载配置时明确报错；不通过此开关启用思考或自动识别模型能力。所选模型仍需支持关闭思考，模型不支持时服务端错误按现有流程处理。
+
+这项配置不改变单次输出 **2048**、每 Run **200000** Token、**48** 次请求、重试及上下文限制。配置由 API/Worker 启动时读取；部署变更经审查后重启相应进程生效。不要把密钥或密码放入目标、预期或 URL。
 
 ### 配置一个你有权限测试的站点
 
