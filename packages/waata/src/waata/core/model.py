@@ -106,5 +106,5 @@ def estimate_request_input_tokens(
             arguments = json.dumps(call.arguments or {}, ensure_ascii=False)
             tokens += 40 + estimate([call.id, call.wire_name or call.name, arguments])
     for tool in tools:
-        tokens += 40 + estimate([tool.name, tool.description, tool.input_schema])
+        tokens += 40 + estimate([tool.name, tool.description, tool.model_input_schema])
     return tokens

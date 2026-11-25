@@ -85,6 +85,9 @@ test('updates progress via C4, recovers a missing event and displays C5 evidence
       page.getByText('运行中', { exact: true }).first(),
     ).toBeVisible();
     await expect(
+      page.getByRole('link', { name: '本机浏览器画面' }),
+    ).toHaveCount(0);
+    await expect(
       page.getByText(
         `${runDetailFixture.progress.completed_cases} / ${runDetailFixture.progress.total_cases}`,
         { exact: true },
@@ -95,6 +98,7 @@ test('updates progress via C4, recovers a missing event and displays C5 evidence
   }
   await expect(page.getByText('任务正常完成')).toBeVisible();
   await expect(page.getByText(`C4 · #${terminalSequence}`)).toBeVisible();
+  await expect(page.getByText('10.70 秒', { exact: true })).toBeVisible();
 
   await expect(page.getByRole('heading', { name: '报告与证据' })).toBeVisible();
   await expect(page.getByText(`断言复核（${assertionCount}）`)).toBeVisible();

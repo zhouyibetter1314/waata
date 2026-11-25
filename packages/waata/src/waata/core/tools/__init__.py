@@ -52,6 +52,28 @@ class ToolSpec:
     def input_schema(self) -> dict[str, Any]:
         return self.input_model.model_json_schema()
 
+    @property
+    def model_input_schema(self) -> dict[str, Any]:
+        """Omit non-validation metadata from the schema repeated on each model turn."""
+        return _compact_schema(self.input_schema)
+
+
+def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    result = {}
+    for key, value in schema.items():
+        if key in {"title", "discriminator"}:
+            continue
+        if key in {"properties", "$defs", "patternProperties"}:
+            value = {name: _compact_schema(item) for name, item in value.items()}
+        elif key in {"anyOf", "allOf", "oneOf", "prefixItems"}:
+            value = [_compact_schema(item) for item in value]
+        elif key in {"items", "additionalProperties", "not"} and isinstance(
+            value, dict
+        ):
+            value = _compact_schema(value)
+        result[key] = value
+    return result
+
 
 class ToolRegistry:
     def __init__(self, specs: Iterable[ToolSpec]) -> None:

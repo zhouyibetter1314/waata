@@ -67,7 +67,7 @@ ERROR_MESSAGES = {
     "SECRET_NOT_AVAILABLE": "The test secret is unavailable for this field.",
     "SESSION_NOT_READY": "The case has no navigated browser page.",
     "ELEMENT_NOT_FOUND": "No element matches the locator.",
-    "AMBIGUOUS_LOCATOR": "The locator matches multiple elements.",
+    "AMBIGUOUS_LOCATOR": "The locator matches multiple elements. Do not retry it unchanged; observe and use a unique test ID or an exact approved CSS locator for the intended control.",
     "ELEMENT_NOT_INTERACTABLE": "The located control is not in the required state.",
     "OPTION_NOT_FOUND": "The requested option is unavailable.",
     "NAVIGATION_FAILED": "The browser could not load the selected page.",
@@ -533,7 +533,12 @@ class PlaywrightSession:
         title = self.sanitize(await self._page.title())
         max_chars = self._limits.max_observation_chars
         controls = await self._page.evaluate(
-            COLLECT_CONTROLS, {"limit": self._limits.max_elements, "textLimit": 256}
+            COLLECT_CONTROLS,
+            {
+                "limit": self._limits.max_elements,
+                "textLimit": 256,
+                "approvedSelectors": sorted(self._selectors)[:32],
+            },
         )
         elements = []
         for control in controls["elements"]:

@@ -42,3 +42,5 @@ HTTP 模型变更后，先按后端说明导出 OpenAPI，再在 `apps/web` 运�
 ## 部署
 
 `npm run build` 生成 `dist/`。同源网关把 `/api` 转到 FastAPI，并将前端路由回退到 `index.html`。SSE 路径需要流式转发。[共享部署](../api/README.md#运行设置)
+
+配有同源 `/live/` 只读画面代理的本机调试环境，可在启动 Vite 或构建前端时设置 `VITE_LOCAL_LIVE_VIEW=true`。在回环地址打开运行详情时，进行中的任务会显示画面入口。[4gaBoards 联调记录](../../docs/testing/4gaboards-integration.md)

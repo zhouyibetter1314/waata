@@ -46,6 +46,8 @@ class TestEngine:
 
 ## 4. 结果与判定
 
+`EngineConfig.capture_final_screenshot` 默认为 `false`。开启后，用例到达目标页面时在检查点验证后尝试保存截图。截图沿用适配器的策略、遮罩和运行限制，业务判定由检查点证据决定。[证据契约](../artifacts/c5-test-evidence-artifacts.md)
+
 | 用例判定 | 条件 |
 | --- | --- |
 | `passed` | 全部检查点有观察证据且匹配 |

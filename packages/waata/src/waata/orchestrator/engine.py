@@ -109,6 +109,8 @@ class _CaseExecution:
     pending_effect: dict[str, Any] | None = None
     blocked: bool = False
     needs_observation: bool = True
+    completion_retry_used: bool = False
+    completion_feedback: str | None = None
 
 
 class TestEngine:
@@ -422,6 +424,7 @@ class _Run:
             "max_cases": self.config.max_test_cases,
             "max_checkpoints_per_case": self.config.max_checkpoints_per_case,
         }
+        failure = "The model did not produce a valid test plan"
         for repair in (False, True):
             try:
                 response = await self.model_request(
@@ -430,13 +433,20 @@ class _Run:
                     json_mode=self.llm.metadata.supports_json,
                 )
             except ModelResponseError:
+                failure = "The model returned an unreadable response while planning"
                 continue
             except (ContextLimitError, _ModelBudgetExhausted):
                 raise _error(
                     "CONFIGURATION_ERROR",
                     "The planning request exceeds the model budget",
                 ) from None
-            if response.message.tool_calls or response.finish_reason == "length":
+            if response.finish_reason == "length":
+                failure = (
+                    "The model hit its output limit before finishing the test plan"
+                )
+                continue
+            failure = "The model did not produce a valid test plan"
+            if response.message.tool_calls:
                 continue
             # `:=` 先把 parse_plan 的返回值赋给 cases，再判断它是否为 None。
             # 空列表表示计划合法但没有用例，也会从这里返回。
@@ -448,7 +458,7 @@ class _Run:
                 )
             ) is not None:
                 return cases
-        raise _error("INTERNAL_ERROR", "The model did not produce a valid test plan")
+        raise _error("INTERNAL_ERROR", failure)
 
     async def execute_case(self, plan: CasePlan) -> None:
         result = TestCaseResult(
@@ -529,7 +539,9 @@ class _Run:
                         result.reason = "The test page could not be reached within the execution policy"
                         break
                     reached_target = True
-                reason = await self.run_step(case, step, plan)
+                reason = await self.run_step(
+                    case, step, plan, can_continue=index + 1 < self.max_steps
+                )
                 if reason is not None:
                     result.reason = reason
                     break
@@ -538,6 +550,17 @@ class _Run:
             await self.verify_case(
                 case, plan, result.steps[-1], reached_target=reached_target
             )
+            if self.config.capture_final_screenshot and reached_target:
+                # Optional evidence uses normal browser policy and budgets, and
+                # never changes the independently calculated business verdict.
+                try:
+                    await self.run_tool(
+                        case, result.steps[-1], "browser.screenshot", {}
+                    )
+                except WAATAError as exc:
+                    if exc.error.code != "BROWSER_ERROR":
+                        raise
+                    _LOG.warning("Automatic final screenshot could not be captured")
             await self.case_verified(result)
         except (WAATAError, asyncio.CancelledError) as exc:
             primary_error = exc
@@ -625,6 +648,7 @@ class _Run:
             "recent_actions": list(case.recent_actions),
             "pending_side_effect": case.pending_effect,
             "remaining_browser_actions": remaining,
+            "completion_feedback": case.completion_feedback,
         }
 
     def preconditions_for_model(
@@ -672,7 +696,12 @@ class _Run:
             case.inspection_revision = current_revision
 
     async def run_step(
-        self, case: _CaseExecution, step: StepResult, plan: CasePlan
+        self,
+        case: _CaseExecution,
+        step: StepResult,
+        plan: CasePlan,
+        *,
+        can_continue: bool,
     ) -> str | None:
         if case.needs_observation or case.session.observation_stale:
             for _ in range(2):
@@ -686,14 +715,33 @@ class _Run:
         if self.actions >= self.config.max_browser_actions_per_run:
             return "The browser action limit was reached"
         model_revision = case.session.revision
+        state = self.context_state(case, plan)
+        page = state["page"]
+        compact_state = None
+        if page:
+            compact_state = {
+                **state,
+                "page": {
+                    "url": page.get("url"),
+                    "title": page.get("title"),
+                    "aria": (page.get("aria") or "")[:3000],
+                    "elements": [
+                        element
+                        for element in page.get("elements", [])
+                        if element.get("locator", {}).get("strategy") == "css"
+                    ][:6],
+                    "truncated": True,
+                },
+            }
         try:
             messages = case.history.build_messages(
                 RUNNER_PROMPT,
-                self.context_state(case, plan),
+                state,
                 tools=case.tools.specs,
                 metadata=self.llm.metadata,
                 max_input_tokens=self.config.max_input_tokens,
                 safety_margin=self.config.context_safety_margin,
+                compact_state=compact_state,
             )
             response = await self.model_request(
                 messages,
@@ -741,6 +789,18 @@ class _Run:
                 not result.success or call.name == "browser.navigate"
             ):
                 paused = True
+            if call.name == "browser.observe" and result.success:
+                # Keep the tool response paired with the call, but send the full
+                # current observation only through context_state on the next turn.
+                observation = result.data or {}
+                return replace(
+                    result,
+                    data={
+                        key: observation[key]
+                        for key in ("observation_id", "url", "title", "evidence_ids")
+                        if key in observation
+                    },
+                )
             return result
 
         try:
@@ -750,7 +810,32 @@ class _Run:
                 "INTERNAL_ERROR", "The model returned invalid tool data"
             ) from None
         if not acted:
-            return "The agent ended the test scenario"
+            stop = "The agent returned no tool calls"
+            if (
+                can_continue
+                and not case.blocked
+                and not case.completion_retry_used
+                and any(
+                    action["tool"] == "browser.click" and action["success"]
+                    for action in case.recent_actions
+                )
+            ):
+                for checkpoint in plan.checkpoints:
+                    arguments = checkpoint.model_dump(mode="json", exclude_none=True)
+                    checked = await self.run_tool(
+                        case, step, "browser.inspect", arguments
+                    )
+                    if checked.success and (checked.data or {}).get("matched") is False:
+                        case.completion_retry_used = True
+                        case.completion_feedback = (
+                            "Your previous response had no tool calls, but a required "
+                            "checkpoint is unmet. Use the current observation and goal "
+                            "to complete the remaining actions before ending."
+                        )
+                        return None
+            if case.completion_retry_used:
+                stop += " after one checkpoint-guided continuation"
+            return stop
         return None
 
     def tool_history_summary(
@@ -761,6 +846,9 @@ class _Run:
             "tool": call.name if call.name in _C3_NAMES else "unknown_tool",
             "success": result.success,
             "error_code": result.error.code if result.error else None,
+            "error_message": self.sanitize(result.error.message)
+            if result.error
+            else None,
             **{
                 key: data[key]
                 for key in ("action", "url", "observed_at", "evidence_ids", "matched")
@@ -973,9 +1061,8 @@ class _Run:
             case.result.reason = "The test was blocked by the fixture or action policy"
         elif False in values:
             case.result.verdict = "failed"
-            case.result.reason = (
-                "A required checkpoint did not match the expected behavior"
-            )
+            failure = "A required checkpoint did not match the expected behavior"
+            case.result.reason = f"{failure}. {case.result.reason or ''}".strip()
         else:
             case.result.verdict = "inconclusive"
             case.result.reason = (

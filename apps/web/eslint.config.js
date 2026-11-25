@@ -18,6 +18,7 @@ export default tseslint.config(
       globals: {
         AbortController: 'readonly',
         DOMException: 'readonly',
+        HTMLDialogElement: 'readonly',
         window: 'readonly',
       },
     },

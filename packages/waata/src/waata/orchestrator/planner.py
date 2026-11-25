@@ -1,6 +1,7 @@
 """FR-002: convert an authorized request into validated C3 checkpoints."""
 
 import json
+import re
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -35,9 +36,16 @@ the expected outcome, so do not alter the application to force a passing result.
 Use structured observations for page checks. Request screenshots only when the
 test explicitly asks for image evidence. If a screenshot is denied, continue
 with structured observations and deterministic checks.
+The runtime refreshes the page observation after browser actions. Read
+state.page first; request another observation only when it lacks information
+needed for the next step or when collecting screenshot evidence. Avoid
+rechecking completed preconditions unless an action failed or the page changed.
 Use provided field-level secret references, never guess or request plaintext.
 When the scenario has been exercised or cannot proceed, finish with a short
 status message. The verifier will evaluate the checkpoints.
+If a locator is ambiguous or invalid, do not repeat it unchanged. Use a unique
+locator from the latest observation, preferring an exact approved CSS locator
+when multiple controls share a name. Never guess CSS or select the first match.
 """
 
 
@@ -73,6 +81,10 @@ def parse_plan(
 ) -> list[CasePlan] | None:
     if content is None:
         return None
+    # Some compatible models wrap the whole response despite the JSON-only prompt.
+    fenced = re.fullmatch(r"\s*```(?:json)?[ \t]*\r?\n(.*?)\r?\n```\s*", content, re.S)
+    if fenced:
+        content = fenced.group(1)
     try:
         plan = Plan.model_validate_json(content)
     except ValidationError:
