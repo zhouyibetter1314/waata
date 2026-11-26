@@ -7,6 +7,7 @@ from .postgres import (
     LeaseLost,
     PostgresRepository,
     RunNotCancellable,
+    RunNotDeletable,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "LeaseLost",
     "PostgresRepository",
     "RunNotCancellable",
+    "RunNotDeletable",
 ]

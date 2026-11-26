@@ -29,10 +29,7 @@ const route = useRoute();
         </RouterLink>
         <RouterLink to="/settings">
           <span class="nav-icon" aria-hidden="true">⚙</span>
-          <span
-            ><strong>环境与设置</strong
-            ><small>接口、契约与运行配置</small></span
-          >
+          <span><strong>环境与设置</strong><small>运行环境与设置</small></span>
         </RouterLink>
       </nav>
     </aside>

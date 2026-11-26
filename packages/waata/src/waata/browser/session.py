@@ -8,7 +8,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 from uuid import uuid4
 
 from playwright.async_api import Error as PlaywrightError
@@ -42,7 +42,9 @@ from .models import (
     TitleEquals,
     ToolArgs,
     UrlEquals,
+    UrlPathStartsWith,
     Visible,
+    model_tool_schema,
 )
 from .observation import COLLECT_CONTROLS, omit_form_values, suggested_locator
 from .policy import CredentialField, Origin, safe_url, sanitize
@@ -67,7 +69,7 @@ ERROR_MESSAGES = {
     "SECRET_NOT_AVAILABLE": "The test secret is unavailable for this field.",
     "SESSION_NOT_READY": "The case has no navigated browser page.",
     "ELEMENT_NOT_FOUND": "No element matches the locator.",
-    "AMBIGUOUS_LOCATOR": "The locator matches multiple elements. Do not retry it unchanged; observe and use a unique test ID or an exact approved CSS locator for the intended control.",
+    "AMBIGUOUS_LOCATOR": "The locator matches multiple elements. Observe the page and use a unique locator for the intended control.",
     "ELEMENT_NOT_INTERACTABLE": "The located control is not in the required state.",
     "OPTION_NOT_FOUND": "The requested option is unavailable.",
     "NAVIGATION_FAILED": "The browser could not load the selected page.",
@@ -115,7 +117,6 @@ class PlaywrightSession:
         protected_fields: tuple[CredentialField, ...],
         markers: tuple[str, ...],
         allowed_actions: frozenset[str],
-        allowed_css_selectors: frozenset[str],
         allowed_websocket_paths: frozenset[str],
         allow_screenshots: bool,
         screenshot_mask_selectors: tuple[str, ...],
@@ -129,7 +130,6 @@ class PlaywrightSession:
         self._protected_fields = protected_fields
         self._markers = markers
         self._actions = allowed_actions
-        self._selectors = allowed_css_selectors
         self._websocket_paths = allowed_websocket_paths
         self._screenshot_allowed = allow_screenshots
         self._masks = screenshot_mask_selectors
@@ -153,7 +153,13 @@ class PlaywrightSession:
             "browser.inspect": self._inspect,
         }
         self.tools = tuple(
-            ToolSpec(name, description, model, self._handler(name, operations[name]))
+            ToolSpec(
+                name,
+                description,
+                model,
+                self._handler(name, operations[name]),
+                model_schema=model_tool_schema(model),
+            )
             for name, description, model in BROWSER_TOOLS
         )
 
@@ -325,7 +331,7 @@ class PlaywrightSession:
         self.observation_stale = True
         return timeout_ms
 
-    def _locator(self, spec: LocatorSpec) -> "Locator":
+    async def _locator(self, spec: LocatorSpec) -> "Locator":
         if isinstance(spec, RoleLocator):
             return self._page.get_by_role(spec.role, name=spec.name, exact=spec.exact)
         if isinstance(spec, LabelLocator):
@@ -336,7 +342,18 @@ class PlaywrightSession:
             return self._page.get_by_placeholder(spec.value, exact=spec.exact)
         if isinstance(spec, TestIdLocator):
             return self._page.get_by_test_id(spec.value)
-        if isinstance(spec, CssLocator) and spec.value in self._selectors:
+        if isinstance(spec, CssLocator) and await self._page.evaluate(
+            """selector => {
+                try {
+                    document.createDocumentFragment().querySelector(selector);
+                    return true;
+                } catch (error) {
+                    if (error.name !== 'SyntaxError') throw error;
+                    return false;
+                }
+            }""",
+            spec.value,
+        ):
             return self._page.locator(f"css={spec.value}")
         raise BrowserFailure("INVALID_ARGUMENTS")
 
@@ -366,7 +383,7 @@ class PlaywrightSession:
         return {"action": "navigate", "url": self._public_url()}
 
     async def _click(self, args: ClickArgs, call: Call) -> dict:
-        locator = self._locator(args.locator)
+        locator = await self._locator(args.locator)
         await self._single(locator, call, wait=True)
         if not await locator.is_visible() or not await locator.is_enabled():
             raise BrowserFailure("ELEMENT_NOT_INTERACTABLE", retryable=True)
@@ -377,12 +394,12 @@ class PlaywrightSession:
     async def _matches_field(
         self, locator: "Locator", handle: "ElementHandle", field: CredentialField
     ) -> bool:
-        return await locator.and_(self._locator(field.locator)).evaluate_all(
+        return await locator.and_(await self._locator(field.locator)).evaluate_all(
             "(nodes, target) => nodes.includes(target)", handle
         )
 
     async def _fill(self, args: FillArgs, call: Call) -> dict:
-        locator = self._locator(args.locator)
+        locator = await self._locator(args.locator)
         await self._single(locator, call, wait=True)
         try:
             editable = await locator.is_editable(timeout=call.timeout_ms())
@@ -418,7 +435,7 @@ class PlaywrightSession:
         return {"action": "fill", "url": self._public_url()}
 
     async def _select(self, args: SelectOptionArgs, call: Call) -> dict:
-        locator = self._locator(args.locator)
+        locator = await self._locator(args.locator)
         await self._single(locator, call, wait=True)
         state = await locator.evaluate(
             """(element, value) => ({
@@ -479,11 +496,23 @@ class PlaywrightSession:
         if self.sanitize(body) != body:
             raise BrowserFailure("ACTION_NOT_ALLOWED")
         masks = [
-            self._page.locator("input, textarea, select, [contenteditable]"),
+            self._page.locator("input[type=password]"),
             *(self._page.locator(selector) for selector in self._masks),
         ]
+        for field in self._protected_fields:
+            masks.append(await self._locator(field.locator))
+        if self._markers:
+            fields = self._page.locator(
+                "input:not([type=hidden], [type=password]), textarea"
+            )
+            values = await fields.evaluate_all("nodes => nodes.map(node => node.value)")
+            masks.extend(
+                fields.nth(index)
+                for index, value in enumerate(values)
+                if self.sanitize(value) != value
+            )
         if args.locator is not None:
-            locator = self._locator(args.locator)
+            locator = await self._locator(args.locator)
             await self._single(locator, call)
             box = await locator.bounding_box(timeout=call.timeout_ms())
             if box is None:
@@ -500,7 +529,12 @@ class PlaywrightSession:
         if pixels > self._limits.max_screenshot_pixels:
             raise BrowserFailure("ACTION_NOT_ALLOWED")
 
-        options = {"mask": masks, "scale": "css", "timeout": call.timeout_ms()}
+        options = {
+            "mask": masks,
+            "mask_color": "#737373",
+            "scale": "css",
+            "timeout": call.timeout_ms(),
+        }
         if args.locator is None:
             content = await self._page.screenshot(full_page=args.full_page, **options)
         else:
@@ -534,11 +568,7 @@ class PlaywrightSession:
         max_chars = self._limits.max_observation_chars
         controls = await self._page.evaluate(
             COLLECT_CONTROLS,
-            {
-                "limit": self._limits.max_elements,
-                "textLimit": 256,
-                "approvedSelectors": sorted(self._selectors)[:32],
-            },
+            {"limit": self._limits.max_elements, "textLimit": 256},
         )
         elements = []
         for control in controls["elements"]:
@@ -556,6 +586,9 @@ class PlaywrightSession:
                     "enabled": control["enabled"],
                 }
             )
+            href = control.get("href")
+            if href and self._origin.permits(href) and self.sanitize(href) == href:
+                elements[-1]["href"] = href
         # Count the control context as well as the two page text fields.
         elements_size = len(self._json({"elements": elements}))
         elements_truncated = False
@@ -619,17 +652,20 @@ class PlaywrightSession:
 
     async def _inspect(self, params: InspectCondition, call: Call) -> dict:
         starting = (self.revision, self._current_url())
-        if isinstance(params, UrlEquals | TitleEquals | TextEquals):
+        if isinstance(params, UrlEquals | UrlPathStartsWith | TitleEquals | TextEquals):
             if self.sanitize(params.expected) != params.expected:
                 raise BrowserFailure("INVALID_ARGUMENTS")
         if isinstance(params, UrlEquals):
             actual = self._public_url()
             matched = actual == params.expected
+        elif isinstance(params, UrlPathStartsWith):
+            actual = urlsplit(self._public_url()).path or "/"
+            matched = actual.startswith(params.expected)
         elif isinstance(params, TitleEquals):
             actual = self.sanitize(await self._page.title())
             matched = actual == params.expected
         else:
-            locator = self._locator(params.locator)
+            locator = await self._locator(params.locator)
             if isinstance(params, Exists):
                 actual = matched = await locator.count() > 0
             elif isinstance(params, Visible):
@@ -655,8 +691,15 @@ class PlaywrightSession:
         if starting != (self.revision, self._current_url()):
             raise BrowserFailure("OBSERVATION_UNSTABLE", retryable=True)
         captured_at = datetime.now(UTC)
+        arguments = params.model_dump(mode="json", exclude={"timeout_ms", "condition"})
+        if "locator" in arguments:
+            arguments["locator"] = {
+                name: self.sanitize(value) if isinstance(value, str) else value
+                for name, value in arguments["locator"].items()
+            }
         data = {
             "condition": params.condition,
+            **arguments,
             "actual": actual,
             "matched": matched,
             "url": self._public_url(),

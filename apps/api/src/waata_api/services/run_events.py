@@ -33,7 +33,7 @@ def event_cursor(header: str | None, query: str | None, *, head: int) -> int:
 
 
 async def stream_events(
-    runtime: ApiRuntime, run_id: str, cursor: int, *, request_id: str
+    runtime: ApiRuntime, run_id: str, cursor: int, *, owner_id: str, request_id: str
 ) -> AsyncIterator[str]:
     keepalive = runtime.settings.sse_keepalive_seconds
     poll_interval = runtime.settings.sse_poll_seconds
@@ -41,6 +41,11 @@ async def stream_events(
     while True:
         try:
             events = await runtime.repository.read_events(run_id, after=cursor)
+            if (
+                not events
+                and await runtime.repository.get_run(run_id, owner_id) is None
+            ):
+                return
         except (InterfaceError, OperationalError):
             _LOG.warning("SSE storage unavailable request_id=%s", request_id)
             return

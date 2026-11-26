@@ -2,7 +2,7 @@
 
 这组离线测试数据展示请求、工具调用、事件、证据和报告如何关联。标识、时间和页面观察均为样本。[平台启动](../../README.md) · [4gaBoards 夹具](../../examples/README.md#4gaboards-组员-a)
 
-样本以本地 4gaBoards v3.2.16 为目标。在独立用例会话中登录专用账号，创建 `Course Test 01`，从新项目页返回仪表盘，检查项目卡片和侧边栏是否均出现。复现时使用实际配置的目标 URL 和凭据集合，授权需要的操作及精确 CSS 定位器，确认侧边栏打开且项目名尚未使用。示例集合 `boards_local_fixture` 的字段级引用为 `boards_fixture_login` 和 `boards_fixture_password`，各自对应已授权的登录输入框。
+样本以本地 4gaBoards v3.2.16 为目标。在独立用例会话中登录专用账号，创建 `Course Test 01`，从新项目页返回仪表盘，检查项目卡片和侧边栏是否均出现。复现时使用实际配置的目标 URL 和凭据集合，授权需要的浏览器操作，确认侧边栏打开且项目名尚未使用。示例集合 `boards_local_fixture` 的字段级引用为 `boards_fixture_login` 和 `boards_fixture_password`，各自绑定到对应的登录输入框。
 
 | 阶段 | 对照样本 |
 | --- | --- |

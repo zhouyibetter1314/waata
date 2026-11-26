@@ -12,9 +12,13 @@ import EmptyState from '../../components/EmptyState.vue';
 import ProgressBar from '../../components/ProgressBar.vue';
 import StateBadge from '../../components/StateBadge.vue';
 import { terminalEventTypes } from './events';
-import { formatDate, statusLabels, verdictLabels } from './presentation';
+import {
+  formatDate,
+  statusLabels,
+  terminalStatuses,
+  verdictLabels,
+} from './presentation';
 import RunEventTimeline from './RunEventTimeline.vue';
-import RunReportPanel from './RunReportPanel.vue';
 import { useRunEvents } from './useRunEvents';
 
 const route = useRoute();
@@ -40,9 +44,7 @@ const progressPercent = computed(() => {
   );
 });
 const isTerminal = computed(() =>
-  run.value
-    ? ['succeeded', 'errored', 'cancelled'].includes(run.value.status)
-    : false,
+  run.value ? terminalStatuses.has(run.value.status) : false,
 );
 const verdictText = computed(() =>
   run.value?.verdict ? verdictLabels[run.value.verdict] : '未产生',
@@ -81,7 +83,7 @@ async function load(id: string, clear = true): Promise<void> {
   }
 }
 
-const { events, connectionMessage, cursor } = useRunEvents(
+const { events, connectionMessage } = useRunEvents(
   runId,
   eventsEnabled,
   applyRunEvent,
@@ -302,77 +304,73 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="detail-layout">
-        <div class="detail-primary">
-          <section
-            class="panel detail-panel"
-            aria-labelledby="run-request-title"
-          >
-            <div class="panel-title">
-              <h2 id="run-request-title">任务信息</h2>
+        <section class="panel detail-panel" aria-labelledby="run-request-title">
+          <div class="panel-title">
+            <h2 id="run-request-title">任务信息</h2>
+          </div>
+          <dl class="detail-list">
+            <dt>自然语言测试目标</dt>
+            <dd class="detail-request-text">{{ run.goal }}</dd>
+            <dt>预期行为</dt>
+            <dd class="detail-request-text">{{ run.expected_behavior }}</dd>
+            <dt>目标地址</dt>
+            <dd>
+              <a :href="run.target_url" target="_blank" rel="noreferrer">{{
+                run.target_url
+              }}</a>
+            </dd>
+            <dt>Run ID</dt>
+            <dd>
+              <code>{{ run.run_id }}</code>
+            </dd>
+            <dt>创建时间</dt>
+            <dd>{{ formatDate(run.created_at) }}</dd>
+            <dt>开始时间</dt>
+            <dd>{{ formatDate(run.started_at) }}</dd>
+            <dt>结束时间</dt>
+            <dd>{{ formatDate(run.finished_at) }}</dd>
+            <dt>运行耗时</dt>
+            <dd>{{ elapsed }}</dd>
+          </dl>
+        </section>
+        <div
+          v-if="(run.progress.total_cases ?? 0) > 1"
+          class="panel detail-panel"
+        >
+          <div class="panel-title">
+            <div>
+              <h2>用例汇总</h2>
+              <p>仅统计已经获得判定的测试用例。</p>
             </div>
-            <dl class="detail-list">
-              <dt>自然语言测试目标</dt>
-              <dd class="detail-request-text">{{ run.goal }}</dd>
-              <dt>预期行为</dt>
-              <dd class="detail-request-text">{{ run.expected_behavior }}</dd>
-              <dt>目标地址</dt>
-              <dd>
-                <a :href="run.target_url" target="_blank" rel="noreferrer">{{
-                  run.target_url
-                }}</a>
-              </dd>
-              <dt>Run ID</dt>
-              <dd>
-                <code>{{ run.run_id }}</code>
-              </dd>
-              <dt>创建时间</dt>
-              <dd>{{ formatDate(run.created_at) }}</dd>
-              <dt>开始时间</dt>
-              <dd>{{ formatDate(run.started_at) }}</dd>
-              <dt>结束时间</dt>
-              <dd>{{ formatDate(run.finished_at) }}</dd>
-              <dt>运行耗时</dt>
-              <dd>{{ elapsed }}</dd>
-            </dl>
-          </section>
-          <RunEventTimeline
-            :events="events"
-            :connection-message="connectionMessage"
-            :cursor="cursor"
+          </div>
+          <div v-if="run.summary" class="summary-grid">
+            <div class="summary-passed">
+              <span>通过</span><b>{{ run.summary.passed }}</b>
+            </div>
+            <div class="summary-failed">
+              <span>失败</span><b>{{ run.summary.failed }}</b>
+            </div>
+            <div class="summary-blocked">
+              <span>受阻</span><b>{{ run.summary.blocked }}</b>
+            </div>
+            <div class="summary-inconclusive">
+              <span>无法判定</span><b>{{ run.summary.inconclusive }}</b>
+            </div>
+          </div>
+          <EmptyState
+            v-else
+            title="尚无可查询报告"
+            description="运行完成后将在这里显示用例统计。"
+            icon="◌"
           />
         </div>
-
-        <div class="detail-secondary">
-          <div class="panel detail-panel">
-            <div class="panel-title">
-              <div>
-                <h2>用例汇总</h2>
-                <p>仅统计已经获得判定的测试用例。</p>
-              </div>
-            </div>
-            <div v-if="run.summary" class="summary-grid">
-              <div class="summary-passed">
-                <span>通过</span><b>{{ run.summary.passed }}</b>
-              </div>
-              <div class="summary-failed">
-                <span>失败</span><b>{{ run.summary.failed }}</b>
-              </div>
-              <div class="summary-blocked">
-                <span>受阻</span><b>{{ run.summary.blocked }}</b>
-              </div>
-              <div class="summary-inconclusive">
-                <span>无法判定</span><b>{{ run.summary.inconclusive }}</b>
-              </div>
-            </div>
-            <EmptyState
-              v-else
-              title="尚无可查询报告"
-              description="运行完成后将在这里显示用例统计。"
-              icon="◌"
-            />
-          </div>
-          <RunReportPanel :run-id="run.run_id" :available="isTerminal" />
-        </div>
+        <RunEventTimeline
+          :key="run.run_id"
+          :run-id="run.run_id"
+          :report-available="isTerminal"
+          :events="events"
+          :connection-message="connectionMessage"
+        />
       </div>
     </template>
   </section>

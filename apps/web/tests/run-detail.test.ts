@@ -44,6 +44,7 @@ describe('F03 run detail', () => {
         HttpResponse.json(
           detail({
             verdict: 'failed',
+            progress: { total_cases: 2, completed_cases: 2 },
             summary: { passed: 1, failed: 1, blocked: 0, inconclusive: 0 },
           }),
         ),
@@ -64,6 +65,18 @@ describe('F03 run detail', () => {
     expect(taskInfo.get('dd:nth-of-type(2)').text()).toBe(
       runDetailFixture.expected_behavior,
     );
+  });
+
+  it('keeps the verdict and report without repeating a single case as a summary', async () => {
+    server.use(
+      http.get('/api/v1/test-runs/:runId', () =>
+        HttpResponse.json(runDetailFixture),
+      ),
+    );
+    const { wrapper } = await mountView();
+    await vi.waitFor(() => expect(wrapper.text()).toContain('断言复核'));
+    expect(wrapper.text()).toContain('通过');
+    expect(wrapper.text()).not.toContain('用例汇总');
   });
 
   it.each([

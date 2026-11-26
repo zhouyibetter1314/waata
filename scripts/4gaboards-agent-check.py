@@ -479,7 +479,7 @@ async def run(args):
         "Do not repeat successful navigation to the same URL just to wait for rendering. "
         "When an already open form shows both its input and submit button, batch the fill and submit. "
         "Finish after the last required action; WAATA runs the final checks and captures evidence. "
-        "The following exact CSS locators are authorized; use them where applicable: "
+        "These page controls have been verified in the local fixture: "
         + json.dumps(sorted(selectors))
     )
     if key == "B02":
@@ -511,7 +511,6 @@ async def run(args):
         adapter = PlaywrightAdapter(
             browser=case_browser,
             allowed_origins={HOME},
-            allowed_css_selectors=selectors,
             allowed_websocket_paths={"/socket.io/"},
             allow_screenshots=True,
             credential_sets={

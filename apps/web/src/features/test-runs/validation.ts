@@ -1,5 +1,7 @@
 import type { CreateRunRequest } from '../../api';
 
+export const DEFAULT_AGENT_STEPS = 16;
+
 export type RunFormErrors = Partial<
   Record<
     'target_url' | 'goal' | 'expected_behavior' | 'max_steps_per_case',

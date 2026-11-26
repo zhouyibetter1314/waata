@@ -8,7 +8,46 @@ from waata.core.events import TestEvent
 from waata.orchestrator import TestResult, WAATAError
 from waata.orchestrator.models import ExecutionContext, RunError, TestCaseResult
 from waata_api.repositories import InvalidReport
+from waata_api.workers.events import public_event
 from waata_api.workers.runner import Worker
+
+
+class PublicEventTests(unittest.TestCase):
+    def test_filters_and_redacts_optional_tool_detail(self):
+        event = TestEvent(
+            event_id="evt_tool",
+            run_id="run_fixture",
+            timestamp=datetime.now(UTC),
+            type="tool.completed",
+            payload={
+                "tool": "browser.navigate",
+                "tool_call_id": "call_fixture",
+                "success": True,
+                "duration_ms": 1,
+                "error_code": None,
+                "evidence_ids": [],
+                "detail": {
+                    "phase": "start",
+                    "target": "Open fixture-secret",
+                    "destination": "http://fixture.test/?auth=fixture-secret#private",
+                    "screenshot_id": "art_unregistered",
+                    "arguments": {"secret_ref": "fixture-secret"},
+                },
+            },
+        )
+        values = public_event(
+            event,
+            "run_fixture",
+            lambda value: value.replace("fixture-secret", "[redacted]"),
+        )
+        self.assertEqual(
+            values["payload"]["detail"],
+            {
+                "phase": "start",
+                "target": "Open [redacted]",
+                "destination": "http://fixture.test/",
+            },
+        )
 
 
 class FakeRepository:

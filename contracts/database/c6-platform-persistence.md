@@ -27,6 +27,8 @@ FastAPI 和 Worker 共享 PostgreSQL 17 中的运行、事件、报告和证据�
 
 每次续租读取取消标记，追加新事件、登记证据和提交终态均检查执行令牌与数据库时钟。终态提交与取消对 Run 行加锁，先提交的取消会影响最终结果。过期执行无法继续发布，恢复流程保留记录以便复查，重新运行由调用方发起。模型、浏览器和文件 I/O 在数据库事务外执行。
 
+删除按主体锁定终态任务，在同一事务内将仍有文件的证据加入 `deleted_run_artifacts` 并级联删除任务、事件、报告和证据元数据。API 提交后尝试清理，Worker 定期处理剩余任务。文件已经不存在时也可清除队列条目，文件删除失败时延迟重试。[迁移](../../migrations/0003_run_artifact_cleanup.sql)
+
 Worker 轮询和续租的默认值分别为 `WAATA_WORKER_POLL_SECONDS=0.25` 和 `WAATA_WORKER_HEARTBEAT_SECONDS=2`，`WAATA_WORKER_LEASE_SECONDS=15` 且须大于两个心跳间隔。[Worker](../../apps/api/src/waata_api/workers/runner.py)
 
 ## 事件与证据

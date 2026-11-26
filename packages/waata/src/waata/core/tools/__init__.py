@@ -47,6 +47,7 @@ class ToolSpec:
     description: str
     input_model: type[BaseModel]
     handler: Callable[[Any, ToolContext], Awaitable[ToolResult]] = field(repr=False)
+    model_schema: dict[str, Any] | None = field(default=None, repr=False)
 
     @property
     def input_schema(self) -> dict[str, Any]:
@@ -55,7 +56,9 @@ class ToolSpec:
     @property
     def model_input_schema(self) -> dict[str, Any]:
         """Omit non-validation metadata from the schema repeated on each model turn."""
-        return _compact_schema(self.input_schema)
+        return _compact_schema(
+            self.input_schema if self.model_schema is None else self.model_schema
+        )
 
 
 def _compact_schema(schema: dict[str, Any]) -> dict[str, Any]:

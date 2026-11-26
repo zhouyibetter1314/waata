@@ -2,13 +2,27 @@
 import { computed, onMounted, ref } from 'vue';
 import EmptyState from '../../components/EmptyState.vue';
 import StateBadge from '../../components/StateBadge.vue';
-import type { RunStatus } from '../../api';
+import {
+  deleteRun,
+  isApiError,
+  type RunStatus,
+  type RunSummary,
+} from '../../api';
 import { useTestRunsStore } from './store';
-import { formatDate, statusLabels, verdictLabels } from './presentation';
+import {
+  formatDate,
+  formatError,
+  statusLabels,
+  verdictLabels,
+} from './presentation';
+import { terminalStatuses } from './presentation';
 
 const store = useTestRunsStore();
 const search = ref('');
 const statusFilter = ref<RunStatus | ''>('');
+const deleting = ref('');
+const deletionError = ref('');
+const deletionNotice = ref('');
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(store.total / store.pageSize)),
 );
@@ -40,6 +54,35 @@ const currentPageIssues = computed(
 );
 
 onMounted(() => store.load(1));
+
+async function remove(run: RunSummary): Promise<void> {
+  if (
+    deleting.value ||
+    !window.confirm(
+      `确定删除此测试任务及其运行记录和证据？删除后无法恢复。\n\n${run.goal}`,
+    )
+  )
+    return;
+  deletionError.value = '';
+  deletionNotice.value = '';
+  deleting.value = run.run_id;
+  try {
+    try {
+      await deleteRun(run.run_id);
+    } catch (error) {
+      if (!isApiError(error) || error.code !== 'RUN_NOT_FOUND') throw error;
+    }
+    store.items = store.items.filter((item) => item.run_id !== run.run_id);
+    await store.load(store.page);
+    if (!store.error && !store.items.length && store.page > totalPages.value)
+      await store.load(totalPages.value);
+    deletionNotice.value = '测试任务已删除。';
+  } catch (error) {
+    deletionError.value = formatError(error);
+  } finally {
+    deleting.value = '';
+  }
+}
 </script>
 
 <template>
@@ -88,6 +131,10 @@ onMounted(() => store.load(1));
       </div>
     </div>
 
+    <p v-if="deletionError" class="alert alert-error" role="alert">
+      {{ deletionError }}
+    </p>
+    <p v-if="deletionNotice" role="status">{{ deletionNotice }}</p>
     <div v-if="store.error" class="alert alert-error" role="alert">
       <div>
         <strong>{{ store.error }}</strong
@@ -210,6 +257,15 @@ onMounted(() => store.load(1));
               </td>
               <td class="date-cell">{{ formatDate(run.created_at) }}</td>
               <td class="row-action">
+                <button
+                  v-if="terminalStatuses.has(run.status)"
+                  class="text-button text-failed"
+                  type="button"
+                  :disabled="Boolean(deleting)"
+                  @click="remove(run)"
+                >
+                  {{ deleting === run.run_id ? '正在删除…' : '删除' }}
+                </button>
                 <RouterLink
                   :to="`/runs/${encodeURIComponent(run.run_id)}`"
                   aria-label="查看任务详情"

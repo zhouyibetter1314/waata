@@ -1,16 +1,18 @@
 """C1 test-run and evidence endpoints."""
 
+import logging
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Header, Query, Request, Response
 from fastapi.responses import StreamingResponse
+from psycopg import Error as DatabaseError
 
 from waata_api.api.dependencies import Owner, Runtime
 from waata_api.api.errors import ApiError, error_responses
 from waata_api.infrastructure.config import CredentialNotAllowed, TargetNotAllowed
-from waata_api.repositories import RunNotCancellable
+from waata_api.repositories import RunNotCancellable, RunNotDeletable
 from waata_api.schemas.test_runs import (
     CancelRunResponse,
     CreateRunRequest,
@@ -29,6 +31,7 @@ from waata_api.services.run_views import (
 )
 
 router = APIRouter(prefix="/api/v1")
+_LOG = logging.getLogger(__name__)
 
 
 @router.post(
@@ -131,7 +134,9 @@ async def get_test_run_events(
     if run["status"] in TERMINAL_STATUSES and cursor == head:
         return Response(status_code=204)
     return StreamingResponse(
-        stream_events(runtime, run_id, cursor, request_id=request.state.request_id),
+        stream_events(
+            runtime, run_id, cursor, owner_id=owner, request_id=request.state.request_id
+        ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
@@ -178,6 +183,27 @@ async def cancel_test_run(
         status=run["status"],
         cancellation_requested=run["cancellation_requested"],
     )
+
+
+@router.delete(
+    "/test-runs/{run_id}",
+    status_code=204,
+    operation_id="deleteTestRun",
+    response_class=Response,
+    responses=error_responses("INVALID_REQUEST", "RUN_NOT_FOUND", "RUN_NOT_DELETABLE"),
+)
+async def delete_test_run(run_id: str, owner: Owner, runtime: Runtime) -> Response:
+    try:
+        deleted = await runtime.repository.delete_run(run_id, owner)
+    except RunNotDeletable:
+        raise ApiError("RUN_NOT_DELETABLE") from None
+    if not deleted:
+        raise ApiError("RUN_NOT_FOUND")
+    try:
+        await runtime.artifact_store.purge_deleted(run_id=run_id)
+    except DatabaseError:
+        _LOG.warning("Deferred evidence deletion for a completed run")
+    return Response(status_code=204)
 
 
 _ATTACHMENTS = {"playwright_trace": "trace.zip", "test_report": "report.json"}

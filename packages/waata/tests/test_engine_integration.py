@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from base64 import b64encode
 from contextlib import contextmanager
 from dataclasses import replace
 from html import escape
@@ -14,12 +15,12 @@ from uuid import uuid4
 
 from waata.artifacts import ArtifactInput, ArtifactRef
 from waata.browser import CredentialField, PlaywrightAdapter
-from waata.browser.observation import COLLECT_CONTROLS
-from waata.core.model import ChatMessage, ChatResponse, ToolCall
+from waata.browser.observation import COLLECT_CONTROLS, suggested_locator
+from waata.core.model import ChatMessage, ChatResponse, ModelRateLimitError, ToolCall
 from waata.core.tools import ToolContext, ToolRegistry, ToolResult
 from waata.orchestrator import TestEngine, TestRequest, WAATAError
 from waata.orchestrator.config import EngineConfig
-from waata.orchestrator.planner import parse_plan
+from waata.orchestrator.planner import PlanValidationError, parse_plan
 from waata_test_support.model import FakeLLM
 
 try:
@@ -117,7 +118,14 @@ class LoginHandler(BaseHTTPRequestHandler):
                 '<option value="reader">Reader</option><option value="writer">Writer</option>'
                 '<option value="disabled" disabled>Disabled</option></select>'
                 '<label for="note">Note</label>'
-                '<input id="note" value="temporary form draft">',
+                '<input id="note" value="temporary form draft" '
+                'style="appearance:none;border:0;padding:5px;background:#f3e655">'
+                '<input id="control-password" type="password">'
+                f'<input id="copied-secret" value="{escape(self.server.password)}">'
+                '<div id="private-panel">Private fixture panel</div>'
+                '<a href="/probe">Fixture</a><a href="/probe">Fixture</a>'
+                '<a href="/probe?marker=fixture">Filtered fixture</a>'
+                '<a href="https://other.test/">External fixture</a>',
             )
         elif self.path == "/leave" and self.server.redirect_target:
             self._redirect("/relay")
@@ -258,9 +266,8 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
         raw = '{"cases":[]}'
         fenced = "```json\n" + raw + "\n```"
         self.assertEqual(parse_plan(fenced, max_cases=1, max_checkpoints=1), [])
-        self.assertIsNone(
+        with self.assertRaisesRegex(PlanValidationError, "malformed"):
             parse_plan("Here's the plan:\n" + fenced, max_cases=1, max_checkpoints=1)
-        )
 
     async def test_automatic_final_screenshot_without_model_tool_call(self):
         with login_fixture() as fixture:
@@ -282,12 +289,18 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
                 artifact_store=store,
                 config=EngineConfig(capture_final_screenshot=True),
             )
+            events = []
+
+            async def record(event):
+                events.append(event)
+
             result = await engine.run(
                 TestRequest(
                     target_url=url,
                     goal="Open controls",
                     expected_behavior="Controls load",
-                )
+                ),
+                on_event=record,
             )
             self.assertEqual(result.verdict, "passed")
             screenshots = [
@@ -297,23 +310,51 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             self.assertTrue(
                 store.saved[screenshots[0].artifact_id].content.startswith(b"\x89PNG")
             )
+            checks, capture = [
+                event.payload["detail"]
+                for event in events
+                if event.type == "tool.completed"
+                and event.payload["tool"] in {"browser.inspect", "browser.screenshot"}
+            ]
+            self.assertEqual(
+                checks, {"phase": "result", "condition": "url_equals", "matched": True}
+            )
+            self.assertEqual(
+                capture,
+                {"phase": "result", "screenshot_id": screenshots[0].artifact_id},
+            )
 
-    async def test_observation_keeps_approved_control_after_long_sidebar(self):
+    async def test_observation_keeps_editor_controls_after_long_navigation(self):
         page = await self.browser.new_page()
         self.addAsyncCleanup(page.close)
         await page.set_content(
-            "<button>Old item</button>" * 250
-            + '<button id="hidden" hidden>Hidden action</button>'
-            + '<button id="rename">Rename Project</button>'
+            "<nav>" + '<a href="/old">Old item</a>' * 250 + "</nav>"
+            "<button>Other action</button>"
+            '<section role="dialog"><input id="hidden" hidden>'
+            '<input id="topic-title">'
+            + '<button aria-label="Format">\u200b</button>'
+            * 50
+            + '<textarea class="topic-editor"></textarea>'
+            '<details open><summary id="category" role="listbox">Category</summary>'
+            '<div id="lab" role="menuitemradio">WAATA Lab</div></details>'
+            '<button id="create">Create Topic</button></section>'
         )
+        await page.locator("#topic-title").focus()
         observed = await page.evaluate(
             COLLECT_CONTROLS,
-            {"limit": 2, "textLimit": 100, "approvedSelectors": ["#hidden", "#rename"]},
+            {"limit": 5, "textLimit": 100},
         )
         self.assertTrue(observed["truncated"])
-        self.assertEqual(observed["elements"][0]["approved_css"], "#rename")
-        self.assertEqual(observed["elements"][0]["name"], "Rename Project")
-        self.assertEqual(observed["elements"][1]["name"], "Old item")
+        self.assertEqual(
+            [suggested_locator(item) for item in observed["elements"]],
+            [
+                {"strategy": "css", "value": "#topic-title"},
+                {"strategy": "css", "value": "textarea.topic-editor"},
+                {"strategy": "css", "value": "#category"},
+                {"strategy": "css", "value": "#lab"},
+                {"strategy": "css", "value": "#create"},
+            ],
+        )
 
     async def test_native_select_zero_count_and_browser_evidence_registration(self):
         class ArtifactStoreWithFailure(MemoryArtifacts):
@@ -331,7 +372,14 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
                 browser=self.browser,
                 allowed_origins={fixture.origin},
                 allow_screenshots=True,
-                allowed_css_selectors={"input#note", "input"},
+                screenshot_mask_selectors=["#private-panel"],
+                credential_sets={
+                    "fixture": {
+                        "test_password": CredentialField(
+                            value=fixture.password, locator=PASSWORD_FIELD
+                        )
+                    }
+                },
             )
             session = await adapter.open_case(
                 url, credential_ref=None, artifact_store=artifacts
@@ -384,6 +432,15 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             self.assertTrue(result.data["matched"])
             self.assertEqual(result.data["actual"], 0)
 
+            result = await tool(
+                "inspect",
+                {
+                    "condition": "exists",
+                    "locator": {"strategy": "css", "value": "input >> text=Note"},
+                },
+            )
+            self.assertEqual(result.error.code, "INVALID_ARGUMENTS")
+
             observation = await tool("observe", {"include_screenshot": True})
             self.assertTrue(observation.success, observation.error)
             observation_id, screenshot_id = observation.data["evidence_ids"]
@@ -393,8 +450,46 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             stored_observation = json.loads(artifacts.saved[observation_id].content)
             self.assertEqual(stored_observation["evidence_ids"], [screenshot_id])
             self.assertNotIn("temporary form draft", json.dumps(observation.data))
+            self.assertNotIn(fixture.password, json.dumps(observation.data))
+            links = [
+                item for item in observation.data["elements"] if item["role"] == "link"
+            ]
+            self.assertEqual(
+                [item["href"] for item in links if item["name"] == "Fixture"],
+                [f"{fixture.origin}/probe"] * 2,
+            )
+            self.assertTrue(
+                all("href" not in item for item in links if item["name"] != "Fixture")
+            )
             locators = [item["locator"] for item in observation.data["elements"]]
-            self.assertIn({"strategy": "css", "value": "input#note"}, locators)
+            note = {"strategy": "css", "value": "#note"}
+            self.assertIn(note, locators)
+            result = await tool("fill", {"locator": note, "value": "Fixture text"})
+            self.assertTrue(result.success, result.error)
+            self.assertEqual(actions, 3)
+
+            async def screenshot_pixel(selector):
+                result = await tool(
+                    "screenshot", {"locator": {"strategy": "css", "value": selector}}
+                )
+                self.assertTrue(result.success, result.error)
+                png = artifacts.saved[result.data["artifact_id"]].content
+                return await session._page.evaluate(
+                    """async png => {
+                        const image = new Image();
+                        image.src = 'data:image/png;base64,' + png;
+                        await image.decode();
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        context.drawImage(image, 0, 0);
+                        return Array.from(context.getImageData(3, 3, 1, 1).data);
+                    }""",
+                    b64encode(png).decode("ascii"),
+                )
+
+            self.assertEqual(await screenshot_pixel("#note"), [243, 230, 85, 255])
+            for selector in ("#control-password", "#copied-secret", "#private-panel"):
+                self.assertEqual(await screenshot_pixel(selector), [115, 115, 115, 255])
 
             artifacts.reject = True
             count_before = len(artifacts.saved)
@@ -468,6 +563,56 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             expected_behavior="Sign in with valid credentials and reject a wrong password",
             credential_ref="demo",
         )
+
+    async def test_final_path_check_gates_content_assertions_and_records_arguments(
+        self,
+    ):
+        with login_fixture() as fixture:
+            for prefix, matches in (("/topics/", False), ("/login", True)):
+                with self.subTest(prefix=prefix):
+                    artifacts = MemoryArtifacts()
+                    llm = FakeLLM(
+                        [
+                            planning_response(
+                                case_plan(
+                                    "Show the result only on the final page",
+                                    [
+                                        {
+                                            "condition": "visible",
+                                            "locator": SIGN_IN_BUTTON,
+                                        },
+                                        {
+                                            "condition": "url_path_starts_with",
+                                            "expected": prefix,
+                                        },
+                                    ],
+                                )
+                            ),
+                            assistant_text("Verify the current page."),
+                        ]
+                    )
+                    result = await self._engine(fixture, llm, artifacts).run(
+                        self._request(fixture)
+                    )
+                    self.assertEqual(result.verdict, "passed" if matches else "failed")
+                    location, content = result.cases[0].assertions
+                    self.assertEqual(location.passed, matches)
+                    evidence = json.loads(
+                        artifacts.saved[location.evidence_ids[0]].content
+                    )
+                    self.assertEqual(evidence["expected"], prefix)
+                    self.assertEqual(evidence["actual"], "/login")
+                    if matches:
+                        self.assertIs(content.passed, True)
+                        evidence = json.loads(
+                            artifacts.saved[content.evidence_ids[0]].content
+                        )
+                        self.assertEqual(
+                            evidence["locator"], {**SIGN_IN_BUTTON, "exact": True}
+                        )
+                    else:
+                        self.assertIsNone(content.passed)
+                        self.assertEqual(content.evidence_ids, [])
 
     async def test_screenshot_policy_denial_preserves_checkpoint_failure(self):
         with login_fixture() as fixture:
@@ -902,6 +1047,77 @@ class UnusedBrowser:
 
 
 class EngineLifecycleTests(IsolatedAsyncioTestCase):
+    async def test_invalid_plan_uses_safe_field_feedback_and_strict_repair_schema(self):
+        invalid = planning_response(
+            case_plan(
+                "Inspect the fixture",
+                [{"condition": "visible", "locator": SIGN_IN_BUTTON, "expected": True}],
+            )
+        )
+        request = TestRequest(
+            target_url="http://127.0.0.1/",
+            goal="Check the login page",
+            expected_behavior="The sign-in button is visible",
+        )
+        provider = FakeLLM([invalid, planning_response()])
+        await TestEngine(
+            llm=provider, browser=UnusedBrowser(), artifact_store=MemoryArtifacts()
+        ).run(request)
+        first, second = (
+            json.loads(item.messages[1].content) for item in provider.requests
+        )
+        self.assertNotIn("format_feedback", first)
+        self.assertIn(
+            "cases.0.checkpoints.0.expected (extra_forbidden)",
+            second["format_feedback"],
+        )
+        self.assertIn("oneOf", second["checkpoint_schema"])
+        self.assertTrue(all(item.json_mode for item in provider.requests))
+
+        marker = token_urlsafe(18)
+        invalid = assistant_text(json.dumps({"cases": [], marker: True}))
+        provider = FakeLLM([invalid, invalid])
+        with self.assertRaises(WAATAError) as captured:
+            await TestEngine(
+                llm=provider, browser=UnusedBrowser(), artifact_store=MemoryArtifacts()
+            ).run(request)
+        self.assertEqual(captured.exception.error.code, "MODEL_PLAN_INVALID")
+        self.assertNotIn(marker, captured.exception.error.message)
+        self.assertNotIn(marker, provider.requests[1].messages[1].content)
+
+    async def test_model_rate_limit_retry_respects_run_deadline(self):
+        request = TestRequest(
+            target_url="http://127.0.0.1/",
+            goal="Check the login page",
+            expected_behavior="The login page renders",
+        )
+        loop = asyncio.get_running_loop()
+        limited = FakeLLM([ModelRateLimitError("Model rate limited", retry_after=30)])
+        engine = TestEngine(
+            llm=limited,
+            browser=UnusedBrowser(),
+            artifact_store=MemoryArtifacts(),
+            config=EngineConfig(timeout_seconds=2),
+        )
+        with self.assertRaises(WAATAError) as captured:
+            await engine.run(request)
+        self.assertEqual(captured.exception.error.code, "MODEL_RATE_LIMITED")
+        self.assertEqual(len(limited.requests), 1)
+
+        recovered = FakeLLM(
+            [
+                ModelRateLimitError("Model rate limited", retry_after=0.02),
+                planning_response(),
+            ]
+        )
+        engine = TestEngine(
+            llm=recovered, browser=UnusedBrowser(), artifact_store=MemoryArtifacts()
+        )
+        started = loop.time()
+        await engine.run(request)
+        self.assertGreaterEqual(loop.time() - started, 0.02)
+        self.assertEqual(len(recovered.requests), 2)
+
     async def test_run_deadline_interrupts_model_planning_before_browser_opens(self):
         class BlockingModel(FakeLLM):
             async def chat(self, messages, **options):

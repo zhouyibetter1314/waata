@@ -95,7 +95,10 @@ case "${1:-start}" in
     docker compose version >/dev/null
     prepare
     compose config --images
-    compose up -d --build --wait --wait-timeout 180
+    if ! docker image inspect waata-admidio:5.0.2 >/dev/null 2>&1; then
+      compose build web
+    fi
+    compose up -d --no-build --wait --wait-timeout 180
     wait_for_http http://127.0.0.1:8081/ 30
     printf 'First installation: http://127.0.0.1:8081/install/index.php\n'
     ;;

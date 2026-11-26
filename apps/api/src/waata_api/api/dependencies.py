@@ -65,7 +65,7 @@ def get_owner(request: Request, runtime: Runtime) -> str:
             raise ApiError("UNAUTHENTICATED")
     else:
         raise ApiError("UNAUTHENTICATED")
-    if request.method == "POST" and (
+    if request.method in {"POST", "DELETE"} and (
         (origin is None and settings.auth_mode != "local")
         or (origin is not None and origin not in settings.web_origins)
     ):

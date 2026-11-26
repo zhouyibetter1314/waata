@@ -19,7 +19,12 @@ from waata_api.repositories import PostgresRepository
 
 from .config import DEFAULT_ARTIFACT_LIMITS, Settings
 
-_KEY = re.compile(r"[0-9a-f]{32}")
+_KEY = re.compile(r"[0-9a-f]{32}(?:\.(?:png|json|zip))?")
+_EXTENSIONS = {
+    "application/json": ".json",
+    "image/png": ".png",
+    "application/zip": ".zip",
+}
 _LOG = logging.getLogger(__name__)
 
 
@@ -123,10 +128,11 @@ class FileArtifactStore:
         (self._pending / key).unlink(missing_ok=True)
 
     async def _save(self, artifact: ArtifactInput, execution_token: str) -> ArtifactRef:
-        key = uuid4().hex
+        token = uuid4().hex
+        key = token + _EXTENSIONS[artifact.mime_type]
         reference = ArtifactRef(
             **artifact.model_dump(exclude={"content"}),
-            artifact_id=f"art_{key}",
+            artifact_id=f"art_{token}",
             size_bytes=len(artifact.content),
         )
         with await asyncio.to_thread(self._begin_write, key):
@@ -228,6 +234,31 @@ class FileArtifactStore:
             raise
         return marker
 
+    def _remove_file(self, key: str, mime_type: str) -> None:
+        path = self._path(key)
+        if not path.suffix and mime_type in _EXTENSIONS:
+            # A legacy file may also have a typed hard link for local browsing.
+            linked = path.with_suffix(_EXTENSIONS[mime_type])
+            try:
+                if os.path.samestat(path.lstat(), linked.lstat()):
+                    linked.unlink(missing_ok=True)
+            except FileNotFoundError:
+                pass
+        path.unlink(missing_ok=True)
+
+    async def purge_deleted(
+        self, *, run_id: str | None = None, limit: int = 100
+    ) -> None:
+        for row in await self._repository.deleted_artifacts(run_id=run_id, limit=limit):
+            key = row["storage_key"]
+            try:
+                await asyncio.to_thread(self._remove_file, key, row["mime_type"])
+            except (OSError, ValueError):
+                _LOG.warning("Could not remove a deleted run's evidence file")
+                await self._repository.finish_artifact_deletion(key, retry=True)
+                continue
+            await self._repository.finish_artifact_deletion(key, retry=False)
+
     async def purge_expired(self, *, limit: int = 100) -> None:
         for key in await asyncio.to_thread(self._old_markers, limit):
             marker = await asyncio.to_thread(self._try_marker, key)
@@ -240,7 +271,7 @@ class FileArtifactStore:
         for row in await self._repository.expired_artifacts(limit=limit):
             key = row["storage_key"]
             try:
-                await asyncio.to_thread(self._path(key).unlink, missing_ok=True)
+                await asyncio.to_thread(self._remove_file, key, row["mime_type"])
             except (OSError, ValueError):
                 _LOG.warning("Could not remove an expired evidence file")
                 continue

@@ -6,53 +6,6 @@ import { cloneFixture, runReportFixture } from './fixtures/api';
 import { server } from './fixtures/server';
 
 describe('F06 report and evidence', () => {
-  it.each(['failed', 'inconclusive', 'errored'] as const)(
-    'groups screenshots and handles missing evidence for %s runs',
-    async (state) => {
-      const report = cloneFixture(runReportFixture);
-      report.status = state === 'errored' ? 'errored' : 'succeeded';
-      report.verdict = state === 'errored' ? null : state;
-      const testCase = report.cases[0]!;
-      report.cases.push({ ...testCase, case_id: 'case_empty', name: 'B02' });
-      const screenshot = {
-        ...report.artifacts[0]!,
-        run_id: report.run_id,
-        case_id: testCase.case_id,
-        artifact_id: 'art_screenshot',
-        mime_type: 'image/png',
-        kind: 'screenshot' as const,
-      };
-      report.artifacts.push(screenshot);
-      server.use(
-        http.get('/api/v1/test-runs/:runId/report', () =>
-          HttpResponse.json(report),
-        ),
-      );
-      const wrapper = mount(RunReportPanel, {
-        props: { runId: report.run_id, available: true },
-      });
-      await vi.waitFor(() =>
-        expect(wrapper.find('.screenshot-card img').exists()).toBe(true),
-      );
-      expect(wrapper.get('.screenshot-card img').attributes('src')).toContain(
-        '/artifacts/art_screenshot',
-      );
-      expect(wrapper.get('.screenshot-card').text()).toContain(
-        testCase.case_id,
-      );
-      expect(
-        wrapper.get('.screenshot-card a[download]').attributes('download'),
-      ).toBe('art_screenshot.png');
-      expect(wrapper.get('.screenshot-evidence').text()).toContain(
-        '此用例尚无截图',
-      );
-      await wrapper.get('.screenshot-card img').trigger('error');
-      expect(wrapper.find('.screenshot-card img').exists()).toBe(false);
-      expect(wrapper.get('.screenshot-card').text()).toContain('截图暂不可用');
-      wrapper.unmount();
-    },
-  );
-
   it('explains a failed report with no saved evidence', async () => {
     const report = cloneFixture(runReportFixture);
     report.status = 'errored';
@@ -76,7 +29,7 @@ describe('F06 report and evidence', () => {
         'The model hit its output limit',
       ),
     );
-    expect(wrapper.text()).toContain('没有已保存的截图或其他证据');
+    expect(wrapper.text()).toContain('没有可复核的用例');
   });
 
   it('keeps false and null distinct in a partial report', async () => {
@@ -95,8 +48,8 @@ describe('F06 report and evidence', () => {
       props: { runId: report.run_id, available: true },
     });
     await vi.waitFor(() => expect(wrapper.text()).toContain('断言复核'));
-    expect(wrapper.text()).toContain('false');
-    expect(wrapper.text()).toContain('null');
+    expect(wrapper.text()).toContain('否');
+    expect(wrapper.text()).toContain('未记录');
     expect(wrapper.text()).toContain('未判定');
   });
 

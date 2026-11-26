@@ -1,6 +1,6 @@
 """Strict input models for the C3 browser tools."""
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
 
@@ -16,6 +16,8 @@ AriaRole = Literal[
     "link",
     "listbox",
     "menuitem",
+    "menuitemcheckbox",
+    "menuitemradio",
     "option",
     "radio",
     "searchbox",
@@ -126,6 +128,11 @@ class UrlEquals(ToolArgs):
     expected: PlainText
 
 
+class UrlPathStartsWith(ToolArgs):
+    condition: Literal["url_path_starts_with"]
+    expected: Annotated[str, Field(max_length=4096, pattern=r"^/[^?#]*$")]
+
+
 class TitleEquals(ToolArgs):
     condition: Literal["title_equals"]
     expected: PlainText
@@ -150,7 +157,7 @@ class TextEquals(ClickArgs):
 
 
 InspectCondition = Annotated[
-    UrlEquals | TitleEquals | Exists | Visible | Count | TextEquals,
+    UrlEquals | UrlPathStartsWith | TitleEquals | Exists | Visible | Count | TextEquals,
     Field(discriminator="condition"),
 ]
 
@@ -159,13 +166,73 @@ class InspectArgs(RootModel[InspectCondition]):
     model_config = ConfigDict(frozen=True)
 
 
+_MODEL_LOCATOR = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["strategy"],
+    "description": (
+        "Copy a locator from the page. Use role and name for strategy role; "
+        "use value for other strategies. exact defaults to true for role, "
+        "label, text and placeholder; omit it for css and test_id."
+    ),
+    "properties": {
+        "strategy": {
+            "type": "string",
+            "enum": [
+                get_args(variant.model_fields["strategy"].annotation)[0]
+                for variant in get_args(get_args(LocatorSpec)[0])
+            ],
+        },
+        "role": {"type": "string", "enum": list(get_args(AriaRole))},
+        "name": {"type": "string"},
+        "value": {"type": "string"},
+        "exact": {"type": "boolean"},
+    },
+}
+
+
+def model_tool_schema(model: type[BaseModel]) -> dict:
+    """Describe the valid arguments compactly for the model, with strict validation at dispatch."""
+    if model is InspectArgs:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["condition"],
+            "properties": {
+                "condition": {
+                    "type": "string",
+                    "enum": [
+                        get_args(variant.model_fields["condition"].annotation)[0]
+                        for variant in get_args(get_args(InspectCondition)[0])
+                    ],
+                    "description": (
+                        "visible/exists: locator only. count/text_equals: locator and "
+                        "expected. URL and page title checks: expected only. "
+                        "For url_path_starts_with use a path prefix such as /items/."
+                    ),
+                },
+                "locator": _MODEL_LOCATOR,
+                "expected": {
+                    "anyOf": [{"type": "string"}, {"type": "integer", "minimum": 0}],
+                    "description": "Use an integer for count and a string for comparisons.",
+                },
+                "timeout_ms": {"type": "integer", "minimum": 1},
+            },
+        }
+    schema = model.model_json_schema()
+    if "locator" in schema["properties"]:
+        schema["properties"]["locator"] = _MODEL_LOCATOR
+        schema.pop("$defs")
+    return schema
+
+
 BROWSER_TOOLS = (
     ("browser.observe", "Observe the current page and visible controls.", ObserveArgs),
     ("browser.navigate", "Open an approved URL on the case origin.", NavigateArgs),
     ("browser.click", "Click a single visible control.", ClickArgs),
     (
         "browser.fill",
-        "Fill a control with text or an authorized secret reference.",
+        "Fill a control with exactly one of value or secret_ref.",
         FillArgs,
     ),
     (
@@ -175,7 +242,7 @@ BROWSER_TOOLS = (
     ),
     (
         "browser.screenshot",
-        "Register a masked screenshot of the current page or control.",
+        "Register a screenshot of the current page or control with sensitive fields redacted.",
         ScreenshotArgs,
     ),
     (

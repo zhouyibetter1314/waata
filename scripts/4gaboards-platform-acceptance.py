@@ -190,14 +190,6 @@ async def main():
         ]
     fixture = dotenv_values(ROOT / ".local/4gaboards/.env")
     raw = json.loads((ROOT / ".local/4gaboards/waata-targets.json").read_text())
-    selectors = {
-        item["locator"]["value"]
-        for _, checks in specs.values()
-        for item in checks
-        if "locator" in item
-    }
-    for target in raw:
-        target["css_selectors"] = sorted(set(target["css_selectors"]) | selectors)
     os.environ.update(
         WAATA_ALLOW_HEADFUL="true",
         WAATA_BOARDS_ADMIN_LOGIN="waataadmin",

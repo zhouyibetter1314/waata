@@ -36,6 +36,16 @@ async function fillRequired(wrapper: ReturnType<typeof mount>) {
 }
 
 describe('F02 create run', () => {
+  it('shows a scenario placeholder hint until the run fields use a concrete tag', async () => {
+    const { wrapper } = await mountView();
+    await fillRequired(wrapper);
+    const expected = wrapper.get('[name="expected_behavior"]');
+    await expected.setValue('帖子标题包含 {tag}');
+    expect(wrapper.get('[role="status"]').text()).toContain('同一个测试编号');
+    await expected.setValue('帖子标题包含 DC01-01');
+    expect(wrapper.find('[role="status"]').exists()).toBe(false);
+  });
+
   it('validates empty goal, empty expected behavior and URL userinfo', async () => {
     const { wrapper } = await mountView();
     await wrapper

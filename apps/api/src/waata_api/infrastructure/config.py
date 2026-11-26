@@ -10,7 +10,13 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from waata.browser import CredentialField, LocatorSpec
 from waata.browser.policy import Origin, redaction_variants, safe_url, sanitize
 from waata.orchestrator.config import EngineConfig
@@ -25,6 +31,7 @@ DEFAULT_ARTIFACT_LIMITS = {
     "playwright_trace": 32 * 1024 * 1024,
     "test_report": 4 * 1024 * 1024,
 }
+PLATFORM_ENGINE_CONFIG = EngineConfig(capture_final_screenshot=True)
 Action = Literal[
     "browser.navigate", "browser.click", "browser.fill", "browser.select_option"
 ]
@@ -63,10 +70,17 @@ class TargetPolicy(BaseModel):
     owners: list[str]
     actions: list[Action] = []
     credentials: dict[str, dict[str, CredentialSource]] = {}
-    css_selectors: list[str] = []
     websocket_paths: list[str] = []
     screenshot_mask_selectors: list[str] = []
     allow_screenshots: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def read_existing_policy(cls, value):
+        # Accept policies saved before locator selection moved into the browser.
+        if isinstance(value, dict) and "css_selectors" in value:
+            return {key: item for key, item in value.items() if key != "css_selectors"}
+        return value
 
     @field_validator("origin")
     @classmethod
@@ -170,7 +184,7 @@ class Settings:
     web_origins: tuple[str, ...] = LOCAL_WEB_ORIGINS
     gateway_token: str | None = field(default=None, repr=False)
     policy: TargetPolicies = field(default_factory=TargetPolicies)
-    engine_config: EngineConfig = field(default_factory=EngineConfig)
+    engine_config: EngineConfig = PLATFORM_ENGINE_CONFIG
     sse_poll_seconds: float = 0.25
     sse_keepalive_seconds: float = 15
     worker_poll_seconds: float = 0.25
@@ -239,6 +253,12 @@ class Settings:
             engine_config = EngineConfig.model_validate_json(
                 values.get("WAATA_ENGINE_CONFIG", "{}"), strict=True
             )
+            if "capture_final_screenshot" not in engine_config.model_fields_set:
+                engine_config = engine_config.model_copy(
+                    update={
+                        "capture_final_screenshot": PLATFORM_ENGINE_CONFIG.capture_final_screenshot
+                    }
+                )
             limits = DEFAULT_ARTIFACT_LIMITS | json.loads(
                 values.get("WAATA_ARTIFACT_MAX_BYTES", "{}")
             )
