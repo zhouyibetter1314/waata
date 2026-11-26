@@ -44,6 +44,12 @@ export function getRun(runId: string, signal?: AbortSignal) {
   });
 }
 
+export async function deleteRun(runId: string): Promise<void> {
+  await requestRaw(`/test-runs/${encodePathSegment(runId)}`, {
+    method: 'DELETE',
+  });
+}
+
 export function getRunReport(runId: string, signal?: AbortSignal) {
   return requestJson<RunReport>(
     `/test-runs/${encodePathSegment(runId)}/report`,

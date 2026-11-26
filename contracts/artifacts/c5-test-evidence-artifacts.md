@@ -24,6 +24,8 @@ Langfuse 追踪保存在观测系统，以报告中的 `langfuse_trace_id` 关�
 
 页面观察保存页面摘要，可以包含同时登记的截图 ID。检查记录保存 `condition`、`actual`、`matched`、`url` 和 `observed_at`，以及该条件使用的预期值或脱敏定位器。两种记录的可信关联范围存入元数据，记录内容省略其自身的证据 ID。工具输出、事件和报告引用已登记 ID，报告断言引用同用例的检查证据。[观察样本](examples/4gaboards-dashboard-observation.json) · [元数据样本](examples/4gaboards-artifact-views.json)
 
+平台 Worker 默认对允许截图的目标在用例断言复核后尝试保存结果截图，并在时间线和报告中提供入口。截图仍遵守目标策略、证据大小和执行预算，业务判定以断言证据为准。可以在 `WAATA_ENGINE_CONFIG` 中设置 `capture_final_screenshot=false` 关闭自动截图。
+
 ## 读取与保留
 
 `ArtifactView` 在 `ArtifactRef` 上增加同源读取路径 `url=/api/v1/artifacts/{artifact_id}` 和可空的 UTC `expires_at`，内部存储键留在后端。GET 按所属 Run 验证主体，然后检查有效期、文件可读性和字节数。

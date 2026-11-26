@@ -16,6 +16,7 @@ ERRORS = {
     "REPORT_NOT_READY": (409, "测试报告尚未生成"),
     "REPORT_UNAVAILABLE": (409, "此任务没有可查询的报告"),
     "RUN_NOT_CANCELLABLE": (409, "此任务已结束，无法取消"),
+    "RUN_NOT_DELETABLE": (409, "只能删除已结束的测试任务"),
     "ARTIFACT_EXPIRED": (410, "测试证据已过期"),
     "VALIDATION_ERROR": (422, "请求字段无效或超出允许范围"),
     "INTERNAL_ERROR": (500, "服务处理请求时发生错误"),

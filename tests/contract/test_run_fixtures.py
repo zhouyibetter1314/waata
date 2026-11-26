@@ -227,7 +227,14 @@ class RunFixtureTests(unittest.TestCase):
                     pending[call_id] = event["sequence"]
                 else:
                     self.assertLess(pending.pop(call_id), event["sequence"])
-                    self.assertEqual(payload, summary)
+                    self.assertEqual(
+                        {
+                            key: value
+                            for key, value in payload.items()
+                            if key != "detail"
+                        },
+                        summary,
+                    )
                     completed.add(call_id)
         self.assertFalse(pending)
         self.assertEqual(completed, self.report_calls.keys())

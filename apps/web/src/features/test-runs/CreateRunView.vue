@@ -218,10 +218,8 @@ async function submit(): Promise<void> {
           </ul>
         </div>
         <div class="guide-note">
-          <strong>契约说明</strong>
-          <p>
-            提交严格遵循 C1。成功后返回 queued 状态，并跳转到对应的运行详情。
-          </p>
+          <strong>提交后</strong>
+          <p>页面会打开新任务的详情，你可以在那里查看排队状态和执行进度。</p>
         </div>
       </aside>
     </div>

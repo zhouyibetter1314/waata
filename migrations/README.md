@@ -6,6 +6,7 @@
 | --- | --- |
 | [0001](0001_platform_persistence.sql) | 运行、事件、证据元数据及迁移记录 |
 | [0002](0002_run_execution_lease.sql) | Worker 执行令牌与租约，以及租约回收、用例事件和证据到期索引 |
+| [0003](0003_run_artifact_cleanup.sql) | 已删除任务的证据文件清理队列 |
 
 ## 编写迁移
 
@@ -15,13 +16,14 @@
 
 ## 应用迁移
 
-由单一发布步骤在启动 FastAPI 和 Worker 前执行迁移。两者启动时都核对 `schema_migrations` 是否包含版本 2。先通过 PostgreSQL 客户端环境指定目标库，使用 Docker 时可按后端说明执行同一组 SQL。[PostgreSQL 启动示例](../apps/api/README.md#准备数据库和依赖)
+由单一发布步骤在启动 FastAPI 和 Worker 前执行迁移。两者启动时都核对 `schema_migrations` 是否包含版本 3。先通过 PostgreSQL 客户端环境指定目标库，使用 Docker 时可按后端说明执行同一组 SQL。[PostgreSQL 启动示例](../apps/api/README.md#准备数据库和依赖)
 
 从仓库根目录对空库按序应用全部迁移。
 
 ```bash
 psql -X -v ON_ERROR_STOP=1 -f migrations/0001_platform_persistence.sql
 psql -X -v ON_ERROR_STOP=1 -f migrations/0002_run_execution_lease.sql
+psql -X -v ON_ERROR_STOP=1 -f migrations/0003_run_artifact_cleanup.sql
 ```
 
 升级已有库时，查询已应用的版本和文件名，按编号升序执行待应用的 SQL。应用中止时先核对该版本是否已回滚。已有表且缺少版本记录的库应先核对结构和数据。[PostgreSQL 17 psql](https://www.postgresql.org/docs/17/app-psql.html#APP-PSQL-VARIABLES-ON-ERROR-STOP)

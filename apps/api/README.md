@@ -26,6 +26,7 @@ docker exec waata-postgres pg_isready -U waata -d waata
 ```bash
 docker exec -i waata-postgres psql -X -v ON_ERROR_STOP=1 -U waata -d waata -f - < migrations/0001_platform_persistence.sql
 docker exec -i waata-postgres psql -X -v ON_ERROR_STOP=1 -U waata -d waata -f - < migrations/0002_run_execution_lease.sql
+docker exec -i waata-postgres psql -X -v ON_ERROR_STOP=1 -U waata -d waata -f - < migrations/0003_run_artifact_cleanup.sql
 ```
 
 ## 本地启动与目标配置

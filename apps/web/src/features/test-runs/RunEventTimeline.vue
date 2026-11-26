@@ -1,34 +1,29 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { PublishedEvent } from '../../api';
+import RunEvidenceDialog from './RunEvidenceDialog.vue';
+import RunReportPanel from './RunReportPanel.vue';
 import {
-  eventLabels,
+  evidenceIds,
   eventSummary,
   eventTone,
+  screenshotIds,
   summarizeTimeline,
+  timelineTitle,
 } from './events';
 import { formatDate } from './presentation';
-
-function screenshotIds(event: PublishedEvent): string[] {
-  if (
-    event.type !== 'tool.completed' ||
-    event.payload.tool !== 'browser.screenshot'
-  )
-    return [];
-  const ids = event.payload.evidence_ids;
-  return Array.isArray(ids)
-    ? ids.filter((id): id is string => typeof id === 'string')
-    : [];
-}
 
 const props = defineProps<{
   events: PublishedEvent[];
   connectionMessage: string;
+  runId?: string;
+  reportAvailable?: boolean;
 }>();
+const evidenceDialog = ref<InstanceType<typeof RunEvidenceDialog> | null>(null);
 const showAll = ref(false);
 const entries = computed(() =>
   showAll.value
-    ? props.events.map((event) => ({ event, count: 1 }))
+    ? props.events.map((event) => ({ event, count: 1, followUp: undefined }))
     : summarizeTimeline(props.events),
 );
 </script>
@@ -51,13 +46,20 @@ const entries = computed(() =>
         {{ showAll ? '返回摘要' : `查看全部事件（${events.length}）` }}
       </button>
     </div>
+    <RunReportPanel
+      v-if="runId"
+      :run-id="runId"
+      :available="Boolean(reportAvailable)"
+      :events="events"
+      @evidence="(title, ids) => evidenceDialog?.open(title, ids)"
+    />
     <div v-if="!events.length" class="timeline-empty">
       <span class="spinner spinner-dark"></span>
-      <p>等待第一条运行事件…</p>
+      <p>{{ reportAvailable ? '暂无执行事件。' : '等待第一条运行事件…' }}</p>
     </div>
     <ol v-else id="run-event-list" class="event-timeline">
       <li
-        v-for="{ event, count } in entries"
+        v-for="{ event, count, followUp } in entries"
         :key="`${event.run_id}:${event.sequence}`"
         :class="`event-${eventTone(event)}`"
       >
@@ -66,28 +68,33 @@ const entries = computed(() =>
         </span>
         <div>
           <div class="event-heading">
-            <strong>{{
-              !showAll && event.type === 'tool.completed'
-                ? event.payload.success === false
-                  ? '工具失败'
-                  : '已保存截图'
-                : (eventLabels[event.type] ?? event.type)
-            }}</strong
-            ><time>{{ formatDate(event.timestamp) }}</time>
+            <strong>{{ timelineTitle(event) }}</strong>
+            <time>{{ formatDate(event.timestamp) }}</time>
           </div>
-          <p>
-            {{ eventSummary(event)
-            }}<template v-if="count > 1"> · {{ count }} 次</template>
-          </p>
-          <a
-            v-for="id in screenshotIds(event)"
-            :key="id"
-            class="text-button"
-            :href="'/api/v1/artifacts/' + encodeURIComponent(id)"
-            target="_blank"
-            rel="noopener noreferrer"
-            >查看本步截图</a
+          <p>{{ eventSummary(event) }}</p>
+          <p v-if="followUp">{{ followUp }}</p>
+          <small
+            v-if="
+              event.type === 'tool.completed' && event.payload.success === false
+            "
+            ><code>{{ event.payload.error_code }}</code
+            ><template v-if="count > 1"> · {{ count }} 次</template></small
           >
+          <button
+            v-if="evidenceIds(event).length"
+            type="button"
+            class="text-button"
+            @click="
+              evidenceDialog?.open(timelineTitle(event), evidenceIds(event))
+            "
+          >
+            {{
+              screenshotIds(event).length === 1 &&
+              evidenceIds(event).length === 1
+                ? '查看本步截图'
+                : `查看证据（${evidenceIds(event).length}）`
+            }}
+          </button>
           <small v-if="showAll && event.case_id"
             >{{ event.case_id
             }}<template v-if="event.step_id">
@@ -101,5 +108,6 @@ const entries = computed(() =>
         </div>
       </li>
     </ol>
+    <RunEvidenceDialog ref="evidenceDialog" />
   </div>
 </template>

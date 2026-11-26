@@ -1,5 +1,11 @@
 import type { RunStatus, Verdict } from '../../api';
 
+export const terminalStatuses: ReadonlySet<RunStatus> = new Set([
+  'succeeded',
+  'errored',
+  'cancelled',
+]);
+
 export const statusLabels: Record<RunStatus, string> = {
   queued: '排队中',
   running: '运行中',

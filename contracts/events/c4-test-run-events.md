@@ -25,7 +25,7 @@ sequenceDiagram
 | `case.started` | 引擎，Case | `name` |
 | `agent.step.started` | 引擎，Step | 可空的 `summary` |
 | `tool.called` | 引擎，Step | `tool_call_id`、`tool` |
-| `tool.completed` | 引擎，Step | `tool_call_id`、`tool`、`success`、`duration_ms`、可空 `error_code`、`evidence_ids` |
+| `tool.completed` | 引擎，Step | `tool_call_id`、`tool`、`success`、`duration_ms`、可空 `error_code`、`evidence_ids`、可选 `detail` |
 | `case.verified` | 引擎，Case | C2 的用例 `verdict` |
 | `report.generated` | 平台，Run | `artifact_id=null`，表示数据库中的报告已可查询 |
 | `run.completed` | 平台，Run | `status=succeeded`、C2 的总体 `verdict`、`error=null` |
@@ -33,6 +33,8 @@ sequenceDiagram
 | `run.cancelled` | 平台，Run | `status=cancelled`、`verdict=null`、`error=null` |
 
 Case 事件带 `case_id`，Step 事件另带 `step_id`。工具事件以 `tool_call_id` 配对，耗时以非负整数毫秒记录。取消或故障可能留下已开始而未完成的调用。事件公布已登记的证据 ID 和脱敏摘要。
+
+`detail` 可以包含操作阶段 `phase`（`start` 打开测试起始页、`check` 检查是否还有待完成的目标、`result` 复核或记录结果）、脱敏的可读目标 `target`、去除查询参数和片段的链接地址 `destination`、C3 检查类型 `condition`、检查是否匹配 `matched`，以及在 `evidence_ids` 中登记的 `screenshot_id`。已保存的旧事件可以缺少这些字段，执行器也可以省略无法从当前页面确定的细节。
 
 每个进入终态的 Run 提交一条终态事件。队列取消可以直接进入 `run.cancelled`。如存在报告，`report.generated` 紧邻终态事件之前，均与终态及报告在同一事务中提交。业务断言失败可表现为 `run.completed` 及 `verdict=failed`。技术故障与取消由各自的事件表达，客户端可查运行详情校准状态。[判定契约](../waata/c2-waata-python-api.md) · [持久化](../database/c6-platform-persistence.md)
 
@@ -44,4 +46,6 @@ Case 事件带 `case_id`，Step 事件另带 `step_id`。工具事件以 `tool_c
 
 `WAATA_SSE_POLL_SECONDS` 默认 0.25 秒，`WAATA_SSE_KEEPALIVE_SECONDS` 默认 15 秒。[SSE 实现](../../apps/api/src/waata_api/services/run_events.py) · [平台验收](../../docs/04-acceptance.md#ac-05-平台端到端)
 
-运行详情默认显示运行及用例的进展、截图和工具失败。同一用例内相同工具与错误码的失败显示累计次数。通过「查看全部事件」可按序号查阅每条事件和原始数据。
+运行详情按顺序显示关键浏览器操作、工具失败、结果复核及截图。同一用例中连续且相同的失败会合计次数。后续事件能说明恢复时，失败条目会附上后续操作。通过「查看全部事件」可按序号查阅每条事件和原始数据。
+
+有关联证据的事件保留在时间线，单独打开预览。终态报告可在同一区域展开，复核各用例和断言。已建立的流在任务被删除后关闭。

@@ -50,7 +50,8 @@ export interface paths {
     get: operations['getTestRun'];
     put?: never;
     post?: never;
-    delete?: never;
+    /** Delete Test Run */
+    delete: operations['deleteTestRun'];
     options?: never;
     head?: never;
     patch?: never;
@@ -209,6 +210,11 @@ export interface components {
       target_url: string;
       /** Timeout Seconds */
       timeout_seconds: number;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components['schemas']['ValidationError'][];
     };
     /** ReportAssertion */
     ReportAssertion: {
@@ -388,6 +394,19 @@ export interface components {
       target_url: string;
       /** Verdict */
       verdict: ('passed' | 'failed' | 'blocked' | 'inconclusive') | null;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Context */
+      ctx?: Record<string, never>;
+      /** Input */
+      input?: unknown;
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
     };
   };
   responses: never;
@@ -658,6 +677,89 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['ApiErrorEnvelope'];
+        };
+      };
+      /** @description INTERNAL_ERROR · 服务处理请求时发生错误 */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorEnvelope'];
+        };
+      };
+      /** @description SERVICE_UNAVAILABLE · 服务暂时不可用 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorEnvelope'];
+        };
+      };
+    };
+  };
+  deleteTestRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description INVALID_REQUEST · 请求格式无效 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorEnvelope'];
+        };
+      };
+      /** @description UNAUTHENTICATED · 需要有效的平台身份认证 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorEnvelope'];
+        };
+      };
+      /** @description RUN_NOT_FOUND · 测试任务不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorEnvelope'];
+        };
+      };
+      /** @description RUN_NOT_DELETABLE · 只能删除已结束的测试任务 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorEnvelope'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
         };
       };
       /** @description INTERNAL_ERROR · 服务处理请求时发生错误 */

@@ -31,6 +31,7 @@ DEFAULT_ARTIFACT_LIMITS = {
     "playwright_trace": 32 * 1024 * 1024,
     "test_report": 4 * 1024 * 1024,
 }
+PLATFORM_ENGINE_CONFIG = EngineConfig(capture_final_screenshot=True)
 Action = Literal[
     "browser.navigate", "browser.click", "browser.fill", "browser.select_option"
 ]
@@ -183,7 +184,7 @@ class Settings:
     web_origins: tuple[str, ...] = LOCAL_WEB_ORIGINS
     gateway_token: str | None = field(default=None, repr=False)
     policy: TargetPolicies = field(default_factory=TargetPolicies)
-    engine_config: EngineConfig = field(default_factory=EngineConfig)
+    engine_config: EngineConfig = PLATFORM_ENGINE_CONFIG
     sse_poll_seconds: float = 0.25
     sse_keepalive_seconds: float = 15
     worker_poll_seconds: float = 0.25
@@ -252,6 +253,12 @@ class Settings:
             engine_config = EngineConfig.model_validate_json(
                 values.get("WAATA_ENGINE_CONFIG", "{}"), strict=True
             )
+            if "capture_final_screenshot" not in engine_config.model_fields_set:
+                engine_config = engine_config.model_copy(
+                    update={
+                        "capture_final_screenshot": PLATFORM_ENGINE_CONFIG.capture_final_screenshot
+                    }
+                )
             limits = DEFAULT_ARTIFACT_LIMITS | json.loads(
                 values.get("WAATA_ARTIFACT_MAX_BYTES", "{}")
             )

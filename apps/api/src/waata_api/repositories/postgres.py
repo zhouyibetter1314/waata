@@ -32,6 +32,10 @@ class RunNotCancellable(Exception):
     """The run has already reached a terminal state."""
 
 
+class RunNotDeletable(Exception):
+    """Only terminal runs can be deleted."""
+
+
 class LeaseLost(Exception):
     """The Worker may no longer mutate this run."""
 
@@ -139,6 +143,64 @@ class PostgresRepository:
                 (run_id, owner_id),
             )
             return await cur.fetchone()
+
+    async def delete_run(self, run_id: str, owner_id: str) -> bool:
+        async with (
+            self._pool.connection() as conn,
+            conn.transaction(),
+            conn.cursor(row_factory=dict_row) as cur,
+        ):
+            await cur.execute(
+                "SELECT status FROM test_runs WHERE run_id = %s AND owner_id = %s FOR UPDATE",
+                (run_id, owner_id),
+            )
+            row = await cur.fetchone()
+            if row is None:
+                return False
+            if row["status"] not in _TERMINAL_EVENTS:
+                raise RunNotDeletable
+            await cur.execute(
+                """
+                INSERT INTO deleted_run_artifacts (storage_key, run_id, mime_type)
+                SELECT storage_key, run_id, mime_type FROM run_artifacts
+                WHERE run_id = %s AND storage_key IS NOT NULL
+                """,
+                (run_id,),
+            )
+            await cur.execute("DELETE FROM test_runs WHERE run_id = %s", (run_id,))
+            return True
+
+    async def deleted_artifacts(self, *, run_id: str | None, limit: int) -> list[Row]:
+        async with (
+            self._pool.connection() as conn,
+            conn.cursor(row_factory=dict_row) as cur,
+        ):
+            await cur.execute(
+                """
+                SELECT storage_key, mime_type FROM deleted_run_artifacts
+                WHERE retry_at <= clock_timestamp() AND (%s::text IS NULL OR run_id = %s)
+                ORDER BY retry_at, storage_key LIMIT %s
+                """,
+                (run_id, run_id, limit),
+            )
+            return await cur.fetchall()
+
+    async def finish_artifact_deletion(self, storage_key: str, *, retry: bool) -> None:
+        async with self._pool.connection() as conn:
+            if retry:
+                await conn.execute(
+                    """
+                    UPDATE deleted_run_artifacts
+                    SET retry_at = clock_timestamp() + interval '1 minute'
+                    WHERE storage_key = %s
+                    """,
+                    (storage_key,),
+                )
+            else:
+                await conn.execute(
+                    "DELETE FROM deleted_run_artifacts WHERE storage_key = %s",
+                    (storage_key,),
+                )
 
     async def cancel_run(self, run_id: str, owner_id: str) -> Row | None:
         async with (

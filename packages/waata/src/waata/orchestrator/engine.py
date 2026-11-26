@@ -7,7 +7,7 @@ from collections import deque
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from waata.artifacts import ArtifactInput, ArtifactRef, ArtifactStore
@@ -537,9 +537,7 @@ class _Run:
             )
             reached_target = False
             for index in range(self.max_steps):
-                step = StepResult(
-                    step_id=_id("step"), summary="Observe and exercise the test case"
-                )
+                step = StepResult(step_id=_id("step"))
                 result.steps.append(step)
                 await self.event(
                     "agent.step.started",
@@ -556,6 +554,7 @@ class _Run:
                         {
                             "url": self.request.target_url,
                         },
+                        phase="start",
                     )
                     if not navigation.success:
                         code = navigation.error.code if navigation.error else None
@@ -582,7 +581,7 @@ class _Run:
                 # never changes the independently calculated business verdict.
                 try:
                     await self.run_tool(
-                        case, result.steps[-1], "browser.screenshot", {}
+                        case, result.steps[-1], "browser.screenshot", {}, phase="result"
                     )
                 except WAATAError as exc:
                     if exc.error.code != "BROWSER_ERROR":
@@ -885,7 +884,7 @@ class _Run:
                 for checkpoint in plan.checkpoints:
                     arguments = checkpoint.model_dump(mode="json", exclude_none=True)
                     checked = await self.run_tool(
-                        case, step, "browser.inspect", arguments
+                        case, step, "browser.inspect", arguments, phase="check"
                     )
                     if checked.success and (checked.data or {}).get("matched") is False:
                         case.completion_retry_used = True
@@ -926,6 +925,7 @@ class _Run:
         arguments: dict[str, Any] | None,
         *,
         expected_revision: int | None = None,
+        phase: Literal["start", "check", "result"] | None = None,
     ) -> ToolResult:
         if self.tool_attempts >= self.config.max_tool_attempts_per_run:
             return ToolResult.failed(
@@ -940,6 +940,9 @@ class _Run:
             else "unknown_tool"
         )
         summary = ToolCallSummary(tool_call_id=tool_id, tool=safe_name)
+        detail = self.tool_detail(case, safe_name, arguments or {})
+        if phase is not None:
+            detail["phase"] = phase
         step.tool_calls.append(summary)
         await self.event(
             "tool.called",
@@ -992,6 +995,15 @@ class _Run:
             if (ref := self.artifacts.refs.get(value)) is not None
             and ref.tool_call_id == tool_id
         ]
+        if safe_name == "browser.navigate" and output.success:
+            if isinstance(data.get("url"), str):
+                detail["destination"] = self.sanitize(data["url"])[:512]
+        if safe_name == "browser.inspect" and type(data.get("matched")) is bool:
+            detail["matched"] = data["matched"]
+        for evidence_id in summary.evidence_ids:
+            if self.artifacts.refs[evidence_id].kind == "screenshot":
+                detail["screenshot_id"] = evidence_id
+                break
         if dispatched:
             case.needs_observation = True
             case.inspections.clear()
@@ -1029,9 +1041,12 @@ class _Run:
             stale_page or optional_evidence_denied
         ):
             case.blocked = True
+        payload = summary.model_dump()
+        if detail:
+            payload["detail"] = detail
         await self.event(
             "tool.completed",
-            summary.model_dump(),
+            payload,
             case_id=case_id,
             step_id=step_id,
         )
@@ -1049,6 +1064,63 @@ class _Run:
         if summary.error_code in _BROWSER_FAILURES:
             raise _error("BROWSER_ERROR", "The browser session failed")
         return output
+
+    def tool_detail(
+        self, case: _CaseExecution, tool: str, arguments: dict[str, Any]
+    ) -> dict[str, str | bool]:
+        """Describe the visible control or check without publishing tool arguments."""
+        elements = (case.session.latest_observation or {}).get("elements", [])
+        if tool == "browser.navigate":
+            for element in elements:
+                if element.get("href") and element["href"] == arguments.get("url"):
+                    label = element.get("name") or element.get("text")
+                    if label:
+                        return {"target": self.sanitize(label)[:160]}
+            return {}
+        if tool not in _ACTIONS and tool != "browser.inspect":
+            return {}
+
+        detail: dict[str, str | bool] = {}
+        if tool == "browser.inspect" and arguments.get("condition") in (
+            "url_equals",
+            "url_path_starts_with",
+            "title_equals",
+            "exists",
+            "visible",
+            "count",
+            "text_equals",
+        ):
+            detail["condition"] = arguments["condition"]
+        locator = arguments.get("locator")
+        if not isinstance(locator, dict):
+            return detail
+        strategy = locator.get("strategy")
+        text = locator.get("name" if strategy == "role" else "value")
+        if not isinstance(text, str) or not text.strip():
+            return detail
+        if strategy in ("role", "label", "text", "placeholder"):
+            detail["target"] = self.sanitize(" ".join(text.split()))[:160]
+
+        matches = [
+            element
+            for element in elements
+            if element.get("locator", {}) == locator
+            or (
+                strategy in ("role", "text")
+                and text == element.get("name" if strategy == "role" else "text")
+                and (strategy != "role" or locator.get("role") == element.get("role"))
+            )
+        ]
+        if not matches:
+            return detail
+        label = matches[0].get("name") or matches[0].get("text")
+        if label:
+            detail["target"] = self.sanitize(label)[:160]
+        if tool == "browser.click":
+            hrefs = {element.get("href") for element in matches}
+            if len(hrefs) == 1 and None not in hrefs:
+                detail["destination"] = self.sanitize(display_url(hrefs.pop()))[:512]
+        return detail
 
     async def verify_case(
         self,
@@ -1079,7 +1151,9 @@ class _Run:
                 continue
             self.refresh_checkpoints(case)
             prior = case.inspections.get(self.checkpoint_key(arguments))
-            latest = await self.run_tool(case, step, "browser.inspect", arguments)
+            latest = await self.run_tool(
+                case, step, "browser.inspect", arguments, phase="result"
+            )
             if (
                 latest.error is not None
                 and latest.error.code == "BUDGET_EXCEEDED"
@@ -1096,7 +1170,7 @@ class _Run:
                 if self.clock() + settle < self.deadline:
                     await asyncio.sleep(settle)
                     retry = await self.run_tool(
-                        case, step, "browser.inspect", arguments
+                        case, step, "browser.inspect", arguments, phase="result"
                     )
                     refreshed = retry.data or {}
                     stable_mismatch = (

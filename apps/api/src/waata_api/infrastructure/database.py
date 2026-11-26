@@ -30,7 +30,7 @@ async def open_repository(settings: Settings) -> AsyncIterator[PostgresRepositor
         await pool.wait(timeout=5)
         async with pool.connection() as conn:
             result = await conn.execute(
-                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 2)"
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 3)"
             )
             if not (await result.fetchone())[0]:
                 raise RuntimeError("Apply the platform SQL migrations before startup")

@@ -6,7 +6,7 @@ import { runDetailFixture, runReportFixture } from '../tests/fixtures/api';
 test('updates progress via C4, recovers a missing event and displays C5 evidence', async ({
   page,
 }) => {
-  const eventStream = await readFile(
+  const recordedEvents = await readFile(
     new URL(
       '../../../contracts/events/examples/4gaboards-events.sse',
       import.meta.url,
@@ -15,6 +15,11 @@ test('updates progress via C4, recovers a missing event and displays C5 evidence
   );
   const detailPath = `/api/v1/test-runs/${runDetailFixture.run_id}`;
   const evidenceId = 'art_4ga_dashboard';
+  const screenshotId = 'art_result_png';
+  const eventStream = recordedEvents.replace(
+    `"evidence_ids":["${evidenceId}"]`,
+    `"evidence_ids":["${evidenceId}","${screenshotId}"]`,
+  );
   const assertionCount = runReportFixture.cases.reduce(
     (total, testCase) => total + testCase.assertions.length,
     0,
@@ -74,6 +79,15 @@ test('updates progress via C4, recovers a missing event and displays C5 evidence
   await page.route(`**/api/v1/artifacts/${evidenceId}`, (route) =>
     route.fulfill({ json: { artifact_id: evidenceId, redacted: true } }),
   );
+  await page.route(`**/api/v1/artifacts/${screenshotId}`, (route) =>
+    route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT9sAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    }),
+  );
 
   try {
     await page.goto(`/runs/${runDetailFixture.run_id}`);
@@ -110,12 +124,29 @@ test('updates progress via C4, recovers a missing event and displays C5 evidence
   );
   await expect(page.getByText('10.70 秒', { exact: true })).toBeVisible();
 
-  await expect(page.getByRole('heading', { name: '报告与证据' })).toBeVisible();
-  await expect(page.getByText(`断言复核（${assertionCount}）`)).toBeVisible();
-  await expect(page.getByText(evidenceId, { exact: true })).toBeVisible();
+  const event = page.locator('.event-timeline li').filter({
+    has: page.locator('.event-index', { hasText: /^36$/ }),
+  });
+  await event.getByRole('button', { name: '查看证据（2）' }).click();
+  const evidence = page.getByRole('dialog', { name: '测试证据' });
+  await expect(evidence).toBeVisible();
+  await expect(
+    evidence.getByRole('link', { name: '下载证据' }),
+  ).toHaveAttribute('href', `/api/v1/artifacts/${evidenceId}`);
+  await evidence.getByText('查看原始记录').click();
+  await expect(evidence.getByText('"redacted": true')).toBeVisible();
+  await evidence.getByRole('combobox', { name: '选择证据' }).selectOption('1');
+  const image = evidence.getByRole('img', { name: '本次操作的页面截图' });
+  await expect
+    .poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth))
+    .toBe(1);
+  await expect(
+    evidence.getByRole('link', { name: '下载证据' }),
+  ).toHaveAttribute('download', `${screenshotId}.png`);
+  await evidence.getByRole('button', { name: '关闭' }).click();
 
-  await page.getByRole('button', { name: `查看证据 ${evidenceId}` }).click();
-  await expect(page.getByText('"redacted": true')).toBeVisible();
+  await page.getByText('查看测试报告').click();
+  await expect(page.getByText(`断言复核（${assertionCount}）`)).toBeVisible();
 
   await page.getByRole('link', { name: '场景与应用' }).click();
   await expect(page).toHaveURL(/\/scenarios$/);

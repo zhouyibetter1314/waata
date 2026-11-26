@@ -289,12 +289,18 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
                 artifact_store=store,
                 config=EngineConfig(capture_final_screenshot=True),
             )
+            events = []
+
+            async def record(event):
+                events.append(event)
+
             result = await engine.run(
                 TestRequest(
                     target_url=url,
                     goal="Open controls",
                     expected_behavior="Controls load",
-                )
+                ),
+                on_event=record,
             )
             self.assertEqual(result.verdict, "passed")
             screenshots = [
@@ -303,6 +309,19 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             self.assertEqual(len(screenshots), 1)
             self.assertTrue(
                 store.saved[screenshots[0].artifact_id].content.startswith(b"\x89PNG")
+            )
+            checks, capture = [
+                event.payload["detail"]
+                for event in events
+                if event.type == "tool.completed"
+                and event.payload["tool"] in {"browser.inspect", "browser.screenshot"}
+            ]
+            self.assertEqual(
+                checks, {"phase": "result", "condition": "url_equals", "matched": True}
+            )
+            self.assertEqual(
+                capture,
+                {"phase": "result", "screenshot_id": screenshots[0].artifact_id},
             )
 
     async def test_observation_keeps_editor_controls_after_long_navigation(self):

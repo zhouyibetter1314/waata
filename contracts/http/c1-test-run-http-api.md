@@ -9,6 +9,7 @@ FastAPI 的请求和响应模型用于生成 OpenAPI 快照，Vue 从快照生�
 | POST | `/api/v1/test-runs` | `202`，已提交排队记录，返回 `run_id`、`status=queued`、`created_at` |
 | GET | `/api/v1/test-runs` | `200`，返回当前主体的 `items`、`page`、`page_size`、`total` |
 | GET | `/api/v1/test-runs/{run_id}` | `200`，返回运行状态、进度及报告摘要 |
+| DELETE | `/api/v1/test-runs/{run_id}` | `204`，删除已结束任务、事件、报告和证据引用，安排移除证据文件 |
 | GET | `/api/v1/test-runs/{run_id}/events` | `200` SSE，读至终态的游标返回 `204`。[C4](../events/c4-test-run-events.md) |
 | GET | `/api/v1/test-runs/{run_id}/report` | `200`，返回最终或部分报告 |
 | POST | `/api/v1/test-runs/{run_id}/cancel` | `200` 排队取消，`202` 运行中受理，返回 `run_id`、`status`、`cancellation_requested=true` |
@@ -42,9 +43,11 @@ FastAPI 的请求和响应模型用于生成 OpenAPI 快照，Vue 从快照生�
 
 取消无需请求体。排队任务原子提交 `cancelled` 和终态事件。运行中的重复取消复用同一个标记，Worker 清理后提交终态。终态任务返回 `409 RUN_NOT_CANCELLABLE`。并发规则见 [C6](../database/c6-platform-persistence.md)。
 
+删除无需请求体。只有任务的创建者可删除 `succeeded`、`errored` 或 `cancelled` 任务。排队或运行中的任务返回 `409 RUN_NOT_DELETABLE`。任务删除后访问详情、报告、事件或证据返回 `404`。
+
 ## 身份与错误
 
-本机模式识别来自回环连接的配置主体。网关模式校验可信网关令牌和主体标识。两种模式都校验 Host，POST 校验浏览器 Origin，本机模式也允许省略 Origin。运行和证据由创建者访问，目标和凭据按主体授权。[后端配置](../../apps/api/README.md)
+本机模式识别来自回环连接的配置主体。网关模式校验可信网关令牌和主体标识。两种模式都校验 Host，POST 和 DELETE 校验浏览器 Origin，本机模式也允许省略 Origin。运行和证据由创建者访问，目标和凭据按主体授权。[后端配置](../../apps/api/README.md)
 
 失败响应包含 `error.code`、脱敏的 `error.message` 和用于关联日志的 `error.request_id`。HTTP 同时返回 `X-Request-ID`。已受理任务的执行故障由状态、事件和报告表达。
 
@@ -54,7 +57,7 @@ FastAPI 的请求和响应模型用于生成 OpenAPI 快照，Vue 从快照生�
 | `401` | `UNAUTHENTICATED`，连接、Host 或认证校验失败 |
 | `403` | `TARGET_NOT_ALLOWED`、`CREDENTIAL_NOT_ALLOWED`，目标或凭据未授权 |
 | `404` | `RUN_NOT_FOUND`、`ARTIFACT_NOT_FOUND`，资源不存在或不可见 |
-| `409` | `REPORT_NOT_READY`、`REPORT_UNAVAILABLE`、`RUN_NOT_CANCELLABLE`，当前状态不支持该操作 |
+| `409` | `REPORT_NOT_READY`、`REPORT_UNAVAILABLE`、`RUN_NOT_CANCELLABLE`、`RUN_NOT_DELETABLE`，当前状态不支持该操作 |
 | `410` | `ARTIFACT_EXPIRED`，已授权的证据过期 |
 | `422` | `VALIDATION_ERROR`，字段缺失、类型错误、值越界、含不支持字段或触及保密规则 |
 | `500` | `INTERNAL_ERROR`，未预期的服务端错误 |

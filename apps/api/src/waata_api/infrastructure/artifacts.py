@@ -234,7 +234,7 @@ class FileArtifactStore:
             raise
         return marker
 
-    def _remove_expired(self, key: str, mime_type: str) -> None:
+    def _remove_file(self, key: str, mime_type: str) -> None:
         path = self._path(key)
         if not path.suffix and mime_type in _EXTENSIONS:
             # A legacy file may also have a typed hard link for local browsing.
@@ -245,6 +245,19 @@ class FileArtifactStore:
             except FileNotFoundError:
                 pass
         path.unlink(missing_ok=True)
+
+    async def purge_deleted(
+        self, *, run_id: str | None = None, limit: int = 100
+    ) -> None:
+        for row in await self._repository.deleted_artifacts(run_id=run_id, limit=limit):
+            key = row["storage_key"]
+            try:
+                await asyncio.to_thread(self._remove_file, key, row["mime_type"])
+            except (OSError, ValueError):
+                _LOG.warning("Could not remove a deleted run's evidence file")
+                await self._repository.finish_artifact_deletion(key, retry=True)
+                continue
+            await self._repository.finish_artifact_deletion(key, retry=False)
 
     async def purge_expired(self, *, limit: int = 100) -> None:
         for key in await asyncio.to_thread(self._old_markers, limit):
@@ -258,7 +271,7 @@ class FileArtifactStore:
         for row in await self._repository.expired_artifacts(limit=limit):
             key = row["storage_key"]
             try:
-                await asyncio.to_thread(self._remove_expired, key, row["mime_type"])
+                await asyncio.to_thread(self._remove_file, key, row["mime_type"])
             except (OSError, ValueError):
                 _LOG.warning("Could not remove an expired evidence file")
                 continue

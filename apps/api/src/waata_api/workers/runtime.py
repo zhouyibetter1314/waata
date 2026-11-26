@@ -101,13 +101,16 @@ def make_engine_factory(
                     "CONFIGURATION_ERROR", "The browser target policy is invalid"
                 ) from None
             # yield 将引擎交给 Runner。Runner 的 async with 退出时会进入下面的 finally。
+            config = settings.engine_config
+            if config.capture_final_screenshot and not target.allow_screenshots:
+                config = config.model_copy(update={"capture_final_screenshot": False})
             yield TestEngine(
                 llm=llm,
                 browser=adapter,
                 # 按 Run ID 和执行令牌绑定证据存储，以便登记时检查证据归属与执行权。
                 artifact_store=artifacts.for_run(claim.run_id, claim.execution_token),
                 observability=observer,
-                config=settings.engine_config,
+                config=config,
             )
         finally:
             if browser is not None:
@@ -164,6 +167,11 @@ async def run_worker(
         # FileArtifactStore 将证据字节写入磁盘，通过 repository 在 PostgreSQL 登记存储键、
         # 所属 Run 和有效期。API 端按登记信息读取同一证据目录中的文件。
         artifacts = FileArtifactStore.from_settings(settings, repository)
+
+        async def purge_artifacts() -> None:
+            await artifacts.purge_deleted()
+            await artifacts.purge_expired()
+
         worker = Worker(
             repository,
             make_engine_factory(settings, artifacts, playwright, llm, observer),
@@ -173,7 +181,7 @@ async def run_worker(
             heartbeat_seconds=settings.worker_heartbeat_seconds,
             poll_seconds=settings.worker_poll_seconds,
             shutdown_seconds=settings.worker_shutdown_seconds,
-            purge_expired=artifacts.purge_expired,
+            purge_expired=purge_artifacts,
         )
         try:
             await worker.run(stop)

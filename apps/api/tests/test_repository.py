@@ -16,6 +16,7 @@ from waata_api.repositories import (
     LeaseLost,
     PostgresRepository,
     RunNotCancellable,
+    RunNotDeletable,
 )
 
 _DSN = os.environ.get("WAATA_TEST_DATABASE_URL")
@@ -81,6 +82,7 @@ class PostgresRepositoryTests(unittest.IsolatedAsyncioTestCase):
         legacy = await self.create_run("legacy")
         self.assertEqual(legacy["status"], "queued")
         await self.apply_migration("0002_run_execution_lease.sql")
+        await self.apply_migration("0003_run_artifact_cleanup.sql")
 
     async def apply_migration(self, name):
         async with self.pool.connection() as conn:
@@ -90,6 +92,53 @@ class PostgresRepositoryTests(unittest.IsolatedAsyncioTestCase):
         return await self.repo.create_run(
             run_id=run_id, owner_id=owner, request={"target_url": "http://localhost/"}
         )
+
+    async def test_terminal_deletion_cascades_and_retains_cleanup_job(self):
+        with self.assertRaises(RunNotDeletable):
+            await self.repo.delete_run("legacy", "alice")
+        token = await self.claim("legacy")
+        with self.assertRaises(RunNotDeletable):
+            await self.repo.delete_run("legacy", "alice")
+        artifact = {
+            "artifact_id": "art_delete",
+            "run_id": "legacy",
+            "case_id": None,
+            "step_id": None,
+            "tool_call_id": None,
+            "kind": "observation",
+            "mime_type": "application/json",
+            "captured_at": datetime.now(UTC),
+            "size_bytes": 2,
+            "storage_key": "key_delete",
+            "expires_at": None,
+        }
+        await self.repo.register_artifact("legacy", token, artifact)
+        await self.repo.finish_run(
+            "legacy",
+            token,
+            status="succeeded",
+            verdict="inconclusive",
+            report=empty_report("legacy"),
+        )
+        self.assertFalse(await self.repo.delete_run("legacy", "bob"))
+        self.assertTrue(await self.repo.delete_run("legacy", "alice"))
+        self.assertFalse(await self.repo.delete_run("legacy", "alice"))
+        self.assertIsNone(await self.repo.get_run("legacy", "alice"))
+        self.assertIsNone(await self.repo.get_artifact("art_delete", "alice"))
+        self.assertEqual(await self.repo.read_events("legacy", after=0), [])
+        jobs = await self.repo.deleted_artifacts(run_id="legacy", limit=1)
+        self.assertEqual(
+            jobs, [{"storage_key": "key_delete", "mime_type": "application/json"}]
+        )
+        await self.repo.finish_artifact_deletion("key_delete", retry=True)
+        self.assertEqual(await self.repo.deleted_artifacts(run_id=None, limit=1), [])
+        await self.repo.finish_artifact_deletion("key_delete", retry=False)
+        cursor = await self.admin.execute(
+            sql.SQL("SELECT count(*) FROM {}.deleted_run_artifacts").format(
+                sql.Identifier(self.schema)
+            )
+        )
+        self.assertEqual(await cursor.fetchone(), (0,))
 
     async def claim(self, run_id):
         run = await self.repo.claim_run(lease_seconds=10)
