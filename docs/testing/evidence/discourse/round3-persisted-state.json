@@ -1,0 +1,121 @@
+{
+  "target_database": "Discourse fixture database; no WAATA platform PostgreSQL",
+  "records": [
+    {
+      "fixture_tag": "11251212-7b87",
+      "phase": "before",
+      "read_only": true,
+      "source_sha256": "a2b2b51dc78c26549d0bd0607ac48e31629b518e42aa946a919163216980a039",
+      "results": {
+        "DC06": {
+          "bookmarked": false,
+          "bookmarks": []
+        },
+        "DC07": {
+          "body": "The local wiki conversion fixture must retain this content.",
+          "wiki": false
+        },
+        "DC10": {
+          "body": "The fixture checklist currently describes a draft handoff.",
+          "wiki": true
+        },
+        "DC11": {
+          "invitations": {
+            "WAATA scoped invite 11251212-7b87": [
+              {
+                "id": 10,
+                "redeemed": 0,
+                "max_uses": 2,
+                "expires_at": "2027-02-23 12:12:26 UTC",
+                "future_expiry": true,
+                "email_absent": true
+              }
+            ],
+            "WAATA keep invite 11251212-7b87": [
+              {
+                "id": 11,
+                "redeemed": 0,
+                "max_uses": 2,
+                "expires_at": "2027-02-23 12:12:27 UTC",
+                "future_expiry": true,
+                "email_absent": true
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "fixture_tag": "11251212-7b87",
+      "phase": "after",
+      "read_only": true,
+      "source_sha256": "4d3668aaf9bd752d357b265a4a3362500ab9cd4f29421ea5e90076fbb4452591",
+      "results": {
+        "DC06": {
+          "bookmarked": true,
+          "bookmarks": [
+            {
+              "type": "Topic",
+              "reminder_at": null
+            }
+          ]
+        },
+        "DC07": {
+          "body": "The local wiki conversion fixture must retain this content.",
+          "wiki": true
+        },
+        "DC10": {
+          "body": "The fixture checklist records the completed handoff for the local project.",
+          "wiki": false
+        },
+        "DC11": {
+          "invitations": {
+            "WAATA scoped invite 11251212-7b87": [],
+            "WAATA keep invite 11251212-7b87": [
+              {
+                "id": 11,
+                "redeemed": 0,
+                "max_uses": 2,
+                "expires_at": "2027-02-23 12:12:27 UTC",
+                "future_expiry": true,
+                "email_absent": true
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "fixture_tag": "11251217-7e0b",
+      "phase": "before",
+      "read_only": true,
+      "source_sha256": "a2815fe3ea4c89602df16b6aceb75a5e3acc1a0a2a847aee4d3f9eda4cb72a74",
+      "results": {
+        "DC07": {
+          "body": "The local wiki conversion fixture must retain this content.",
+          "wiki": false
+        },
+        "DC10": {
+          "body": "The fixture checklist currently describes a draft handoff.",
+          "wiki": true
+        }
+      }
+    },
+    {
+      "fixture_tag": "11251217-7e0b",
+      "phase": "after",
+      "read_only": true,
+      "source_sha256": "38e465b6ecd02f87c4af9b93756d30990042b1d75636321a6f3f05259a825d33",
+      "results": {
+        "DC07": {
+          "body": "The local wiki conversion fixture must retain this content.",
+          "wiki": true
+        },
+        "DC10": {
+          "body": "The fixture checklist records the completed handoff for the local project.",
+          "wiki": false
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,279 @@
+{
+  "run_id": "run_e8f269457abd4202b7f9227d7fe7733e",
+  "started_at": "2026-11-25T22:58:01.372101+08:00",
+  "target_url": "http://127.0.0.1:4200/login",
+  "model": "deepseek-v4.1-flash",
+  "status": "succeeded",
+  "verdict": "passed",
+  "title": "WAATA launch checklist video 1125-225801",
+  "create_http_status": 202,
+  "cases": 1,
+  "assertions": [
+    {
+      "expected": "WAATA launch checklist video 1125-225801",
+      "actual": "WAATA launch checklist video 1125-225801",
+      "passed": true,
+      "evidence_ids": [
+        "art_5a5e49dc459947a98c06e8f6b735d90d"
+      ]
+    },
+    {
+      "expected": "The local team will review the launch checklist before opening the forum.",
+      "actual": "The local team will review the launch checklist before opening the forum.",
+      "passed": true,
+      "evidence_ids": [
+        "art_332f4f9d4fed4683afbf9cd64e2479ed"
+      ]
+    },
+    {
+      "expected": "WAATA Lab",
+      "actual": "WAATA Lab",
+      "passed": true,
+      "evidence_ids": [
+        "art_19ee62c8d62a429380af27a28c01c296"
+      ]
+    }
+  ],
+  "completed_model_responses": 19,
+  "reported_tokens": 222761,
+  "action_calls": 10,
+  "artifacts": 32,
+  "screenshots": 3,
+  "artifact_reads": [
+    {
+      "artifact_id": "art_7d90cace5fd74bd591e0c08bc6302456",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 2243
+    },
+    {
+      "artifact_id": "art_80f41d0d75984181bc8d293419347994",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 2713
+    },
+    {
+      "artifact_id": "art_f492ed54eeb94f84b7df43037336cc09",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 2758
+    },
+    {
+      "artifact_id": "art_0991c4f9f1e14dffb38348b698397a91",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 208
+    },
+    {
+      "artifact_id": "art_c20ce32aee9d4e84a367cbfb39955321",
+      "kind": "screenshot",
+      "http_status": 200,
+      "bytes": 6258
+    },
+    {
+      "artifact_id": "art_7cd160a3e6d841f0b663c0590e321d32",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 264
+    },
+    {
+      "artifact_id": "art_9e647c9832044975888836a9f05c59a3",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 18835
+    },
+    {
+      "artifact_id": "art_66099977c2d84f0988b21ae798982df7",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 18835
+    },
+    {
+      "artifact_id": "art_a24a61277f8143c7b60cfa1496410213",
+      "kind": "screenshot",
+      "http_status": 200,
+      "bytes": 105108
+    },
+    {
+      "artifact_id": "art_b5f3e65870754164a047a6f1cf0a4542",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 18891
+    },
+    {
+      "artifact_id": "art_fe78a963113b47428ff81ca547a10445",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 18832
+    },
+    {
+      "artifact_id": "art_b0ce724551c14ceea0f64428b2ce4e9a",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 18832
+    },
+    {
+      "artifact_id": "art_aa804db900c44dea902df6f3b361cdd3",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 145
+    },
+    {
+      "artifact_id": "art_f18182c8e95d4264b003e11f40831fc2",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 145
+    },
+    {
+      "artifact_id": "art_97f80d4d62bd48a88fc728803bd680e2",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 18832
+    },
+    {
+      "artifact_id": "art_6c3a812437d142d28fd74b469c84ff57",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 18835
+    },
+    {
+      "artifact_id": "art_caaf9742d0a04fa59dc97550ef2d973b",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 177
+    },
+    {
+      "artifact_id": "art_f2e3d4d9264f42cab9f1b13d3873eca2",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 15620
+    },
+    {
+      "artifact_id": "art_60ac36eab695464992aa79da47fecb2d",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 219
+    },
+    {
+      "artifact_id": "art_25ce53bf6fce45569d2e8a2fdd82e64f",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 252
+    },
+    {
+      "artifact_id": "art_c42a2373e4db48a3be97962b5fccf298",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 188
+    },
+    {
+      "artifact_id": "art_5dc6a0b1a5fb4288ac993ba053a863a0",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 15579
+    },
+    {
+      "artifact_id": "art_a4c7fff30d164f2e83425ba9bed1bad7",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 219
+    },
+    {
+      "artifact_id": "art_304eb5980efe4179b95153aa687da3f0",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 252
+    },
+    {
+      "artifact_id": "art_91658787e49143b5a769cbdde3580a5c",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 188
+    },
+    {
+      "artifact_id": "art_d41ed7acceeb4cb5b3a14f879940573b",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 219
+    },
+    {
+      "artifact_id": "art_b2b9ec0363b34ba8b364cff15ac341c7",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 252
+    },
+    {
+      "artifact_id": "art_c9beca56330d4b808bbee34cf2c618f3",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 188
+    },
+    {
+      "artifact_id": "art_5a5e49dc459947a98c06e8f6b735d90d",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 219
+    },
+    {
+      "artifact_id": "art_332f4f9d4fed4683afbf9cd64e2479ed",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 252
+    },
+    {
+      "artifact_id": "art_19ee62c8d62a429380af27a28c01c296",
+      "kind": "observation",
+      "http_status": 200,
+      "bytes": 188
+    },
+    {
+      "artifact_id": "art_380ebb2784af4cb189042a2fd4c683a1",
+      "kind": "screenshot",
+      "http_status": 200,
+      "bytes": 89779
+    }
+  ],
+  "independent": {
+    "fresh_session": true,
+    "read_only": true,
+    "url": "http://127.0.0.1:4200/t/waata-launch-checklist-video-1125-225801/58/1",
+    "title": "WAATA launch checklist video 1125-225801",
+    "body": "The local team will review the launch checklist before opening the forum.",
+    "category_present": true,
+    "passed": true
+  },
+  "persisted_topic": {
+    "read_only": true,
+    "count": 1,
+    "topics": [
+      {
+        "id": 58,
+        "title": "WAATA launch checklist video 1125-225801",
+        "category": "WAATA Lab",
+        "body": "The local team will review the launch checklist before opening the forum.",
+        "username": "waata_member"
+      }
+    ],
+    "unique_posts_mins": 5
+  },
+  "report_sha256": "771f32c0ef8543a8cdc85f8a4d083c4442c8d02a185f5119677e9c41af20c3b0",
+  "raw_video_sha256": "24e5da19c6ce3ef6dcf5a24e597ecfa3e40c8ec3bab663a94a9621194125762a",
+  "notes": [
+    "A real PostgreSQL 17 / FastAPI / Worker / Vue smoke run, separate from the historical 30 standalone runs.",
+    "Task-local Linux Worker entry uses the public Worker/TestEngine/adapter/store interfaces and connects to an isolated Windows Chromium via CDP; no scripted model or business-action playback.",
+    "Browser login actions and planning are included in run; independent browser login is outside run metrics.",
+    "Local duplicate-body fixture restriction temporarily changed from 5 to 0 minutes and restored to 5 after recording.",
+    "Pre-run failures are preserved separately and never overwritten by the successful report."
+  ],
+  "video": {
+    "file": "discourse-platform-demo.mp4",
+    "duration_seconds": 122.44,
+    "width": 1600,
+    "height": 1120,
+    "fps": 25,
+    "codec": "h264",
+    "bytes": 3017541,
+    "sha256": "fabbd26ae524834517a6bb6a3a5742ce5e9c0d2f3d24192df0b8dad9e6103605",
+    "editing": "4-second title + 12-second excerpt from a failed pre-run + 100.44-second full successful recording at original speed + 6-second result card; chapters and Chinese captions added."
+  }
+}
