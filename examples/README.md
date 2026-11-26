@@ -188,7 +188,7 @@ B11 验证拖拽手势，B12 验证下载文件，B13 验证文件选择器和�
 bash scripts/admidio.sh start
 ```
 
-Compose 从固定子模块构建应用并运行 MariaDB。首次启动需要下载构建依赖。脚本将配置和随机数据库密码放在 `.local/admidio/`，数据库与应用数据使用命名卷。 [启动脚本](../scripts/admidio.sh) · [上游容器说明](../testsites/admidio/README-Docker.md)
+本机已有 `waata-admidio:5.0.2` 镜像时，脚本直接复用。镜像缺失时，Compose 从固定子模块构建并下载依赖。配置和随机数据库密码保存在 `.local/admidio/`，数据库与应用数据使用命名卷。 [启动脚本](../scripts/admidio.sh) · [上游容器说明](../testsites/admidio/README-Docker.md)
 
 1. 首次打开[安装向导](http://127.0.0.1:8081/install/index.php)。组织短名填 `WAATA`，名称可填 `WAATA Admidio Lab`，时区选 `Asia/Shanghai`。创建专用管理员，邮件使用保留测试域，例如 `admin@example.invalid`。活动夹具关闭通知邮件。
 2. 打开[登录页](http://127.0.0.1:8081/system/login.php)，确认能登录并打开英文界面的 `Contacts`、`Groups & roles` 和 `Events`。
