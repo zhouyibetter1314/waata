@@ -12,6 +12,8 @@ WAATA（Web App Auto Test App）面向授权测试环境中的 Web 功能测试�
 
 ## 项目导航
 
+4gaBoards 的 B01–B13 结果、证据与复现见[提交说明](docs/testing/4gaboards-submission.md)和[联调记录](docs/testing/4gaboards-integration.md)。
+
 | 阅读目标 | 入口 |
 | --- | --- |
 | Web 页面、开发代理和前端检查 | [Vue](apps/web/README.md) |

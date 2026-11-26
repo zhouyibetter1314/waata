@@ -7,11 +7,18 @@ from .models import AriaRole
 
 ROLES = frozenset(get_args(AriaRole))
 
-COLLECT_CONTROLS = """({limit, textLimit}) => {
+COLLECT_CONTROLS = """({limit, textLimit, approvedSelectors = []}) => {
     const controlSelector =
         'a[href], button, summary, input:not([type=hidden]), select, textarea, [role], [contenteditable], [aria-haspopup]';
     const candidates = document.querySelectorAll(controlSelector);
     const elements = [];
+    const approved = new Map();
+    for (const selector of approvedSelectors) {
+        try {
+            const matches = document.querySelectorAll(selector);
+            if (matches.length === 1) approved.set(matches[0], selector);
+        } catch { /* Playwright-only locators are not DOM selectors. */ }
+    }
     const seen = new Set();
     const scanLimit = Math.max(200, 5 * limit);
     let truncated = false;
@@ -73,7 +80,8 @@ COLLECT_CONTROLS = """({limit, textLimit}) => {
             const css = cssHint(element, localLink ? href : null);
             elements.push({
                 role: text(element.getAttribute('role')) || naturalRole(element),
-                name: label || contents,
+                name: label || contents || (approved.has(element) ? text(element.getAttribute('placeholder')) : null),
+                approved_css: approved.get(element),
                 text: contents,
                 label,
                 placeholder: text(element.getAttribute('placeholder')),
@@ -95,6 +103,7 @@ COLLECT_CONTROLS = """({limit, textLimit}) => {
     const choices = 'summary, [role=listbox], [aria-haspopup], ' + options;
     const actionButton = element =>
         element.matches('[type=submit]') || Boolean(text(element.innerText));
+    collect([...approved.keys()]);
     const activeForm = document.activeElement?.closest(
         'form, dialog, [role=dialog], [role=alertdialog]'
     );
@@ -148,6 +157,8 @@ def omit_form_values(snapshot: str) -> str:
 
 
 def suggested_locator(control: dict) -> dict[str, str] | None:
+    if control.get("approved_css"):
+        return {"strategy": "css", "value": control["approved_css"]}
     if control["test_id"]:
         return {"strategy": "test_id", "value": control["test_id"]}
     if control["css"]:

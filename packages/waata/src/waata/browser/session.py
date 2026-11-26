@@ -69,7 +69,7 @@ ERROR_MESSAGES = {
     "SECRET_NOT_AVAILABLE": "The test secret is unavailable for this field.",
     "SESSION_NOT_READY": "The case has no navigated browser page.",
     "ELEMENT_NOT_FOUND": "No element matches the locator.",
-    "AMBIGUOUS_LOCATOR": "The locator matches multiple elements. Observe the page and use a unique locator for the intended control.",
+    "AMBIGUOUS_LOCATOR": "The locator matches multiple elements. Do not retry it unchanged; observe and use a unique test ID or an exact approved CSS locator for the intended control.",
     "ELEMENT_NOT_INTERACTABLE": "The located control is not in the required state.",
     "OPTION_NOT_FOUND": "The requested option is unavailable.",
     "NAVIGATION_FAILED": "The browser could not load the selected page.",
@@ -121,6 +121,7 @@ class PlaywrightSession:
         allow_screenshots: bool,
         screenshot_mask_selectors: tuple[str, ...],
         limits: BrowserLimits,
+        preferred_css_selectors: tuple[str, ...] = (),
     ) -> None:
         self._context = context
         self._page = page
@@ -133,6 +134,7 @@ class PlaywrightSession:
         self._websocket_paths = allowed_websocket_paths
         self._screenshot_allowed = allow_screenshots
         self._masks = screenshot_mask_selectors
+        self._preferred_selectors = preferred_css_selectors
         self._limits = limits
         self._lock = asyncio.Lock()
         self._closed = False
@@ -568,7 +570,11 @@ class PlaywrightSession:
         max_chars = self._limits.max_observation_chars
         controls = await self._page.evaluate(
             COLLECT_CONTROLS,
-            {"limit": self._limits.max_elements, "textLimit": 256},
+            {
+                "limit": self._limits.max_elements,
+                "textLimit": 256,
+                "approvedSelectors": self._preferred_selectors,
+            },
         )
         elements = []
         for control in controls["elements"]:

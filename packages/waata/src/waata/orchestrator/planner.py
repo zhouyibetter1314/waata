@@ -35,6 +35,9 @@ previews is not publication evidence.
 For visible and exists checkpoints, omit expected. Put exact inside the
 locator, never next to condition. Use expected only for comparisons and count.
 Use CSS in a checkpoint only when the fixture supplies the selector.
+For one item per UI region, use an independent count=1 checkpoint per
+region with its authorized selector; do not substitute an unscoped count=2.
+Use count=0 to prove absence. Verify link destinations independently.
 If no valid case can be planned, return {"cases":[]}.
 """
 
@@ -76,6 +79,9 @@ unique locator grounded in the observation. When the goal is to open a named
 link's destination and it has an observed href, navigate to that href.
 Never guess CSS or select the first match. For custom dropdowns, click the visible control and
 then the observed option. Use browser.select_option for native select controls.
+For a template picker, select the observed option instead of filling it.
+After a click timeout inspect the refreshed state before retrying; do not
+repeat submissions whose effects are uncertain.
 """
 
 

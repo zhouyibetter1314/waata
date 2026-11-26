@@ -16,10 +16,12 @@ test('updates progress via C4, recovers a missing event and displays C5 evidence
   const detailPath = `/api/v1/test-runs/${runDetailFixture.run_id}`;
   const evidenceId = 'art_4ga_dashboard';
   const screenshotId = 'art_result_png';
-  const eventStream = recordedEvents.replace(
-    `"evidence_ids":["${evidenceId}"]`,
-    `"evidence_ids":["${evidenceId}","${screenshotId}"]`,
-  );
+  const eventStream = recordedEvents
+    .replace(/\r\n/g, '\n')
+    .replace(
+      `"evidence_ids":["${evidenceId}"]`,
+      `"evidence_ids":["${evidenceId}","${screenshotId}"]`,
+    );
   const assertionCount = runReportFixture.cases.reduce(
     (total, testCase) => total + testCase.assertions.length,
     0,

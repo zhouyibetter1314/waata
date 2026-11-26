@@ -7,6 +7,7 @@ import re
 from dataclasses import asdict
 from pathlib import Path
 from time import monotonic
+from types import SimpleNamespace
 from uuid import uuid4
 
 from dotenv import dotenv_values
@@ -275,18 +276,21 @@ class RecordedModel:
                 tools = compact_workbench_tools(kwargs.get("tools", ()))
                 if tools:
                     messages = compact_workbench_state(messages)
+                    last = next((i for i in range(len(messages) - 1, 1, -1)
+                                 if messages[i].role == "assistant"), None)
+                    if last is not None:
+                        messages = (*messages[:2], *messages[last:])
                 kwargs["tools"] = tools
-                reserve = (
-                    estimate_request_input_tokens(messages, tools)
-                    + self.metadata.max_output_tokens
-                )
+                reserve = estimate_request_input_tokens(messages, tools) + self.metadata.max_output_tokens
                 if self.usage_missing or self.paid + reserve > self.lean_budget:
                     self.budget_stop = True
-                    return ChatResponse(
-                        ChatMessage("assistant", "Local token budget reached.")
-                    )
+                    return ChatResponse(ChatMessage("assistant", "Local token budget reached."))
             self.provider_requests += 1
-            response = await self.provider.chat(messages, **kwargs)
+            try:
+                response = await self.provider.chat(messages, **kwargs)
+            except ModelError:
+                self.usage_missing = True
+                raise
             usage = response.usage
             if usage is None:
                 self.usage_missing = True
@@ -488,22 +492,27 @@ async def run(args):
             "If the project URL is already correct, let it render instead of navigating again. "
             "The renamed dashboard tile is the result to verify."
         )
+    if args.short:
+        if not args.prepared or key not in {"B03", "B04"}:
+            raise ValueError("Short prepared mode only supports B03 and B04")
+        if key == "B03":
+            goal = f"用 Kanban 模板创建看板「B03 Workflow {tag}」。"
+            expected = "看板内 Open、Todo、In Progress、To Test、Done 各一列。"
+            selectors.discard('input[placeholder="Kanban"]')
+        else:
+            goal = f"给这个看板添加列表「B04 Incoming {tag}」。"
+            expected = "重开同一看板后，目标列表恰好一个。"
     if key == "B05":
         expected += f' The dialog title equals "B05 Confirm delivery {tag}".'
-    async with (
-        async_playwright() as driver,
-        OpenAILike(
-            base_url=settings.get("WAATA_MODEL_BASE_URL") or "http://127.0.0.1:1",
-            model=args.model or settings.get("WAATA_MODEL_NAME") or "replay",
-            api_key=settings.get("WAATA_MODEL_API_KEY"),
-            max_output_tokens=1024,
-            timeout=25,
-        ) as provider,
-    ):
+    async with async_playwright() as driver, OpenAILike(
+        base_url=settings.get("WAATA_MODEL_BASE_URL") or "http://127.0.0.1:1",
+        model=args.model or settings.get("WAATA_MODEL_NAME") or "replay",
+        api_key=settings.get("WAATA_MODEL_API_KEY"),
+        max_output_tokens=1024,
+        timeout=25,
+    ) as provider:
         browser = await driver.chromium.launch(headless=not args.headed)
-        case_browser = (
-            await prepared_browser(browser, password, url) if args.prepared else browser
-        )
+        case_browser = await prepared_browser(browser, password, url) if args.prepared else browser
         if args.preflight:
             await browser.close()
             print("Prepared fixture opened successfully without a model.", flush=True)
@@ -523,7 +532,6 @@ async def run(args):
                 }
             },
         )
-
         def safe(value):
             if isinstance(value, str):
                 return adapter.sanitize(value, "boards")
@@ -711,10 +719,10 @@ async def run(args):
             "request_limit": args.requests,
             "token_limit": args.tokens if not args.replay else None,
             "prepared_login": args.prepared,
+            "short_input": args.short,
             "automatic_final_screenshot": True,
             "automatic_screenshot_ids": [
-                artifact.artifact_id
-                for artifact in (result.artifacts if result else [])
+                artifact.artifact_id for artifact in (result.artifacts if result else [])
                 if args.prepared and not args.replay and artifact.kind == "screenshot"
             ],
             "budget_stop": model.budget_stop,
@@ -783,6 +791,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Start with a locally prepared signed-in session",
     )
+    parser.add_argument("--short", action="store_true", help="Use short Chinese goals in prepared B03/B04 runs")
     parser.add_argument(
         "--headed", action="store_true", help="Show Chromium on the local display"
     )

@@ -89,6 +89,7 @@ class PlaywrightAdapter:
         allowed_websocket_paths: Iterable[str] = (),
         credential_sets: Mapping[str, Mapping[str, CredentialField]] | None = None,
         screenshot_mask_selectors: Iterable[str] = (),
+        preferred_css_selectors: Iterable[str] = (),
         allow_screenshots: bool = False,
         limits: BrowserLimits | None = None,
     ) -> None:
@@ -131,9 +132,15 @@ class PlaywrightAdapter:
             )
         )
         self._mask_selectors = tuple(screenshot_mask_selectors)
+        self._preferred_selectors = tuple(sorted(set(preferred_css_selectors))[:32])
         self._allow_screenshots = allow_screenshots
         self._limits = limits or BrowserLimits()
         self._setup_cleanups: set[asyncio.Task[None]] = set()
+
+    @property
+    def planning_css_selectors(self) -> tuple[str, ...]:
+        """Trusted fixture hints, not a change to browser authorization."""
+        return self._preferred_selectors
 
     def validate_target(self, url: str) -> None:
         origin = Origin.from_url(url)
@@ -220,6 +227,7 @@ class PlaywrightAdapter:
                 allowed_websocket_paths=self._websocket_paths,
                 allow_screenshots=self._allow_screenshots,
                 screenshot_mask_selectors=self._mask_selectors,
+                preferred_css_selectors=self._preferred_selectors,
                 limits=self._limits,
             )
             await session.install_guards()

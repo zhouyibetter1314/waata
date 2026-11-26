@@ -88,6 +88,19 @@ async def replay(browser, password, name, output):
     adapter = PlaywrightAdapter(
         browser=browser,
         allowed_origins={URL},
+        preferred_css_selectors={
+            item["value"]
+            for item in (
+                user,
+                password_input,
+                login,
+                add,
+                project_input,
+                submit,
+                tile,
+                sidebar,
+            )
+        },
         allowed_websocket_paths={"/socket.io/"},
         allow_screenshots=True,
         credential_sets={

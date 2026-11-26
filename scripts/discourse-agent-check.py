@@ -542,7 +542,7 @@ async def run(args):
         adapter = PlaywrightAdapter(
             browser=injected_browser,
             allowed_origins=[HOME],
-            allowed_css_selectors=selectors + [LOGIN, PASSWORD, SUBMIT],
+            preferred_css_selectors=selectors + [LOGIN, PASSWORD, SUBMIT],
             credential_sets={ref: fields},
             allow_screenshots=True,
             screenshot_mask_selectors=MASKS,

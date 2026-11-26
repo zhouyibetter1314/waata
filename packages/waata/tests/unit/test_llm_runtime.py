@@ -47,7 +47,6 @@ class RunnerBudgetTests(unittest.TestCase):
         fill = next(tool for tool in compact if tool.name == "browser.fill")
         self.assertEqual(fill.model_input_schema["required"], ["locator"])
         self.assertNotIn("$defs", fill.model_input_schema)
-
     def test_tool_prompt_schema_omits_metadata_but_keeps_constraints(self):
         tools = [
             ToolSpec(name, description, model, count)
@@ -149,7 +148,6 @@ class OpenAILikeTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(override.metadata.supports_json)
         self.assertEqual(bodies[0]["response_format"], {"type": "json_object"})
         self.assertNotIn("response_format", bodies[1])
-
     async def test_ark_disables_thinking_to_preserve_completion_budget(self):
         def transport(request):
             self.assertEqual(request.url.path, "/api/v3/chat/completions")
@@ -340,7 +338,6 @@ class OpenAILikeTests(unittest.IsolatedAsyncioTestCase):
                         await model.chat([ChatMessage("user", "Check fixture")])
                     self.assertEqual(raised.exception.retry_after, expected)
         self.assertEqual(len(requests), 2)
-
     async def test_http_failure_logs_distinguish_quota_rate_and_format_safely(self):
         for status, code, category, retryable in (
             (429, "InsufficientBalance", "quota_or_balance", False),

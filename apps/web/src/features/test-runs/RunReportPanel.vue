@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { getRunReport, type PublishedEvent, type RunReport } from '../../api';
+import {
+  artifactUrl,
+  getRunReport,
+  type ArtifactView,
+  type PublishedEvent,
+  type RunReport,
+} from '../../api';
 import StateBadge from '../../components/StateBadge.vue';
 import { evidenceIds } from './events';
 import { formatError, verdictLabels } from './presentation';
@@ -13,6 +19,9 @@ const props = defineProps<{
 const emit = defineEmits<{ evidence: [title: string, ids: string[]] }>();
 const report = ref<RunReport | null>(null);
 const loading = ref(false);
+const screenshotDialog = ref<HTMLDialogElement | null>(null);
+const selectedScreenshot = ref<ArtifactView | null>(null);
+const unavailableScreenshots = ref(new Set<string>());
 const error = ref('');
 const attempt = ref(0);
 const additionalEvidence = computed(() => {
@@ -29,6 +38,42 @@ const additionalEvidence = computed(() => {
   );
 });
 
+const screenshotGroups = computed(() => {
+  const current = report.value;
+  if (!current) return [];
+  const screenshots = current.artifacts.filter(
+    (item) => item.kind === 'screenshot' && item.run_id === current.run_id,
+  );
+  const groups = current.cases.map((testCase) => ({
+    id: testCase.case_id,
+    name: testCase.name,
+    screenshots: screenshots.filter(
+      (item) => item.case_id === testCase.case_id,
+    ),
+  }));
+  const knownCases = new Set(groups.map((group) => group.id));
+  const ungrouped = screenshots.filter(
+    (item) => !knownCases.has(item.case_id ?? ''),
+  );
+  if (ungrouped.length) {
+    groups.push({
+      id: '__ungrouped',
+      name: '未关联用例的截图',
+      screenshots: ungrouped,
+    });
+  }
+  return groups;
+});
+
+function showScreenshot(artifact: ArtifactView): void {
+  selectedScreenshot.value = artifact;
+  screenshotDialog.value?.showModal();
+}
+
+function markUnavailable(artifactId: string): void {
+  unavailableScreenshots.value.add(artifactId);
+}
+
 function displayValue(value: unknown): string {
   if (value === null) return '未记录';
   if (value === true) return '是';
@@ -41,6 +86,9 @@ watch(
   async ([id, available], _, onCleanup) => {
     const controller = new AbortController();
     onCleanup(() => controller.abort());
+    screenshotDialog.value?.close();
+    selectedScreenshot.value = null;
+    unavailableScreenshots.value.clear();
     report.value = null;
     error.value = '';
     loading.value = available;
@@ -69,7 +117,135 @@ watch(
       </button>
     </div>
     <template v-else-if="report">
-      <p v-if="report.error" role="alert">{{ report.error.message }}</p>
+      <div v-if="report.error" class="alert alert-error" role="alert">
+        <strong>{{ report.error.message }}</strong>
+        <small>{{ report.error.code }}</small>
+      </div>
+      <p v-if="!report.artifacts.length" class="empty-copy">
+        此报告没有已保存的截图或其他证据。
+      </p>
+      <div class="report-summary">
+        <div>
+          <span>报告状态</span><strong>{{ report.status }}</strong>
+        </div>
+        <div>
+          <span>总体判定</span
+          ><StateBadge
+            v-if="report.verdict"
+            :tone="report.verdict"
+            :label="verdictLabels[report.verdict]"
+          /><strong v-else>null</strong>
+        </div>
+        <div>
+          <span>测试用例</span><strong>{{ report.cases.length }}</strong>
+        </div>
+        <div>
+          <span>证据产物</span><strong>{{ report.artifacts.length }}</strong>
+        </div>
+      </div>
+
+      <section
+        class="screenshot-evidence"
+        aria-labelledby="screenshot-evidence-title"
+      >
+        <h3 id="screenshot-evidence-title">截图证据</h3>
+        <p v-if="!screenshotGroups.length" class="empty-copy">
+          此运行没有已保存的截图。
+        </p>
+        <section
+          v-for="group in screenshotGroups"
+          :key="group.id"
+          class="screenshot-case"
+        >
+          <h4>{{ group.name }}</h4>
+          <p v-if="!group.screenshots.length" class="empty-copy">
+            此用例尚无截图。
+          </p>
+          <div v-else class="screenshot-grid">
+            <article
+              v-for="artifact in group.screenshots"
+              :key="artifact.artifact_id"
+              class="screenshot-card"
+            >
+              <p
+                v-if="unavailableScreenshots.has(artifact.artifact_id)"
+                class="empty-copy"
+              >
+                截图暂不可用，可能已过期或无权访问。
+              </p>
+              <template v-else>
+                <button
+                  type="button"
+                  class="screenshot-thumbnail"
+                  :aria-label="`放大 ${group.name} 截图`"
+                  @click="showScreenshot(artifact)"
+                >
+                  <img
+                    :src="artifactUrl(artifact.artifact_id)"
+                    :alt="`${group.name} 截图`"
+                    @error="markUnavailable(artifact.artifact_id)"
+                  />
+                </button>
+                <div class="evidence-links">
+                  <a
+                    class="text-button"
+                    :href="artifactUrl(artifact.artifact_id)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >查看原图</a
+                  >
+                  <a
+                    class="text-button"
+                    :href="artifactUrl(artifact.artifact_id)"
+                    :download="`${artifact.artifact_id}.png`"
+                    >下载截图</a
+                  >
+                </div>
+              </template>
+              <dl class="screenshot-metadata">
+                <dt>Run</dt>
+                <dd>{{ artifact.run_id }}</dd>
+                <dt>Case</dt>
+                <dd>{{ artifact.case_id ?? '未关联' }}</dd>
+                <dt>Step</dt>
+                <dd>{{ artifact.step_id ?? '未关联' }}</dd>
+                <dt>Artifact</dt>
+                <dd>{{ artifact.artifact_id }}</dd>
+              </dl>
+            </article>
+          </div>
+        </section>
+        <dialog
+          ref="screenshotDialog"
+          class="screenshot-dialog"
+          aria-label="截图预览"
+          @close="selectedScreenshot = null"
+        >
+          <div v-if="selectedScreenshot" class="panel-title">
+            <h4>{{ selectedScreenshot.artifact_id }}</h4>
+            <button
+              class="text-button"
+              type="button"
+              @click="screenshotDialog?.close()"
+            >
+              关闭
+            </button>
+          </div>
+          <img
+            v-if="
+              selectedScreenshot &&
+              !unavailableScreenshots.has(selectedScreenshot.artifact_id)
+            "
+            :src="artifactUrl(selectedScreenshot.artifact_id)"
+            alt="放大的测试证据截图"
+            @error="markUnavailable(selectedScreenshot.artifact_id)"
+          />
+          <p v-else-if="selectedScreenshot" class="empty-copy">
+            截图暂不可用。
+          </p>
+        </dialog>
+      </section>
+
       <p v-if="!report.cases.length">此任务没有可复核的用例。</p>
       <article
         v-for="testCase in report.cases"
