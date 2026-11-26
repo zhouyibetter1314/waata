@@ -142,6 +142,11 @@ class PlaywrightAdapter:
         self._limits = limits or BrowserLimits()
         self._setup_cleanups: set[asyncio.Task[None]] = set()
 
+    @property
+    def planning_css_selectors(self) -> tuple[str, ...]:
+        """Exact locators already granted to this adapter, not model-supplied CSS."""
+        return tuple(sorted(self._selectors)[:32])
+
     def validate_target(self, url: str) -> None:
         origin = Origin.from_url(url)
         default_port = 443 if origin.scheme == "https" else 80

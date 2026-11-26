@@ -35,8 +35,8 @@ COLLECT_CONTROLS = """({limit, textLimit, approvedSelectors}) => {
         if (element.matches('input,textarea,[contenteditable=true]')) return 'textbox';
         return null;
     };
-    // Keep exact, authorized matches before long lists of repeated controls.
-    const priority = [...approved.keys()].filter(element => element.matches(controlSelector));
+    // Include explicitly authorized custom controls even if they have no native role.
+    const priority = [...approved.keys()];
     const prioritized = new Set(priority);
     for (let index = 0; index < priority.length + scanLimit; index++) {
         const element = index < priority.length ? priority[index] : candidates[index - priority.length];
@@ -52,7 +52,7 @@ COLLECT_CONTROLS = """({limit, textLimit, approvedSelectors}) => {
             ? null : text(element.innerText);
         elements.push({
             role: text(element.getAttribute('role')) || naturalRole(element),
-            name: label || contents,
+            name: label || contents || (approved.has(element) ? text(element.getAttribute('placeholder')) : null),
             text: contents,
             label,
             placeholder: text(element.getAttribute('placeholder')),

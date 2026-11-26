@@ -23,7 +23,14 @@ Translate the expected behavior into concrete, observable checks. Checkpoints
 are conditions in the expected final state. The target URL is the starting
 address. Add a URL checkpoint only when the requested outcome specifies a
 final location. Use exact approved CSS selectors only when they are supplied
-with the fixture. If no valid case can be planned, return {"cases":[]}.
+with the fixture. If the same named object is expected once in each of two
+regions, use one count=1 checkpoint per region with its exact approved selector;
+do not substitute an unscoped count=2. Do not fabricate CSS or assert that
+two links share a destination just because their names match.
+Use count=0 to check that an item is absent. Include only checkpoints tied
+to the requested outcome, at the final page, not extra checks for setup or
+intermediate UI states. Do not duplicate a check with unrelated locators.
+If no valid case can be planned, return {"cases":[]}.
 """
 
 RUNNER_PROMPT = """WAATA functional test execution prompt v1.
@@ -40,7 +47,19 @@ The runtime refreshes the page observation after browser actions. Read
 state.page first; request another observation only when it lacks information
 needed for the next step or when collecting screenshot evidence. Avoid
 rechecking completed preconditions unless an action failed or the page changed.
+When the editor and its submit control are both identified in the current
+observation, issue fill and submit together in one ordered tool batch. Do not
+batch a submit with actions that first have to open the editor. A failed action
+or changed page stops subsequent mutations in that batch.
+After a click timeout use the refreshed page to determine whether it took
+effect. If it did, continue verification without clicking again. If the
+outcome remains uncertain, inspect it or stop; do not blindly retry.
 Use provided field-level secret references, never guess or request plaintext.
+When the page is a sign-in form and credential references are available,
+sign in with those references rather than registering. Wait until sign-in
+finishes, then use state.target_url if the fixture page is not yet open.
+Use an input only for the value that the visible control represents. A template
+picker is not the name field: open it and choose the requested visible option.
 When the scenario has been exercised or cannot proceed, finish with a short
 status message. The verifier will evaluate the checkpoints.
 If a locator is ambiguous or invalid, do not repeat it unchanged. Use a unique

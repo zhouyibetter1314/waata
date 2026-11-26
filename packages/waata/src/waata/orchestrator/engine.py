@@ -424,6 +424,13 @@ class _Run:
             "max_cases": self.config.max_test_cases,
             "max_checkpoints_per_case": self.config.max_checkpoints_per_case,
         }
+        approved = [
+            selector
+            for selector in getattr(self.browser, "planning_css_selectors", ())
+            if self.sanitize(selector) == selector
+        ]
+        if approved:
+            data["approved_css_selectors"] = approved
         failure = "The model did not produce a valid test plan"
         for repair in (False, True):
             try:
@@ -539,9 +546,14 @@ class _Run:
                         result.reason = "The test page could not be reached within the execution policy"
                         break
                     reached_target = True
-                reason = await self.run_step(
-                    case, step, plan, can_continue=index + 1 < self.max_steps
-                )
+                try:
+                    reason = await self.run_step(
+                        case, step, plan, can_continue=index + 1 < self.max_steps
+                    )
+                except WAATAError as exc:
+                    if exc.error.code == "MODEL_UNAVAILABLE" and self.config.capture_final_screenshot:
+                        await self.capture_final_evidence(case, step)
+                    raise
                 if reason is not None:
                     result.reason = reason
                     break
@@ -553,10 +565,7 @@ class _Run:
             if self.config.capture_final_screenshot and reached_target:
                 # Optional evidence uses normal browser policy and budgets, and
                 # never changes the independently calculated business verdict.
-                try:
-                    await self.run_tool(case, result.steps[-1], "browser.screenshot", {})
-                except WAATAError:
-                    _LOG.warning("Automatic final screenshot could not be captured")
+                await self.capture_final_evidence(case, result.steps[-1])
             await self.case_verified(result)
         except (WAATAError, asyncio.CancelledError) as exc:
             primary_error = exc
@@ -571,6 +580,13 @@ class _Run:
                 if primary_error is not None:
                     raise cleanup from primary_error
                 raise
+
+    async def capture_final_evidence(self, case: _CaseExecution, step: StepResult) -> None:
+        try:
+            await self.run_tool(case, step, "browser.screenshot", {})
+        except Exception:
+            # Avoid replacing the primary verdict/error with an evidence failure.
+            _LOG.warning("Automatic final screenshot could not be captured")
 
     async def close_session(self, session: BrowserSession) -> None:
         async def close() -> None:
@@ -631,6 +647,7 @@ class _Run:
         return {
             "name": case.result.name,
             "goal": self.sanitize(self.request.goal),
+            "target_url": self.sanitize(display_url(self.request.target_url)),
             "preconditions": self.preconditions_for_model(
                 plan, case.session.secret_refs
             ),
@@ -700,6 +717,14 @@ class _Run:
         can_continue: bool,
     ) -> str | None:
         if case.needs_observation or case.session.observation_stale:
+            # Trusted fixture opt-in: allow async navigation/rendering to settle
+            # before asking the model to act on a still-transitional page.
+            previous = case.recent_actions[-1] if case.recent_actions else None
+            settle = min(self.config.observation_settle_seconds, self.deadline - self.clock())
+            if settle > 0 and previous and previous["success"] and previous["tool"] in {
+                "browser.click", "browser.navigate"
+            }:
+                await asyncio.sleep(settle)
             for _ in range(2):
                 observation = await self.run_tool(case, step, "browser.observe", {})
                 if observation.success and not case.session.observation_stale:
@@ -781,9 +806,12 @@ class _Run:
                 call.arguments,
                 expected_revision=model_revision if is_action else None,
             )
-            if self.actions != actions_before and (
-                not result.success or call.name == "browser.navigate"
-            ):
+            if is_action and not result.success:
+                # Even an error before dispatch invalidates assumptions behind
+                # dependent actions in the rest of this turn.
+                case.needs_observation = True
+                paused = True
+            elif self.actions != actions_before and call.name == "browser.navigate":
                 paused = True
             if call.name == "browser.observe" and result.success:
                 # Keep the tool response paired with the call, but send the full

@@ -15,7 +15,7 @@ from uuid import uuid4
 from waata.artifacts import ArtifactInput, ArtifactRef
 from waata.browser import CredentialField, PlaywrightAdapter
 from waata.browser.observation import COLLECT_CONTROLS
-from waata.core.model import ChatMessage, ChatResponse, ToolCall
+from waata.core.model import ChatMessage, ChatResponse, ModelError, ToolCall
 from waata.core.tools import ToolContext, ToolRegistry, ToolResult
 from waata.llm import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest, WAATAError
@@ -118,6 +118,12 @@ class LoginHandler(BaseHTTPRequestHandler):
                 '<option value="disabled" disabled>Disabled</option></select>'
                 '<label for="note">Note</label>'
                 '<input id="note" value="temporary form draft">',
+            )
+        elif self.path == "/demo-regions":
+            self._html(
+                "Demo regions",
+                '<main><a class="tile" href="/project">Demo Project</a></main>'
+                '<aside><a class="sidebar-link" href="/project">Demo Project</a></aside>',
             )
         elif self.path == "/leave" and self.server.redirect_target:
             self._redirect("/relay")
@@ -288,6 +294,64 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             self.assertEqual(len(screenshots), 1)
             self.assertTrue(store.saved[screenshots[0].artifact_id].content.startswith(b"\x89PNG"))
 
+    async def test_two_region_checkpoints_use_approved_planning_selectors(self):
+        with login_fixture() as fixture:
+            url = f"{fixture.origin}/demo-regions"
+            selectors = {"main .tile", "aside .sidebar-link"}
+            checks = [
+                {"condition": "count", "locator": {"strategy": "css", "value": selector},
+                 "expected": 1}
+                for selector in sorted(selectors)
+            ]
+            model = FakeLLM([
+                planning_response(case_plan("Project in both regions", checks)),
+                assistant_text("Verify both regions."),
+            ])
+            engine = TestEngine(
+                llm=model,
+                browser=PlaywrightAdapter(
+                    browser=self.browser,
+                    allowed_origins={fixture.origin},
+                    allowed_css_selectors=selectors,
+                    allow_screenshots=True,
+                ),
+                artifact_store=MemoryArtifacts(),
+                config=EngineConfig(capture_final_screenshot=True),
+            )
+            result = await engine.run(TestRequest(
+                target_url=url, goal="Find Demo Project",
+                expected_behavior="One project in the dashboard and one in the sidebar.",
+            ))
+            request = json.loads(model.requests[0].messages[1].content)
+            self.assertEqual(set(request["approved_css_selectors"]), selectors)
+            self.assertEqual([check.actual for check in result.cases[0].assertions], [1, 1])
+            self.assertEqual(result.verdict, "passed")
+            self.assertEqual(sum(a.kind == "screenshot" for a in result.artifacts), 1)
+
+    async def test_model_failure_retains_last_page_screenshot_in_partial_report(self):
+        with login_fixture() as fixture:
+            url = f"{fixture.origin}/controls"
+            provider = FakeLLM([
+                planning_response(case_plan("Controls page", [url_check(url)])),
+                ModelError("Simulated provider rate limit"),
+            ])
+            engine = TestEngine(
+                llm=provider,
+                browser=PlaywrightAdapter(
+                    browser=self.browser, allowed_origins={fixture.origin},
+                    allow_screenshots=True,
+                ),
+                artifact_store=MemoryArtifacts(),
+                config=EngineConfig(capture_final_screenshot=True, model_retries=0),
+            )
+            with self.assertRaises(WAATAError) as captured:
+                await engine.run(TestRequest(target_url=url, goal="Open", expected_behavior="Open controls"))
+            self.assertEqual(captured.exception.error.code, "MODEL_UNAVAILABLE")
+            partial = captured.exception.partial_result
+            self.assertEqual(partial.status, "errored")
+            self.assertIsNone(partial.verdict)
+            self.assertEqual(sum(a.kind == "screenshot" for a in partial.artifacts), 1)
+
     async def test_observation_keeps_approved_control_after_long_sidebar(self):
         page = await self.browser.new_page()
         self.addAsyncCleanup(page.close)
@@ -295,15 +359,23 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             "<button>Old item</button>" * 250
             + '<button id="hidden" hidden>Hidden action</button>'
             + '<button id="rename">Rename Project</button>'
+            + '<input id="picker" placeholder="Empty" value="not for the model" readonly>'
+            + '<div id="kanban">Kanban</div>'
         )
         observed = await page.evaluate(
             COLLECT_CONTROLS,
-            {"limit": 2, "textLimit": 100, "approvedSelectors": ["#hidden", "#rename"]},
+            {"limit": 4, "textLimit": 100,
+             "approvedSelectors": ["#hidden", "#rename", "#picker", "#kanban"]},
         )
         self.assertTrue(observed["truncated"])
         self.assertEqual(observed["elements"][0]["approved_css"], "#rename")
         self.assertEqual(observed["elements"][0]["name"], "Rename Project")
-        self.assertEqual(observed["elements"][1]["name"], "Old item")
+        self.assertEqual(observed["elements"][1]["name"], "Empty")
+        self.assertIsNone(observed["elements"][1]["text"])
+        self.assertEqual(observed["elements"][2]["approved_css"], "#kanban")
+        self.assertEqual(observed["elements"][2]["name"], "Kanban")
+        self.assertIsNone(observed["elements"][2]["role"])
+        self.assertEqual(observed["elements"][3]["name"], "Old item")
 
     async def test_native_select_zero_count_and_browser_evidence_registration(self):
         class ArtifactStoreWithFailure(MemoryArtifacts):
@@ -731,6 +803,27 @@ class BrowserEngineIntegrationTests(IsolatedAsyncioTestCase):
             )
             self.assertEqual(skipped_click.tool_call_id, "second-click")
             self.assertFalse(json.loads(skipped_click.content)["success"])
+
+    async def test_failed_fill_prevents_same_turn_submit_even_before_dispatch(self):
+        with login_fixture() as fixture:
+            login_turn, finish = login_actions("valid")
+            submit = login_turn.message.tool_calls[-1]
+            model = FakeLLM([
+                planning_response(case_plan("No unsafe submit", [url_check(fixture.login_url)])),
+                tool_turn(
+                    ToolCall("missing-field", "browser.fill",
+                             {"locator": locator_test_id("missing-field"), "value": "example"}),
+                    submit,
+                ),
+                finish,
+            ])
+            result = await self._engine(fixture, model).run(self._request(fixture))
+            self.assertEqual(result.verdict, "passed")
+            self.assertEqual(fixture.submissions, 0)
+            state = json.loads(model.requests[-1].messages[1].content)["state"]
+            self.assertTrue(state["page_is_current"])
+            self.assertEqual(state["page"]["url"], fixture.login_url)
+            self.assertIsNone(state["pending_side_effect"])
 
     async def test_callback_failure_stops_pending_browser_action_and_cleans_up(self):
         with login_fixture() as fixture:
