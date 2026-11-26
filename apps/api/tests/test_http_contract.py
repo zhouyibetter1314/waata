@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from psycopg import OperationalError
 from waata_api.infrastructure.config import Settings, TargetPolicies, TargetPolicy
 from waata_api.main import create_app
-from waata_api.repositories import RunNotCancellable
+from waata_api.repositories import RunNotCancellable, RunNotDeletable
 
 _ROOT = Path(__file__).resolve().parents[3]
 _NOW = datetime(2026, 11, 21, tzinfo=UTC)
@@ -86,6 +86,15 @@ class Repository:
             self.append_event(row, "run.cancelled")
         return row
 
+    async def delete_run(self, run_id, owner_id):
+        row = await self.get_run(run_id, owner_id)
+        if row is None:
+            return False
+        if row["status"] in {"queued", "running"}:
+            raise RunNotDeletable
+        del self.runs[run_id]
+        return True
+
     def append_event(self, row, event_type):
         seq = row["last_event_sequence"] + 1
         row["last_event_sequence"] = seq
@@ -132,6 +141,10 @@ class Repository:
 class ArtifactStore:
     def __init__(self):
         self.files = {}
+        self.deleted = []
+
+    async def purge_deleted(self, *, run_id):
+        self.deleted.append(run_id)
 
     async def read(self, storage_key):
         if storage_key not in self.files:
@@ -140,6 +153,29 @@ class ArtifactStore:
 
 
 class HttpContractTests(unittest.TestCase):
+    def test_delete_requires_owner_origin_and_terminal_run(self):
+        run_id = self.client.post(_URL, json=_REQUEST, headers=_OWNER_HEADERS).json()[
+            "run_id"
+        ]
+        path = f"{_URL}/{run_id}"
+        other_owner = {**_OWNER_HEADERS, "x-waata-principal": "owner-b"}
+        self.assertEqual(self.client.delete(path, headers=other_owner).status_code, 404)
+        self.assertEqual(
+            self.client.delete(
+                path, headers={**_OWNER_HEADERS, "origin": "https://other.test"}
+            ).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.client.delete(path, headers=_OWNER_HEADERS).status_code, 409
+        )
+        self.client.post(f"{path}/cancel", headers=_OWNER_HEADERS)
+        self.assertEqual(
+            self.client.delete(path, headers=_OWNER_HEADERS).status_code, 204
+        )
+        self.assertEqual(self.storage.deleted, [run_id])
+        self.assertEqual(self.client.get(path, headers=_OWNER_HEADERS).status_code, 404)
+
     def setUp(self):
         self.repository = Repository()
         self.storage = ArtifactStore()
@@ -383,10 +419,22 @@ class HttpContractTests(unittest.TestCase):
         with ZipFile(buffer, "w") as synthetic_trace:
             synthetic_trace.writestr("trace.txt", "Synthetic C5 fixture")
         trace_content = buffer.getvalue()
+        trace_id = "art_http_contract_trace"
+        result["artifacts"].append(
+            {
+                "artifact_id": trace_id,
+                "run_id": run_id,
+                "case_id": None,
+                "step_id": None,
+                "tool_call_id": None,
+                "kind": "playwright_trace",
+                "mime_type": "application/zip",
+                "captured_at": _NOW.isoformat(),
+                "size_bytes": len(trace_content),
+            }
+        )
         for reference in result["artifacts"]:
             reference["run_id"] = run_id
-            if reference["kind"] == "playwright_trace":
-                reference["size_bytes"] = len(trace_content)
             artifact_id = reference["artifact_id"]
             self.repository.artifacts[artifact_id] = {
                 **reference,
@@ -406,7 +454,7 @@ class HttpContractTests(unittest.TestCase):
         trace = next(
             item
             for item in report.json()["artifacts"]
-            if item["kind"] == "playwright_trace"
+            if item["artifact_id"] == trace_id
         )
         self.assertNotIn("storage_key", trace)
         url = trace["url"]
@@ -417,6 +465,7 @@ class HttpContractTests(unittest.TestCase):
         self.storage.files[trace_row["storage_key"]] = trace_content
         attachment = self.client.get(url, headers=_OWNER_HEADERS)
         self.assertEqual(attachment.status_code, 200)
+        self.assertEqual(attachment.content, trace_content)
         self.assertEqual(attachment.headers["cache-control"], "private, no-store")
         self.assertEqual(attachment.headers["content-type"], "application/zip")
         self.assertIn("attachment", attachment.headers["content-disposition"])

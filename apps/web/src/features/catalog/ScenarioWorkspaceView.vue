@@ -59,7 +59,7 @@ function openApplication(value?: CatalogApplication): void {
   Object.assign(applicationForm, {
     id: value?.id ?? '',
     name: value?.name ?? '',
-    base_url: value?.base_url ?? 'http://localhost:3000/',
+    base_url: value?.base_url ?? '',
     credential_ref: value?.credential_ref ?? '',
     version: value?.version ?? '',
   });
@@ -238,8 +238,7 @@ function importScenarios(): void {
         <div class="eyebrow">TEST DESIGN</div>
         <h1>场景与应用</h1>
         <p class="lead">
-          复用常用测试目标并批量提交；场景库保存在浏览器，本次运行始终转换为正式
-          C1 请求。
+          在当前浏览器保存和复用测试场景，选中多个场景可以一次提交。
         </p>
       </div>
       <button
@@ -285,7 +284,7 @@ function importScenarios(): void {
               Number(($event.target as HTMLInputElement).value),
             )
           "
-        /><span>本次运行每用例步骤上限</span></label
+        /><span>每用例 Agent 步骤上限</span></label
       >
     </div>
 
@@ -293,7 +292,7 @@ function importScenarios(): void {
       <div class="panel-toolbar">
         <div>
           <h2>应用配置</h2>
-          <p>只保存目标地址和 C1 凭据引用，不保存账号、密码或 API Key。</p>
+          <p>应用保存目标地址和测试凭据名称。</p>
         </div>
         <button
           class="button button-secondary"
@@ -314,6 +313,7 @@ function importScenarios(): void {
         <div>
           <strong>{{ application.name }}</strong
           ><small>{{ application.base_url }}</small>
+          <small>应用 ID {{ application.id }}</small>
         </div>
         <span class="catalog-chip">{{
           application.version || '版本未记录'
@@ -341,12 +341,13 @@ function importScenarios(): void {
       <div class="panel-toolbar">
         <div>
           <h2>场景库</h2>
-          <p>选择一个或多个场景，通过 C1 创建彼此独立的 Run。</p>
+          <p>选择一个或多个场景提交，每个场景会生成一条测试任务。</p>
         </div>
         <div class="toolbar-actions">
           <button
             class="button button-secondary"
             type="button"
+            :disabled="!catalog.applications.length"
             @click="importDialog = true"
           >
             导入 JSON</button
@@ -361,7 +362,11 @@ function importScenarios(): void {
         </div>
       </div>
       <div v-if="!catalog.scenarios.length" class="catalog-empty">
-        还没有场景，点击“新建场景”开始。
+        {{
+          catalog.applications.length
+            ? '还没有场景，点击“新建场景”开始。'
+            : '还没有场景。'
+        }}
       </div>
       <div v-else class="table-wrap">
         <table>
@@ -441,9 +446,7 @@ function importScenarios(): void {
           >应用地址 <b>*</b><input v-model="applicationForm.base_url" /></label
         ><label>版本<input v-model="applicationForm.version" /></label
         ><label
-          >C1 凭据引用<input
-            v-model="applicationForm.credential_ref"
-            placeholder="例如：boards_local_fixture"
+          >测试凭据名称<input v-model="applicationForm.credential_ref"
         /></label>
         <p>这里只填写服务端授权的引用名称，不输入真实凭据。</p>
         <div class="form-actions">
@@ -511,12 +514,21 @@ function importScenarios(): void {
         </div>
         <p>
           输入场景数组，每项包含 application_id、name、goal、expected_behavior
-          和可选 source。
+          和可选 source。使用应用配置中显示的应用 ID。
         </p>
         <textarea
           v-model="importedJson"
           rows="14"
-          placeholder='[{"application_id":"app_4gaboards","name":"...","goal":"...","expected_behavior":"..."}]'
+          :placeholder="
+            JSON.stringify([
+              {
+                application_id: catalog.applications[0]?.id,
+                name: '...',
+                goal: '...',
+                expected_behavior: '...',
+              },
+            ])
+          "
         />
         <div class="form-actions">
           <button

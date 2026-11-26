@@ -1,405 +1,68 @@
-# C3 · 浏览器工具契约
+# C3 · 浏览器工具
 
-## 1. 范围
+Agent Runtime 按 Pydantic 输入模型校验工具调用，Playwright 适配器在当前用例的独立会话中执行。工具参数由模型提供，Run、Case、Step、调用 ID、期限与动作预算来自可信 `ToolContext`。[输入模型](../../packages/waata/src/waata/browser/models.py) · [注册与分发](../../packages/waata/src/waata/core/tools/__init__.py) · [Playwright 会话](../../packages/waata/src/waata/browser/session.py)
 
-定义 WAATA 注册的七个浏览器工具及其输入、输出、错误与执行边界。BrowserAdapter 封装 Playwright 定位和执行，工具返回实际操作及观察，由 Verifier 按 C2 判定结果。输入模型是 Tool JSON Schema 的生成来源。
+## 调用与定位
 
-首版仅开放第 4 节列出的功能测试操作。执行器禁止任意 JavaScript 和文件读写，调用者接收结构化数据。[C2](../waata/c2-waata-python-api.md) 管理运行生命周期，[C4](../events/c4-test-run-events.md) 定义公开事件，[C5](../artifacts/c5-test-evidence-artifacts.md) 定义证据登记与读取。
+`ToolResult` 包含 `success: bool`、`data: object | null`、`error: object | null`。错误含 `code`、脱敏后的 `message` 和 `retryable`。工具执行成功表示完成操作或取得观察。业务结果由 C2 汇总，`inspect` 可成功返回 `matched=false`。未知工具和额外字段在分发前拒绝。
 
-## 2. 通用约定
-
-| 项目 | 约定 |
-| --- | --- |
-| 调用方式 | Python 包内部异步调用，不新增 HTTP/SSE 接口。不得依赖 FastAPI 或平台数据库 |
-| 工具名称 | 使用第 4 节列出的 `browser.*` 名称，未知工具在执行前拒绝 |
-| 字段与值 | 字段为 `snake_case`。只传 JSON 可序列化值，不传 Page、Locator、文件句柄 |
-| Schema | 参数按工具名区分。拒绝未知字段、缺失字段和错误类型，不静默忽略 |
-| 时间 | 观察时间使用 ISO 8601 UTC。耗时使用非负整数毫秒 |
-| 无结果 | 无数据为 `null`，空集合为 `[]`，不省略返回信封的字段 |
-| 凭据 | 普通输入文本和秘密引用分开。秘密在可信执行边界解析，不经模型传递明文 |
-| 执行范围 | 工具只操作当前 Run 的当前 Page。同一 Page 的调用串行执行 |
-| 重试 | `retryable` 是恢复建议，不代表可以直接重复有副作用的动作 |
-| 超时 | 可选 `timeout_ms` 必须是正整数。默认值和服务端上限由有效运行配置给出，不允许 `0` 表示无限等待 |
-
-可信 Runtime 为每次调用提供 `run_id`、可空的 `case_id` 和 `step_id`、在 Run 内唯一的 `tool_call_id`，并绑定授权策略、预算、取消信号、凭据解析和证据保存能力。这些字段位于模型参数之外。`tool_call_id` 用于关联工具记录和证据。重用调用 ID 不会使动作幂等。
-
-`timeout_ms` 只能缩短有效期限。执行期限不得超过工具上限和 Run 剩余期限。读取类调用也受总时间和调用次数限制，不能无限观察绕过运行预算。
-
-### 2.1 调用示例
-
-```json
-{
-  "tool": "browser.click",
-  "arguments": {
-    "locator": {
-      "strategy": "role",
-      "role": "button",
-      "name": "登录"
-    }
-  }
-}
-```
-
-`tool`、`arguments` 均必填，`arguments` 必须为对象。无参数也传 `{}`。Runtime 从模型提供方的 tool-call 格式转换为此结构，再校验和分发。
-
-### 2.2 结果模型
-
-```json
-{
-  "success": true,
-  "data": {
-    "action": "click",
-    "url": "https://demo-app.test/dashboard"
-  },
-  "error": null
-}
-```
-
-```json
-{
-  "success": false,
-  "data": null,
-  "error": {
-    "code": "ELEMENT_NOT_FOUND",
-    "message": "未找到匹配的登录按钮",
-    "retryable": true
-  }
-}
-```
-
-| 字段 | 类型 | 约束 |
+| `locator.strategy` | 必填字段 | 可选字段与条件 |
 | --- | --- | --- |
-| `success` | boolean | 只表示工具请求是否完成，不表示用例通过 |
-| `data` | object \| null | 成功时为对应工具的数据。失败时为 `null` |
-| `error` | ToolError \| null | 成功时为 `null`。失败时必填结构化错误 |
-| `error.code` | string | 第 6 节定义的稳定错误码。调用方不解析 message 判断错误类型 |
-| `error.message` | string | 已脱敏、可解释的短信息，不含内部路径、堆栈、凭据 |
-| `error.retryable` | boolean | 是否可能通过重新观察、等待或修正参数恢复 |
+| `role` | `role`、`name` | `exact` 默认 `true`，role 限于输入模型的枚举 |
+| `label`、`text`、`placeholder` | `value` | `exact` 默认 `true` |
+| `test_id` | `value` | 由 Playwright 使用测试 ID 定位 |
+| `css` | `value` | 当前页面的标准 CSS 选择器 |
 
-失败响应不保证动作尚未执行。例如，点击分发后发生页面关闭或等待超时，仍可能已经产生副作用。Runtime 应保留已有记录并重新观察，不自动重放点击、提交等动作。
-
-## 3. 共享数据类型
-
-### 3.1 LocatorSpec
-
-`locator` 为判别联合类型，由 `strategy` 决定允许的字段。禁止同时包含不同分支的专有字段。
-
-| strategy | 必填字段 | 可选字段 | Playwright 映射建议 |
-| --- | --- | --- | --- |
-| `role` | `role`、`name` | `exact`，默认 `true` | `page.get_by_role(role, name=name, exact=exact)` |
-| `label` | `value` | `exact`，默认 `true` | `page.get_by_label(value, exact=exact)` |
-| `text` | `value` | `exact`，默认 `true` | `page.get_by_text(value, exact=exact)` |
-| `placeholder` | `value` | `exact`，默认 `true` | `page.get_by_placeholder(value, exact=exact)` |
-| `test_id` | `value` | 无 | `page.get_by_test_id(value)` |
-| `css` | `value` | 无 | `page.locator(value)`，仅允许配置中授权的 CSS 定位 |
-
-字符串字段非空。`role` 使用实现明确支持的 ARIA role 白名单。优先使用 role、label 或 test_id，CSS 使用可信配置允许的定位器。参见 [Playwright 定位器文档](https://playwright.dev/python/docs/locators)。
-
-click、fill、select_option 和元素级截图要求唯一匹配。多匹配返回 `AMBIGUOUS_LOCATOR`，禁止使用 `.first()` 隐式选择元素。零匹配可在期限内等待，耗尽后返回 `ELEMENT_NOT_FOUND`。不可见、不可操作与无效选择等情况分别归因，禁止自动替换目标元素。首版不开放 `force` 和任意坐标点击。
-
-inspect 的 `exists`、`count`、`visible` 可以读取多匹配。其精确语义见 5.7。
-
-### 3.2 PageObservation
-
-| 字段 | 类型 | 约束 |
-| --- | --- | --- |
-| `observation_id` | string | 由 BrowserAdapter 生成，在当前 Run 中唯一 |
-| `observed_at` | string | 实际采集时间，UTC |
-| `url` | string | 采集时的实际授权页面 URL，移除敏感查询值等秘密 |
-| `title` | string | 已脱敏的页面标题 |
-| `aria` | string | 已脱敏的页面可访问性摘要，不包含整个原始 HTML |
-| `elements` | array | 可交互控件摘要，元素字段见下文。无控件为 `[]` |
-| `truncated` | boolean | 摘要或控件因大小上限截断时为 `true`。截断结果不得作为页面完整性的证明 |
-| `evidence_ids` | string[] | 已登记的当前观察证据引用。失败或尚未持久保存的文件不能作为有效引用 |
-
-`elements` 中每项包含 `locator: LocatorSpec`、`role: str | null`、`name: str | null`、`text: str | null`、`enabled: bool`。只输出当前页相关的可见控件摘要，不回传密码值、隐藏字段、Cookie 或 storage 内容。推荐定位器用于后续动作定位，页面变化后须重新验证其有效性。
-
-同一次观察中的 URL、标题、ARIA、控件和截图不得混用导航切换前后的页面内容。检测到导航变化时，应在有效期限内重新采集。仍无法取得一致观察时返回 `OBSERVATION_UNSTABLE`。页面观察不提供事务级快照一致性保证，Verifier 应结合采集时间和实际证据验证结果。
-
-### 3.3 证据引用
-
-工具数据中的 `evidence_ids` 和截图返回的 `artifact_id` 引用 C5 的登记记录。可信上下文为记录绑定 Run、Case、Step、工具调用及采集时间。用于断言的观察、`inspect` 结果和截图须保存成功后才可引用。保存失败时返回 `ARTIFACT_WRITE_FAILED`，由 C2 判定证据缺口。
+元素操作和元素截图要求唯一匹配。导航、点击、填写与下拉选择受动作策略约束，操作后可重新观察页面。定位失败、存在多匹配和控件不可操作分别使用 `ELEMENT_NOT_FOUND`、`AMBIGUOUS_LOCATOR`、`ELEMENT_NOT_INTERACTABLE`。点击、填写与下拉选择可在期限内等待目标出现。
 
 ## 4. 工具清单
 
-| Tool | 主要输入 | 成功 data | 类别 |
-| --- | --- | --- | --- |
-| `browser.observe` | 可选观察参数 | PageObservation | 观察 |
-| `browser.navigate` | `url` | `action`、实际 `url` | 动作 |
-| `browser.click` | `locator` | `action`、实际 `url` | 动作 |
-| `browser.fill` | `locator`、`value` 或 `secret_ref` | `action`、实际 `url` | 动作 |
-| `browser.select_option` | `locator`、`value` | `action`、实际 `url` | 动作 |
-| `browser.screenshot` | 可选截图参数 | `artifact_id`、`kind`、`page_url`、`captured_at` | 取证 |
-| `browser.inspect` | 检查条件 | 实际值、比较结果、证据引用 | 检查 |
+| 工具 | 输入 | 成功 `data` |
+| --- | --- | --- |
+| `browser.navigate` | `url`，已授权且同源的绝对 HTTP(S) URL | `action`、脱敏的实际 `url` |
+| `browser.click` | `locator` | `action`、`url` |
+| `browser.fill` | `locator`，加 `value` 或 `secret_ref` | `action`、`url` |
+| `browser.select_option` | `locator`、`value`，根据原生单选 `<select>` 的 option 值选择 | `action`、`url` |
+| `browser.observe` | `include_screenshot` 可选，默认 `false` | `observation_id`、`observed_at`、`url`、`title`、`aria`、`elements`、`truncated`、`evidence_ids` |
+| `browser.inspect` | `condition`，及条件所需的 `locator` 或 `expected` | `condition`、`actual`、`matched`、`url`、`observed_at`、`evidence_ids`，以及条件使用的脱敏定位器和预期值 |
+| `browser.screenshot` | `full_page` 默认 `false`，可传 `locator` 截取唯一元素，二者不能同时启用 | `artifact_id`、`kind=screenshot`、`page_url`、`captured_at` |
 
-七个工具均接受可选的 `timeout_ms`。动作成功 data 固定 `action` 为 `navigate`、`click`、`fill`、`select_option`。`url` 是本次操作返回时的脱敏页面 URL。返回成功只说明动作方法已完成，不保证异步业务结果已呈现，Runner 应再 observe/inspect。
+七个工具均接受可选正整数 `timeout_ms`。超过适配器最大值时返回 `INVALID_ARGUMENTS`。实际期限取请求上限、适配器默认上限及可信上下文期限中的最早值。导航等待 DOM 内容加载，HTTP 响应状态由后续页面检查解释。对原生下拉框中缺失或禁用的选项返回 `OPTION_NOT_FOUND`。
 
-## 5. 各工具输入与行为
-
-4gaBoards 场景的调用上下文、输入和结果见 [工具调用示例](examples/4gaboards-tool-calls.json)。
-
-### 5.1 browser.observe
-
-```json
-{
-  "tool": "browser.observe",
-  "arguments": {"include_screenshot": false}
-}
-```
-
-`include_screenshot` 为可选 boolean，默认 `false`。返回 3.2 定义的 PageObservation。如设为 `true`，同时采集并登记已脱敏的截图，把引用附到 `evidence_ids`。ARIA/控件长度上限由可信配置决定，超限标记 `truncated`，不允许模型关闭保护。
-
-observe 不执行导航或点击，不依据页面文本改变授权或动作权限。没有可用 Page 时返回 `SESSION_NOT_READY`，不得以空观察替代错误响应。
-
-### 5.2 browser.navigate
-
-```json
-{
-  "tool": "browser.navigate",
-  "arguments": {"url": "https://demo-app.test/login"}
-}
-```
-
-`url` 必填，为非空绝对 HTTP(S) URL。拒绝内嵌用户名/密码、`file:`、`javascript:` 等方案。不接受任意本机地址作为默认授权，允许目标来自调用方策略。
-
-导航前必须校验目标。建议以 `domcontentloaded` 作为返回条件。`networkidle` 不作为统一前置要求。每次重定向以及点击触发的导航同样经过执行边界校验，详见第 7 节。
-
-成功结果的 `data` 形如 `{"action":"navigate","url":"https://demo-app.test/login"}`。HTTP 4xx/5xx 响应本身不直接构成工具执行错误或业务断言结论。页面可正常加载和观察时返回实际 URL，由后续检查判断。网络、TLS 或导航错误返回结构化工具错误。
-
-### 5.3 browser.click
-
-输入为必填 `locator: LocatorSpec`，示例见 2.1。仅点击唯一、可见、可操作的元素，不自动接受额外弹窗或切换标签页。若触发未支持的新窗口、下载或对话框，适配层停止继续操作并返回 `UNSUPPORTED_PAGE_EVENT`，Runner 重新判断已发生的页面状态与副作用。
-
-click 执行成功不表示登录成功、表单校验通过或检查点通过。
+页面观察包含脱敏的可访问性摘要与可见控件摘要。优先保留输入框、下拉控件、可见选项和操作按钮，定位提示来自当前页面的测试 ID、唯一 CSS 匹配或语义属性。每个控件包括 `locator`、可空的 `role`、`name`、`text` 以及 `enabled`。缺少唯一 CSS 定位器的同源链接可附带无查询参数和片段的 `href`，供 Agent 导航。上限触发时设置 `truncated=true`。观察或检查遇到页面切换时可能得到 `OBSERVATION_UNSTABLE`。截图默认关闭。启用后记录普通表单的实际画面，用灰色遮挡密码、配置的敏感区域和含已知凭据的输入框。截图会检查页面可见文本、尺寸及字节数。观察和截图登记成功后返回引用。[C5 存储](../artifacts/c5-test-evidence-artifacts.md)
 
 ### 5.4 browser.fill
 
-普通测试文本使用 `value`。
-
-```json
-{
-  "tool": "browser.fill",
-  "arguments": {
-    "locator": {"strategy": "label", "value": "用户名"},
-    "value": "demo_user"
-  }
-}
-```
-
-测试秘密使用 `secret_ref`。
-
-```json
-{
-  "tool": "browser.fill",
-  "arguments": {
-    "locator": {"strategy": "label", "value": "密码"},
-    "secret_ref": "demo_login_fixture.password"
-  }
-}
-```
-
-- `locator` 必填。`value` 与 `secret_ref` 严格二选一，同时提供或均不提供时返回 `INVALID_ARGUMENTS`。
-- `value` 是字符串，允许 `""` 以清空输入。只用于非秘密测试数据。已知秘密字段不接受明文 `value`。
-- `secret_ref` 是非空的字段级引用，例如 `demo_login_fixture.password`。可信解析器只解析 C2 为本次 Run 授权的夹具条目，禁止读取任意环境变量或文件。错误密码也使用专用夹具引用。
-- 输入框必须唯一、可编辑。使用 fill 替换当前内容，不累计追加。成功 data 不回显输入值或解析出的秘密。
-
-### 5.5 browser.select_option
-
-```json
-{
-  "tool": "browser.select_option",
-  "arguments": {
-    "locator": {"strategy": "label", "value": "角色"},
-    "value": "viewer"
-  }
-}
-```
-
-`locator` 必填且唯一。`value` 必填，为 `<option>` 的 value 字符串（允许空字符串选项）。首版只支持原生 `<select>` 的单值选择，不使用 label/index 替代 value，也不模拟自定义下拉框的隐式多次点击。控件不支持选择或选项不可用时分别返回 `ELEMENT_NOT_INTERACTABLE` / `OPTION_NOT_FOUND`。
-
-### 5.6 browser.screenshot
-
-```json
-{
-  "tool": "browser.screenshot",
-  "arguments": {"full_page": false}
-}
-```
-
-可选参数为 `full_page: boolean = false` 和 `locator: LocatorSpec`。未传 locator 时截当前视口，`full_page=true` 截整页。传 locator 时只截唯一元素，禁止同时设 `full_page=true`。不允许模型指定文件名、路径、保存后端或关闭脱敏。
-
-成功结果的 `data` 包含下列字段。
-
-```json
-{
-  "artifact_id": "art_003",
-  "kind": "screenshot",
-  "page_url": "https://demo-app.test/login",
-  "captured_at": "2026-11-21T01:00:00Z"
-}
-```
-
-`page_url` 是采集时的脱敏页面地址，证据读取地址见 C5。截图默认关闭，由可信目标配置启用。截图受尺寸和字节数限制，适配器遮罩表单控件和可信配置指定的敏感区域，页面正文含已知敏感值时拒绝采集。
+`value` 填写普通测试文本，允许空串以清空已有内容。输入 `secret_ref` 时，浏览器只在该 Run 获授权的集合内查找引用，并校验定位元素是对应的已配置输入框。两个参数必须恰好提供一个。密码框、可信配置中的凭据字段和命中脱敏规则的文本通过 `secret_ref` 处理，错配返回 `SECRET_NOT_AVAILABLE`。填充结果省略输入值。[目标凭据配置](../../apps/api/README.md)
 
 ### 5.7 browser.inspect
 
-inspect 执行确定性读取/比较，为 Verifier 提供依据，不运行任意代码，不产生业务最终判定。输入为判别联合，必填的 `condition` 决定其他字段。
-
-| condition | 必填字段 | 返回 `actual` 类型 | `matched` 语义 |
-| --- | --- | --- | --- |
-| `url_equals` | `expected: string` | string | 实际脱敏 URL 与 expected 精确比较 |
-| `title_equals` | `expected: string` | string | 实际页面标题与 expected 精确比较 |
-| `exists` | `locator` | boolean | 至少一个匹配则为 `true` |
-| `visible` | `locator` | boolean | 至少一个匹配可见则为 `true` |
-| `count` | `locator`、`expected: integer >= 0` | integer | 匹配数量等于 expected |
-| `text_equals` | `locator`、`expected: string` | string | 唯一可见元素的 `inner_text` 与 expected 比较 |
-
-URL/标题/文本比较都对已脱敏的可展示值执行，不用秘密本身作为断言内容。文本比较仅统一 CRLF 为 LF 并去除首尾空白，不隐式做子串匹配、大小写折叠或语义推断。URL 不做额外的尾斜线等归一化。
-
-`exists`、`visible`、`count` 的“零匹配”是合法的实际观察，`matched=false` 不表示工具错误。`text_equals` 零匹配为 `ELEMENT_NOT_FOUND`，多匹配为 `AMBIGUOUS_LOCATOR`，因为此时无法取得要求的单个文本值。
-
-inspect 读取一次当前可用状态，不自动轮询直到满足预期。`timeout_ms` 约束读取和取证过程。Runner 若需等待，应在整体预算内重新观察。单次观察未发现预期状态，不足以单独认定应用缺陷。
-
-以下调用成功取得观察，实际文本与预期不同。
-
-```json
-{
-  "tool": "browser.inspect",
-  "arguments": {
-    "condition": "text_equals",
-    "locator": {"strategy": "test_id", "value": "login-error"},
-    "expected": "用户名或密码错误"
-  }
-}
-```
-
-```json
-{
-  "success": true,
-  "data": {
-    "condition": "text_equals",
-    "actual": "服务暂不可用",
-    "matched": false,
-    "url": "https://demo-app.test/login",
-    "observed_at": "2026-11-21T01:00:03Z",
-    "evidence_ids": ["art_002"]
-  },
-  "error": null
-}
-```
-
-inspect 成功 data 必须包含 `condition`、`actual`、`matched`、`url`、`observed_at`、`evidence_ids`，并引用已登记的 C5 `observation`。Verifier 结合用例预期、前置状态和证据给出 C2 判定。
-
-## 6. 错误、超时与恢复
-
-| code | 触发条件 | retryable 建议 |
+| `condition` | 其他输入 | `actual` 与 `matched` |
 | --- | --- | --- |
-| `UNKNOWN_TOOL` | 未注册或本 Run 不提供该工具 | `false` |
-| `INVALID_ARGUMENTS` | Schema 不匹配、非法 locator、超时越界 | `false`。应修正调用 |
-| `TARGET_NOT_ALLOWED` | 目标或重定向不在授权范围 | `false` |
-| `ACTION_NOT_ALLOWED` | 动作不在当前授权动作集合 | `false` |
-| `SECRET_NOT_AVAILABLE` | 凭据引用未配置、不可访问或不属于当前 Run | `false` |
-| `SESSION_NOT_READY` | 会话未创建或已完成清理 | `false` |
-| `ELEMENT_NOT_FOUND` | 必需元素在期限内不存在 | `true` |
-| `AMBIGUOUS_LOCATOR` | 需要唯一元素时匹配多个 | `true`。重新观察并改定位 |
-| `ELEMENT_NOT_INTERACTABLE` | 不可见、禁用、不可编辑或控件类型不符 | 由原因决定 |
-| `OPTION_NOT_FOUND` | 指定 option 不可用 | `true`。核对实际选项 |
-| `NAVIGATION_FAILED` | 网络、TLS 或导航加载故障 | 由原因决定 |
-| `OBSERVATION_UNSTABLE` | 页面切换导致无法取得一致观察 | `true` |
-| `TOOL_TIMEOUT` | 单工具期限耗尽 | 由原因决定。副作用可能已发生 |
-| `BUDGET_EXCEEDED` | 动作/工具预算已经耗尽 | `false` |
-| `RUN_CANCELLED` | 可信上下文已要求停止 | `false` |
-| `UNSUPPORTED_PAGE_EVENT` | 首版不支持的弹窗、新页、下载等 | `false` |
-| `BROWSER_CLOSED` | 浏览器或会话意外关闭 | `false` |
-| `ARTIFACT_WRITE_FAILED` | 证据保存或登记失败 | 由原因决定。不得重放业务动作补证 |
-| `INTERNAL_ERROR` | 未分类的适配层异常 | `false` |
+| `url_equals` | `expected: string` | 脱敏 URL，与预期精确比较 |
+| `url_path_starts_with` | `expected: string`，以 `/` 开始 | 脱敏 URL 的路径，与预期路径前缀比较 |
+| `title_equals` | `expected: string` | 脱敏标题，与预期精确比较 |
+| `exists` | `locator` | 至少匹配一个节点时均为 `true` |
+| `visible` | `locator` | 至少一个匹配节点具有可见的布局框时均为 `true` |
+| `count` | `locator`、`expected: integer >= 0` | 匹配数，及其是否等于预期 |
+| `text_equals` | `locator`、`expected: string` | 唯一可见元素的脱敏文本，统一 CRLF 后去掉首尾空白再比较 |
 
-错误码面向调用方保持稳定。`message` 必须在移除凭据、内部路径和堆栈后生成，不得直接返回未经处理的 Playwright 异常文本。`retryable` 由执行边界根据实际错误原因设置，超时错误不统一视为可重试。
+`exists`、`visible`、`count` 允许零匹配。检查仅读取当前可用状态，Verifier 复核证据并确定断言。成功检查在 `evidence_ids` 返回已登记的结构化观察引用。[C2 判定](../waata/c2-waata-python-api.md)
 
-可预期的参数与工具错误转换为统一结果结构。Python `asyncio.CancelledError` 必须在必要清理后继续向 C2 生命周期层传播，禁止捕获后抑制取消。`RUN_CANCELLED` 用于尚未分发时检测到的取消请求。取消和浏览器崩溃不得按普通定位失败继续执行。
+## 7. 执行边界
 
-工具错误由 C2 和 Runner 判断如何恢复或结束。HTTP 端点使用 C1 的错误模型。
-
-## 7. 执行限制与生命周期
-
-### 7.1 授权校验
-
-执行边界必须验证当前页面和目标授权，不能只依赖 Prompt 或仅校验首次 navigate。导航、表单提交、点击引起的跳转、重定向及新页面均需要受策略约束。至少按规范化的 scheme/host/port 判断 origin，不做字符串前缀匹配。额外允许的路径、资源 origin、身份提供方由可信配置指定，模型不得扩大白名单。
-
-当前 Chromium 适配器仅允许主框架发出的同源请求，在浏览器边界拦截跨源重定向，并关闭新页、取消下载和关闭对话框。跨域资源依赖需在选择本地测试夹具时考虑。
-
-Playwright 适配器默认拦截 WebSocket。调用方可为受控夹具显式允许同源 WebSocket 的精确路径。`ws` 对应 HTTP，`wss` 对应 HTTPS，主机和端口必须匹配当前用例的目标 origin。模型继续使用既有七个工具。
+Chromium 会话绑定目标 origin（scheme、主机、端口）。适配器允许当前主框架发起的同源请求，并在浏览器边界拦截跨源跳转。WebSocket 默认拦截，可信配置可以指定同源连接的精确路径。会话禁用 Service Worker，关闭新页、取消下载和关闭对话框。独立调用方保有 Browser 的关闭责任。
 
 ### 7.2 预算和副作用
 
-Runtime 与执行边界使用同一份可信预算，统一计数并强制执行限制。navigate、click、fill、select_option 在通过参数/授权校验后、分发 Playwright 前原子预占一次动作预算。已分发后即使失败也不退还。Schema 拒绝、授权拒绝和预算拒绝不占浏览器动作次数，但计入工具尝试/总时间限制。
+每次 Agent 步骤计入用例上限，可包含零次或多次工具调用。Run 级动作预算在导航、点击、填写或下拉选择送入 Playwright 前扣减一次，已分发失败仍计数。参数、授权和定位阶段拒绝可消耗工具尝试额度。观察、检查及截图计入工具尝试和期限。检测到页面状态变化时重新观察，已分发的动作可能产生副作用。
 
-observe、screenshot、inspect 不消耗浏览器动作预算，但受独立调用/时间/证据大小限制。动作预算耗尽后不得继续操作，仍可在剩余收尾期限内观察和保存证据。Playwright 对同一次动作的内置等待不重复计数，Runtime 新发起一次动作则重新计数。Adapter 不做隐式多动作恢复。
-
-`max_steps_per_case` 控制 Agent 步骤数。浏览器动作按 C2 的 `max_browser_actions_per_run` 在整个 Run 内累计，用例切换时继续计数。课程场景的计数口径由团队核对。
-
-### 7.3 资源和敏感信息
-
-- 调用方持有 Browser。Adapter 为每个用例建立隔离的 BrowserContext 和 Page，并按 C2 在用例退出时关闭该会话。
-- 工具通过当前用例会话操作，并遵循其授权范围。证据引用和秘密限定在对应的可信上下文中。
-- 观察与截图随工具执行登记。取消或故障后停止新动作，在收尾期限内关闭会话，并保留已登记证据和原始错误信息。Playwright Trace 的保留类型及脱敏要求见 [C5](../artifacts/c5-test-evidence-artifacts.md)。
-- 站点侧业务数据由夹具负责重置，独立调用方可使用 C2 的 `setup_case` 回调。
-
-## 8. 工具注册与实现责任
-
-`waata.core.tools` 负责定义通用 ToolSpec、注册表和执行器。`waata.browser` 负责定义浏览器输入/输出模型、BrowserAdapter 抽象、Playwright 实现及工具绑定。通用 core 不得导入 Playwright 或包含浏览器专有执行分支。
-
-| 责任方 | 交付 |
+| 错误场景 | 错误码 |
 | --- | --- |
-| Agent Runtime | 消费工具 Schema。转换模型调用。校验名称/参数。串行分发。关联 Run/Case/Step。根据结果决定下一步 |
-| BrowserAdapter | 提供七个工具的模型与处理函数。执行定位、授权、动作限制、观察和证据采集。将可预期异常转为 ToolError |
-| 编排层/C2 | 注入会话、预算、取消、凭据与存储能力。汇总结果和清理生命周期 |
-| C4/C5 实现方 | 将脱敏调用摘要和结果映射成事件，将证据引用映射到保存和授权访问机制 |
+| 注册与输入 | `UNKNOWN_TOOL`、`INVALID_ARGUMENTS` |
+| 目标、动作或凭据未授权 | `TARGET_NOT_ALLOWED`、`ACTION_NOT_ALLOWED`、`SECRET_NOT_AVAILABLE` |
+| 元素和选项 | `ELEMENT_NOT_FOUND`、`AMBIGUOUS_LOCATOR`、`ELEMENT_NOT_INTERACTABLE`、`OPTION_NOT_FOUND` |
+| 会话、导航与页面事件 | `SESSION_NOT_READY`、`BROWSER_CLOSED`、`NAVIGATION_FAILED`、`UNSUPPORTED_PAGE_EVENT`、`OBSERVATION_UNSTABLE` |
+| 执行上限、证据和内部错误 | `TOOL_TIMEOUT`、`BUDGET_EXCEEDED`、`ARTIFACT_WRITE_FAILED`、`INTERNAL_ERROR` |
 
-ToolSpec 至少包含 `name`、`description`、`input_schema` 和异步 `handler`。`input_schema` 从 Pydantic 模型导出。handler 接收校验后的参数与可信调用上下文，返回统一 ToolResult。注册重名须失败。未注册工具不得通过动态执行处理。
-
-下例展示 click 的 role 分支。完整 locator 联合由输入模型生成。
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "locator": {
-      "type": "object",
-      "properties": {
-        "strategy": {"const": "role"},
-        "role": {"type": "string", "minLength": 1},
-        "name": {"type": "string", "minLength": 1},
-        "exact": {"type": "boolean", "default": true}
-      },
-      "required": ["strategy", "role", "name"],
-      "additionalProperties": false
-    },
-    "timeout_ms": {"type": "integer", "minimum": 1}
-  },
-  "required": ["locator"],
-  "additionalProperties": false
-}
-```
-
-按 C4 发布 `tool.called` 和 `tool.completed` 的脱敏摘要。完成事件关联调用 ID、耗时、成功标志、错误码和已登记的证据 ID。
-
-## 9. 契约验收
-
-| ID | 验证条件 |
-| --- | --- |
-| C3-AT-01 | 七个工具可发现。重名、未知工具、非法类型、额外字段及互斥字段在执行前被拒绝 |
-| C3-AT-02 | 受控站点的导航、点击、填写与单值选择可用，零匹配、多匹配、禁用控件和缺失选项分别有明确结果 |
-| C3-AT-03 | 观察返回实际 URL、标题、ARIA、控件与已登记证据，截断有标记，切页时证据来自同一页面 |
-| C3-AT-04 | 检查不匹配仍为 `success=true`，零匹配的 exists、visible 和 count 按约定返回 |
-| C3-AT-05 | 显式导航、点击跳转、重定向、新页和凭据解析均遵循授权范围 |
-| C3-AT-06 | 工具超时有界。动作预算在分发前扣减，已分发失败仍计数。同一动作只分发一次 |
-| C3-AT-07 | 故障和取消会停止新动作并清理 Run 会话。外部 Browser 继续可用，并行 Run 互相隔离 |
-| C3-AT-08 | 秘密标记从公开输出和证据中移除。保存失败不会产生无效证据引用 |
-| C3-AT-09 | Agent 可借助 FakeBrowserAdapter 验证正常、工具失败和检查不匹配。BrowserAdapter 可使用预设调用验证受控页面 |
-
-BrowserAdapter 实现方应提供符合本契约 Schema 与结果约束的 FakeBrowserAdapter。Agent Runtime 实现方应提供支持预设工具调用序列的 FakeLLM。`tests/contract/` 使用样例验证契约，真实浏览器场景由验收人员选择授权站点。 [手工验收](../../docs/04-acceptance.md)
-
-## 10. 部署配置与扩展
-
-用测试夹具配置允许的目标、定位器、副作用、默认超时和跨用例重置策略。课程计步按课程要求单独核对。滚动、拖拽、键盘、iframe 和多页能力通过契约变更扩展。见 [开放问题](../../docs/05-open-questions.md)。
+异步取消继续传播至引擎生命周期，由引擎清理用例会话。分发器将工具调用摘要和已登记证据映射至 C4 事件。[示例工具调用](examples/4gaboards-tool-calls.json) · [Playwright 集成测试](../../packages/waata/tests/test_engine_integration.py) · [受控站点验收](../../docs/04-acceptance.md#ac-02-受控站点执行)

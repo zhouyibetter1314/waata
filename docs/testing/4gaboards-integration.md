@@ -75,6 +75,7 @@ B01 来自仓库 `examples/README.md`。复跑前确认项目名未被使用。�
 
 从仓库根目录运行。先启动 4gaBoards 并安装前端依赖。脚本复用本机 Chrome，读取专用测试账号的本机夹具配置，每次用唯一名称建立测试数据。可把 `B01 B03` 等编号附在命令末尾，只运行指定场景。
 
+B01 使用仪表盘页眉内的创建按钮。空数据库的仪表盘也在空状态区域显示同名按钮，页眉范围可以在空库和已存在项目的库中唯一定位。
 ```powershell
 $env:WAATA_BROWSER_EXECUTABLE = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 node scripts/4gaboards-acceptance.cjs
@@ -103,10 +104,16 @@ node scripts/4gaboards-acceptance.cjs
 - B01 的三份独立引擎报告、事件及截图在 `.local/4gaboards/acceptance/waata-b01-replay-20261125012502/`。这些是独立 TestEngine 的证据文件，非平台数据库 Run。旧真实模型运行的历史报告仍可用于核对原始动作。
 - 本轮恢复了 4gaBoards、Admidio 和历史报告查看入口。未启动付费模型 Worker。Discourse 固定镜像和锁定依赖已安装，Git Bash 挂载路径问题通过 PowerShell 创建容器绕过，Ruby 脚本的 CRLF shebang 通过显式解释器绕过。迁移与 HTTP 登录验收仍在推进。
 
-本机 Docker 环境复现 B01：
+从仓库根目录复现 B01，先按平台启动说明安装 Python 依赖和 Chromium，并启动本地 4gaBoards。回放从测试目录加载脚本化模型。
+
+```bash
+PYTHONPATH=packages/waata/tests uv run --locked python scripts/4gaboards-b01-replay.py
+```
+
+在记录所用的 Docker 环境中，使用同一源码挂载下的测试辅助模块：
 
 ```powershell
-docker exec -w /work -e PYTHONPATH=/work/packages/waata/tests waata-4ga-runtime .venv/bin/python /source/scripts/4gaboards-b01-replay.py
+docker exec -w /work -e PYTHONPATH=/source/packages/waata/src:/source/packages/waata/tests waata-4ga-runtime .venv/bin/python /source/scripts/4gaboards-b01-replay.py
 ```
 - 回归：前端类型、Lint、37 项测试、构建均通过。WAATA 包 24 项通过，包含方舟请求配置回归。
 
@@ -139,7 +146,7 @@ docker exec -w /work -e PYTHONPATH=/work/packages/waata/tests waata-4ga-runtime 
 ```powershell
 $env:WAATA_BROWSER_EXECUTABLE = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 $fixture = node scripts/4gaboards-acceptance.cjs --prepare-only B02 | ConvertFrom-Json
-docker exec -w /work -e PYTHONPATH=/source/packages/waata/src:/work/packages/waata/tests waata-4ga-runtime .venv/bin/python /source/scripts/4gaboards-agent-check.py "/source/.local/4gaboards/acceptance/$($fixture.ticket)/B02-fixture.json" --replay /source/.local/4gaboards/acceptance/b02-agent-30ced5bc00/report.json --finish-b02-offline --requests 16
+docker exec -w /work -e PYTHONPATH=/source/packages/waata/src:/source/packages/waata/tests waata-4ga-runtime .venv/bin/python /source/scripts/4gaboards-agent-check.py "/source/.local/4gaboards/acceptance/$($fixture.ticket)/B02-fixture.json" --replay /source/.local/4gaboards/acceptance/b02-agent-30ced5bc00/report.json --finish-b02-offline --requests 16
 ```
 
 ### 真实复验：输入压缩与预算
@@ -202,7 +209,7 @@ B04 的限额模式只向模型提供实际操作与显式截图工具。WAATA �
 
 B01/B02/B04 未重复付费，每场操作上限仍为 35。上述独立引擎报告和截图保存在 `.local/4gaboards/acceptance/<run-id>/`，不冒充平台数据库记录。
 
-本机 `/live/` 已恢复（Xvfb + 只读帧代理），`/live/frame.png` 返回 PNG。运行详情提供本机实时画面入口，C4 仍用于实时进度。零付费平台 Run `run_26a95ea46928495f802153e99446bb6b` 使用注入的离线模型，不改业务数据；从 HTTP 提交后订阅 SSE，收到开始、步骤、工具、用例核验、报告和完成事件。Worker 持久化 `succeeded/passed` 报告，C5 直接返回关联 PNG `art_536bfb043ca24f9cb843531ab38b7002`（200、35,888 字节），本机 Chrome 验证可预览并提供下载链接。历史 `failed` 与 `errored` 报告仍可读取，对应证据数为 31、4。
+本机联调环境的 `/live/` 由 Xvfb 与只读帧代理提供，`/live/frame.png` 返回 PNG。部署该代理后，在前端启用 `VITE_LOCAL_LIVE_VIEW=true`，运行详情即在回环地址显示画面入口。C4 仍用于实时进度。零付费平台 Run `run_26a95ea46928495f802153e99446bb6b` 使用注入的离线模型，不改业务数据；从 HTTP 提交后订阅 SSE，收到开始、步骤、工具、用例核验、报告和完成事件。Worker 持久化 `succeeded/passed` 报告，C5 直接返回关联 PNG `art_536bfb043ca24f9cb843531ab38b7002`（200、35,888 字节），本机 Chrome 验证可预览并提供下载链接。历史 `failed` 与 `errored` 报告仍可读取，对应证据数为 31、4。
 
 另一个零付费平台 Run `run_6c16cbccb1bb433ea58578ec8bc901c7` 使用故意缺失的检查点，得到 `succeeded/inconclusive`；SSE 正常结束，报告保留自动截图 `art_99bbf8e840724f568095fdfd21232832`。
 
@@ -219,7 +226,7 @@ B01/B02/B04 未重复付费，每场操作上限仍为 35。上述独立引擎�
 复现：确认本机平台队列无其它任务，向 C1 提交同站点的只读验收（凭据引用 `boards_admin`、`headless:false`、步骤上限 8），保持显示 `:90` 运行。随后执行：
 
 ```powershell
-docker exec -w /work -e DISPLAY=:90 -e PYTHONPATH=/source/apps/api/src:/source/packages/waata/src:/work/packages/waata/tests waata-4ga-runtime .venv/bin/python /source/scripts/4gaboards-platform-acceptance.py --reuse-order B01,B02,B03,B04,B05
+docker exec -w /work -e DISPLAY=:90 -e PYTHONPATH=/source/apps/api/src:/source/packages/waata/src:/source/packages/waata/tests waata-4ga-runtime .venv/bin/python /source/scripts/4gaboards-platform-acceptance.py --reuse-order B01,B02,B03,B04,B05
 ```
 
 脚本依赖被测站点中保留的五个本机夹具和 `.local` 中相应历史报告，两个早期失败 Run 未删除。省略 `--reuse-order` 才会产生一次真实 API 请求，不建议为已验证结果重复调用。

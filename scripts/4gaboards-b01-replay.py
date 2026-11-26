@@ -17,10 +17,11 @@ from test_engine_integration import (
     tool_turn,
 )
 from waata.browser import CredentialField, PlaywrightAdapter
-from waata.llm.fake import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest, WAATAError
 from waata.orchestrator.config import EngineConfig
+from waata_test_support.model import FakeLLM
 
+ROOT = Path(__file__).resolve().parents[1]
 URL = "http://127.0.0.1:3000/"
 ACTIVITY = {
     "browser.navigate",
@@ -44,7 +45,9 @@ async def replay(browser, password, name, output):
     user = css('input[name="emailOrUsername"]')
     password_input = css('input[name="password"]')
     login = css('button[type="submit"]')
-    add = css('button[class*="Projects_addButton"]')
+    add = css(
+        '[class*="Projects_headerButtonGroup"] button[class*="Projects_addButton"]'
+    )
     project_input = css('input[name="name"]')
     submit = css('form:has(input[name="name"]) button[type="submit"]')
     tile = css(f'[class*="projectTitle"][title="{name}"]')
@@ -85,7 +88,7 @@ async def replay(browser, password, name, output):
     adapter = PlaywrightAdapter(
         browser=browser,
         allowed_origins={URL},
-        allowed_css_selectors={
+        preferred_css_selectors={
             item["value"]
             for item in (
                 user,
@@ -183,7 +186,7 @@ async def replay(browser, password, name, output):
 
 
 async def main():
-    password = dotenv_values("/source/.local/4gaboards/.env")["BOARDS_ADMIN_PASSWORD"]
+    password = dotenv_values(ROOT / ".local/4gaboards/.env")["BOARDS_ADMIN_PASSWORD"]
     ticket = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     output = Path("/tmp") / f"waata-b01-replay-{ticket}"
     output.mkdir(parents=True)

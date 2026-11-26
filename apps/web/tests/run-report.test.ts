@@ -2,8 +2,8 @@ import { mount } from '@vue/test-utils';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import RunReportPanel from '../src/features/test-runs/RunReportPanel.vue';
-import { cloneFixture, runReportFixture } from '../src/mocks/fixtures';
-import { server } from '../src/mocks/server';
+import { cloneFixture, runReportFixture } from './fixtures/api';
+import { server } from './fixtures/server';
 
 describe('F06 report and evidence', () => {
   it.each(['failed', 'inconclusive', 'errored'] as const)(
@@ -52,7 +52,6 @@ describe('F06 report and evidence', () => {
       wrapper.unmount();
     },
   );
-
   it('explains a failed report with no saved evidence', async () => {
     const report = cloneFixture(runReportFixture);
     report.status = 'errored';
@@ -77,6 +76,7 @@ describe('F06 report and evidence', () => {
       ),
     );
     expect(wrapper.text()).toContain('没有已保存的截图或其他证据');
+    expect(wrapper.text()).toContain('没有可复核的用例');
   });
 
   it('keeps false and null distinct in a partial report', async () => {
@@ -95,8 +95,8 @@ describe('F06 report and evidence', () => {
       props: { runId: report.run_id, available: true },
     });
     await vi.waitFor(() => expect(wrapper.text()).toContain('断言复核'));
-    expect(wrapper.text()).toContain('false');
-    expect(wrapper.text()).toContain('null');
+    expect(wrapper.text()).toContain('否');
+    expect(wrapper.text()).toContain('未记录');
     expect(wrapper.text()).toContain('未判定');
   });
 

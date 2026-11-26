@@ -3,13 +3,11 @@
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 
 from pydantic import BaseModel
-
 from waata.artifacts import ArtifactStore
+from waata.browser.adapter import ACTION_NAMES
+from waata.browser.models import BROWSER_TOOLS, FillArgs
+from waata.browser.policy import Origin, sanitize
 from waata.core.tools import ToolContext, ToolResult, ToolSpec
-
-from .adapter import ACTION_NAMES
-from .models import BROWSER_TOOLS, FillArgs
-from .policy import Origin, sanitize
 
 FakeToolHandler = Callable[
     [str, BaseModel, ToolContext, ArtifactStore], Awaitable[ToolResult]

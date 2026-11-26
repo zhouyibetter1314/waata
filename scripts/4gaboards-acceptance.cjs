@@ -10,6 +10,7 @@ const advanced = require('./4gaboards-advanced-plan.cjs');
 
 const root = path.resolve(__dirname, '..');
 const url = 'http://127.0.0.1:3000/';
+const addProject = '[class*="Projects_headerButtonGroup"] button[class*="Projects_addButton"]';
 const account = 'waataadmin';
 const password = parseEnv(fs.readFileSync(path.join(root, '.local/4gaboards/.env'), 'utf8'))
   .BOARDS_ADMIN_PASSWORD;
@@ -66,7 +67,7 @@ async function login(page, op) {
   await op.fill('fill login name', page.locator('input[name=emailOrUsername]'), account);
   await op.fill('fill password', page.locator('input[name=password]'), password);
   await op.click('submit login', page.locator('button[type=submit]'));
-  await page.locator('button[class*="Projects_addButton"]').waitFor();
+  await page.locator(addProject).waitFor();
 }
 
 const button = (page, name) => page.getByRole('button', { name, exact: true });
@@ -79,7 +80,7 @@ const nameForm = (page, control = 'input') => page.locator('form').filter({
 });
 
 async function newProject(page, op, name) {
-  await op.click('open dashboard Add Project', page.locator('button[class*="Projects_addButton"]'));
+  await op.click('open dashboard Add Project', page.locator(addProject));
   const form = nameForm(page);
   await op.fill('fill project name', form.locator('input[name=name]'), name);
   await op.click('submit new project', form.locator('button[type=submit]'));

@@ -4,8 +4,8 @@ import { http, HttpResponse } from 'msw';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { describe, expect, it, vi } from 'vitest';
 import RunListView from '../src/features/test-runs/RunListView.vue';
-import { runDetailFixture, toRunSummary } from '../src/mocks/fixtures';
-import { server } from '../src/mocks/server';
+import { runDetailFixture, toRunSummary } from './fixtures/api';
+import { server } from './fixtures/server';
 
 async function mountView() {
   const router = createRouter({
@@ -55,6 +55,52 @@ describe('F03 run list', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain('还没有测试任务'));
   });
 
+  it('deletes only the ended task after confirmation and refreshes the list', async () => {
+    const finished = toRunSummary(runDetailFixture);
+    const running = {
+      ...finished,
+      run_id: 'run_active',
+      status: 'running',
+      verdict: null,
+    };
+    let deleted = false;
+    server.use(
+      http.get('/api/v1/test-runs', () =>
+        HttpResponse.json({
+          items: deleted ? [running] : [finished, running],
+          page: 1,
+          page_size: 20,
+          total: deleted ? 1 : 2,
+        }),
+      ),
+      http.delete(`/api/v1/test-runs/${finished.run_id}`, () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const confirm = vi
+      .spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    try {
+      const wrapper = await mountView();
+      await vi.waitFor(() =>
+        expect(wrapper.findAll('.row-action button')).toHaveLength(1),
+      );
+      const button = wrapper.get('.row-action button');
+      await button.trigger('click');
+      expect(deleted).toBe(false);
+      await button.trigger('click');
+      await vi.waitFor(() =>
+        expect(wrapper.text()).toContain('测试任务已删除'),
+      );
+      expect(wrapper.text()).toContain('run_active');
+      expect(wrapper.find('.row-action button').exists()).toBe(false);
+    } finally {
+      confirm.mockRestore();
+    }
+  });
+
   it('renders an API failure and allows retry', async () => {
     server.use(
       http.get('/api/v1/test-runs', () =>
@@ -74,5 +120,6 @@ describe('F03 run list', () => {
     await flushPromises();
     await vi.waitFor(() => expect(wrapper.text()).toContain('列表服务不可用'));
     expect(wrapper.text()).toContain('重试');
+    expect(wrapper.text()).not.toContain('还没有测试任务');
   });
 });

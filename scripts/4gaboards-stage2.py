@@ -13,7 +13,8 @@ import httpx
 from dotenv import dotenv_values
 from pydantic import BaseModel, Field
 from waata.core.model import ChatMessage, ChatResponse, ModelError, ToolCall, estimate_request_input_tokens
-from waata.llm import FakeLLM, OpenAILike
+from waata.llm import OpenAILike
+from waata_test_support.model import FakeLLM
 from waata_api.infrastructure.config import Settings, TargetPolicies, TargetPolicy
 from waata_api.infrastructure.database import open_repository
 from waata_api.workers.runtime import run_worker
@@ -64,9 +65,9 @@ def compact_b10(messages, tools, selectors):
                         or el.get("name") in {"Move Card", "Move"}]
     page["aria"] = (page.get("aria") or "")[-700:]
     tools = tuple(
-        replace(t, input_model=B10Click, description="Click an ordered batch of 1-7 authorized B10 controls. Give all remaining dependent dialog clicks together when their choices are known; stop on the first failure.")
+        replace(t, input_model=B10Click, model_schema=None, description="Click an ordered batch of 1-7 authorized B10 controls. Give all remaining dependent dialog clicks together when their choices are known; stop on the first failure.")
         if t.name == "browser.click" else
-        replace(t, input_model=B10SourceCheck, description="Use empty arguments {} on the source board after moving to verify the card is absent.")
+        replace(t, input_model=B10SourceCheck, model_schema=None, description="Use empty arguments {} on the source board after moving to verify the card is absent.")
         if t.name == "browser.inspect" else t
         for t in tools if t.name != "browser.fill"
     )
@@ -76,7 +77,7 @@ def compact_b10(messages, tools, selectors):
 def fixture_setup_calls(page, target):
     """Trusted fixture setup only; the model still performs the business operation."""
     selectors = {item.get("locator", {}).get("value") for item in page.get("elements", [])}
-    if BASE <= selectors:
+    if BASE <= selectors or page.get("url") == SITE + "login":
         return (
             ToolCall("fixture-user", "browser.fill", {
                 "locator": css('input[name="emailOrUsername"]'), "secret_ref": "boards_admin_login_ref",
@@ -311,7 +312,7 @@ class LimitedModel:
             if page_key[0] != self.source:
                 self.stop_reason = "fixture_source_not_ready"
                 return ChatResponse(ChatMessage("assistant", "The source board fixture is not ready."))
-            tools = tuple(replace(t, input_model=B10Click, description="Execute the ordered authorized action labels.")
+            tools = tuple(replace(t, input_model=B10Click, model_schema=None, description="Execute the ordered authorized action labels.")
                           for t in tools if t.name == "browser.click")
             kwargs["tools"] = tools
             labels = sorted(self.form_targets or self.click_targets)
@@ -554,9 +555,6 @@ async def main():
     config = dotenv_values(ROOT / ".env")
     model_id = os.environ.get("WAATA_RUN_MODEL_OVERRIDE") or config["WAATA_MODEL_NAME"]
     raw = json.loads((ROOT / ".local/4gaboards/waata-targets.json").read_text())
-    for target in raw:
-        if target["origin"].rstrip("/") == SITE.rstrip("/"):
-            target["css_selectors"] = sorted(set(target["css_selectors"]) | selectors)
     os.environ.update(
         WAATA_ALLOW_HEADFUL="true", WAATA_BOARDS_ADMIN_LOGIN="waataadmin",
         WAATA_BOARDS_ADMIN_PASSWORD=fixture_env["BOARDS_ADMIN_PASSWORD"],

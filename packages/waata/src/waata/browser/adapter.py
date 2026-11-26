@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Protocol
 from waata.artifacts import ArtifactStore
 from waata.core.tools import ToolSpec
 
-from .models import CssLocator
 from .policy import CredentialField, Origin, normalized_host, redactions, sanitize
 
 if TYPE_CHECKING:
@@ -87,10 +86,10 @@ class PlaywrightAdapter:
         allowed_hosts: Iterable[str] = (),
         allowed_origins: Iterable[str] = (),
         allowed_actions: Iterable[str] = ACTION_NAMES,
-        allowed_css_selectors: Iterable[str] = (),
         allowed_websocket_paths: Iterable[str] = (),
         credential_sets: Mapping[str, Mapping[str, CredentialField]] | None = None,
         screenshot_mask_selectors: Iterable[str] = (),
+        preferred_css_selectors: Iterable[str] = (),
         allow_screenshots: bool = False,
         limits: BrowserLimits | None = None,
     ) -> None:
@@ -100,7 +99,6 @@ class PlaywrightAdapter:
         self._actions = frozenset(allowed_actions)
         if not self._actions <= ACTION_NAMES:
             raise ValueError("unrecognized browser action in allowlist")
-        self._selectors = frozenset(allowed_css_selectors)
         self._websocket_paths = frozenset(allowed_websocket_paths)
         if any(
             not path.startswith("/") or path.startswith("//")
@@ -133,19 +131,16 @@ class PlaywrightAdapter:
                 reverse=True,
             )
         )
-        for credential in self._all_fields:
-            locator = credential.locator
-            if isinstance(locator, CssLocator) and locator.value not in self._selectors:
-                raise ValueError("credential CSS selector must be allowed explicitly")
         self._mask_selectors = tuple(screenshot_mask_selectors)
+        self._preferred_selectors = tuple(sorted(set(preferred_css_selectors))[:32])
         self._allow_screenshots = allow_screenshots
         self._limits = limits or BrowserLimits()
         self._setup_cleanups: set[asyncio.Task[None]] = set()
 
     @property
     def planning_css_selectors(self) -> tuple[str, ...]:
-        """Exact locators already granted to this adapter, not model-supplied CSS."""
-        return tuple(sorted(self._selectors)[:32])
+        """Trusted fixture hints, not a change to browser authorization."""
+        return self._preferred_selectors
 
     def validate_target(self, url: str) -> None:
         origin = Origin.from_url(url)
@@ -229,10 +224,10 @@ class PlaywrightAdapter:
                 protected_fields=self._all_fields,
                 markers=self._all_markers,
                 allowed_actions=self._actions,
-                allowed_css_selectors=self._selectors,
                 allowed_websocket_paths=self._websocket_paths,
                 allow_screenshots=self._allow_screenshots,
                 screenshot_mask_selectors=self._mask_selectors,
+                preferred_css_selectors=self._preferred_selectors,
                 limits=self._limits,
             )
             await session.install_guards()

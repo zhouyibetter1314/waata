@@ -2,21 +2,24 @@
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { createRun, isApiError, type CreateRunRequest } from '../../api';
-import { validateRunRequest, type RunFormErrors } from './validation';
+import {
+  DEFAULT_AGENT_STEPS,
+  validateRunRequest,
+  type RunFormErrors,
+} from './validation';
 
 const router = useRouter();
 const submitting = ref(false);
 const requestError = ref('');
 const requestId = ref('');
 const errors = ref<RunFormErrors>({});
-const defaultTargetUrl = 'http://127.0.0.1:3000/';
 const form = reactive({
-  target_url: defaultTargetUrl,
+  target_url: '',
   goal: '',
   expected_behavior: '',
   credential_ref: '',
   headless: true,
-  max_steps_per_case: 12,
+  max_steps_per_case: DEFAULT_AGENT_STEPS,
 });
 
 function requestValue(): CreateRunRequest {
@@ -89,9 +92,9 @@ async function submit(): Promise<void> {
               v-model="form.target_url"
               name="target_url"
               autocomplete="url"
+              placeholder="例如：https://app.example.test/"
               :aria-invalid="Boolean(errors.target_url)"
             />
-            <small class="field-hint">示例：{{ defaultTargetUrl }}</small>
             <small v-if="errors.target_url" class="field-error">{{
               errors.target_url
             }}</small>
@@ -103,7 +106,7 @@ async function submit(): Promise<void> {
               v-model="form.goal"
               name="goal"
               rows="4"
-              placeholder="例如：在本地 4gaBoards 创建 Course Test 01 项目"
+              placeholder="例如：打开登录页并查看表单"
               :aria-invalid="Boolean(errors.goal)"
             />
             <small v-if="errors.goal" class="field-error">{{
@@ -117,10 +120,21 @@ async function submit(): Promise<void> {
               v-model="form.expected_behavior"
               name="expected_behavior"
               rows="4"
-              placeholder="例如：仪表盘和侧边栏均显示新创建的项目"
+              placeholder="例如：登录页显示邮箱和密码输入框"
               :aria-invalid="Boolean(errors.expected_behavior)"
             />
             <small class="field-hint">尽量描述可观察、可判定的页面结果。</small>
+            <small
+              v-if="
+                form.goal.includes('{tag}') ||
+                form.expected_behavior.includes('{tag}')
+              "
+              class="field-hint"
+              role="status"
+            >
+              如果是从场景示例复制的内容，请把目标和预期里的
+              <code>{tag}</code> 换成同一个测试编号。
+            </small>
             <small v-if="errors.expected_behavior" class="field-error">
               {{ errors.expected_behavior }}
             </small>
@@ -144,13 +158,12 @@ async function submit(): Promise<void> {
               v-model="form.credential_ref"
               name="credential_ref"
               autocomplete="off"
-              placeholder="例如：boards_local_fixture"
             />
           </label>
 
           <div class="form-options">
             <label>
-              <span>每用例最大步骤数</span>
+              <span>每用例 Agent 步骤上限</span>
               <input
                 v-model.number="form.max_steps_per_case"
                 type="number"
@@ -205,10 +218,8 @@ async function submit(): Promise<void> {
           </ul>
         </div>
         <div class="guide-note">
-          <strong>契约说明</strong>
-          <p>
-            提交严格遵循 C1。成功后返回 queued 状态，并跳转到对应的运行详情。
-          </p>
+          <strong>提交后</strong>
+          <p>页面会打开新任务的详情，你可以在那里查看排队状态和执行进度。</p>
         </div>
       </aside>
     </div>

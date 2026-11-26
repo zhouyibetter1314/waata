@@ -1,71 +1,40 @@
-# C6 · 平台持久化契约
+# C6 · 平台持久化
 
-## 1. 范围
+FastAPI 和 Worker 共享 PostgreSQL 17 中的运行、事件、报告和证据元数据。文件字节存放在共享证据目录，追踪留在可选的 Langfuse。[PostgreSQL 仓库](../../apps/api/src/waata_api/repositories/postgres.py) · [数据库迁移](../../migrations/README.md) · [C5 证据读取](../artifacts/c5-test-evidence-artifacts.md)
 
-FastAPI 和 Worker 使用 PostgreSQL 17 持久化运行任务、事件、报告和证据元数据。本地开发与验收使用 `postgres:17`。Vue 通过 C1、C4、C5 访问平台数据。独立 `waata` 包通过 C2 接收调用方注入的存储接口。
+## 数据模型
 
-内置 [C5 ArtifactStore](../artifacts/c5-test-evidence-artifacts.md) 将观察文件与已启用的截图写入 API 和 Worker 共享的本地目录，并在 PostgreSQL 中登记元数据与内部存储键。结构化报告的 JSON 保存在 PostgreSQL。Langfuse 追踪保留在观测系统，通过报告中的 `langfuse_trace_id` 关联。
-
-## 2. 数据模型
-
-Run ID 和证据 ID 使用不透明字符串。数据库时间戳使用 `timestamptz`，HTTP 和 SSE 输出 UTC。字段、键、索引及同行约束见 [首版 SQL 迁移](../../migrations/0001_platform_persistence.sql)，版本管理见 [迁移规约](../../migrations/README.md)。
-
-| 表 | 主键及关系 | 保存内容 |
-| --- | --- | --- |
-| `test_runs` | `run_id` 主键，`owner_id` 为服务端认定的授权主体标识 | 经 C1 校验的请求、内部凭据引用、状态、判定、错误、进度、取消标记、时间戳、Run 内事件计数器及内部执行租约 |
-| `run_events` | `(run_id, sequence)` 主键，`(run_id, event_id)` 唯一，`run_id` 外键 | C4 信封的版本、类型、发生时间、Case/Step 关联和 JSONB 载荷 |
-| `run_reports` | `run_id` 为主键和外键 | 一次运行的一份最终或部分 C2 结果，按 JSONB 快照保存，带提交时间 |
-| `run_artifacts` | `artifact_id` 全局主键，`run_id` 外键 | C5 元数据、Case/Step/工具调用关联、私有存储键、过期时间和删除记录 |
-| `schema_migrations` | `version` 主键，`filename` 唯一 | 已应用的结构版本、文件名和应用时间 |
-
-- `test_runs.request` 保存目标地址、测试目标、预期行为和选项。`credential_ref` 单独保存，仅供可信解析器使用。公开响应按各自契约投影字段，省略凭据值与引用。
-- `status` 与 `verdict` 分开保存。只有 `succeeded` 有总体判定，只有 `errored` 有结构化错误。终态填写 `finished_at`，排队取消时 `started_at` 可为 `null`。报告中的用例判定继续遵循 C2。
-- `run_reports.result` 使用 C2 的可移植结果，包含用例、步骤、断言和证据引用。C1 在读取时补充 C5 的同源 URL 和有效期。按关联 Run 校验证据归属和报告内容，跨表约束由写入事务负责。参见 [PostgreSQL 17 约束文档](https://www.postgresql.org/docs/17/ddl-constraints.html)。
-- C1 列表在授权过滤后排序、分页和统计总数。默认按 `created_at DESC, run_id DESC` 查询。包含额外访问授权时，由后端用完整的授权规则确定可见范围。
-
-## 3. 排队、取消与事务
-
-| 操作 | 提交边界 |
+| 表 | 保存内容 |
 | --- | --- |
-| 创建 | 在一次事务中保存并排队 Run，提交后返回 C1 的 `202`。首版使用处于 `queued` 的 PostgreSQL 记录作为持久化待办，Worker 重启后能继续领取这些记录 |
-| 领取 | 并发 Worker 对同一 Run 只有一个领取成功。期望状态为 `queued`，原子写入 `running`、`started_at` 与 `run.started`，提交后才启动浏览器执行 |
-| 排队取消 | 同一次提交设置取消标记、`cancelled`、`finished_at` 并追加 `run.cancelled`，随后返回 `200` |
-| 运行中取消 | 持久化 `cancellation_requested=true` 后返回 `202`。重复请求复用该标记。Worker 停止并清理后才提交 `cancelled`，清理失败提交 `errored` |
-| 完成或故障 | 在同一事务提交终态、总体判定或错误、`finished_at`、正常完成的报告或技术故障时可用的部分报告，以及对应事件。有报告时先追加 `report.generated`，再追加唯一终态事件 |
+| `test_runs` | 按 `run_id` 保存 `owner_id`、请求、内部凭据引用、状态、判定、错误、进度、取消标记、时间、事件计数器和执行租约 |
+| `run_events` | 按 `(run_id, sequence)` 保存事件，`(run_id, event_id)` 唯一 |
+| `run_reports` | 每个 Run 保存一份最终或部分 C2 JSONB 结果和提交时间 |
+| `run_artifacts` | 按全局唯一的 `artifact_id` 保存关联 Run、Case、Step、工具调用、证据元数据、内部存储键和过期删除记录 |
+| `schema_migrations` | 已应用迁移的版本、文件名和时间 |
 
-取消和完成对同一 Run 串行处理。持锁确认最新状态与取消标记后提交，胜负取决于提交顺序。终态完成先提交时，后来的取消返回 C1 的 `409 RUN_NOT_CANCELLABLE`。取消标记先提交时，完成方遵循 C2 的停止与清理规则，报告按 C1/C4 的终态语义发布。报告无法写入时记录 `REPORT_WRITE_FAILED`。事件、状态与报告的事务失败时回滚，按 C4 在存储恢复后收敛到可查询的终态。
+数据库使用 `timestamptz`，HTTP 和 SSE 输出 UTC。列表在同一只读事务内按 `owner_id` 过滤、汇总和分页。请求中的 `credential_ref` 单独保存供可信解析器使用，公开响应对照 C1、C4、C5 生成。[初始结构](../../migrations/0001_platform_persistence.sql) · [执行租约](../../migrations/0002_run_execution_lease.sql)
 
-事务保持短小，网络、模型、浏览器和外部文件存储操作在事务之外执行。Worker 失效后的恢复必须先确认旧执行已停止或阻止旧执行继续写入，再将失去执行者的 Run 收敛为技术错误。恢复过程保留已提交的事件与证据，并避免自动重放可能已产生副作用的浏览器动作。存活判定和接管方式见 [Q-003](../../docs/05-open-questions.md#q-003-队列持久化与恢复)。
+## 事务与恢复
 
-[租约迁移](../../migrations/0002_run_execution_lease.sql)为 Run 增加 `execution_token` 和 `lease_expires_at`。领取时在同一事务写入令牌、租约和 `run.started`。Worker 按数据库时钟续租，在提交新事件、证据登记或终态前锁定 Run 并验证令牌及有效期。终态清空租约。回收任务锁定已过期或遗留的无租约 `running` 记录，以 `WORKER_ERROR` 结束并原子追加 `run.failed`。
-
-Worker 轮询领取任务，续租时读取取消标记。默认 `WAATA_WORKER_POLL_SECONDS=0.25`、`WAATA_WORKER_HEARTBEAT_SECONDS=2`、`WAATA_WORKER_LEASE_SECONDS=15`。租约时长必须大于两个心跳间隔。
-
-## 4. 事件序号与重放
-
-1. 写入事件时锁定对应的 `test_runs` 行，再查询 `(run_id, event_id)`。同一事件 ID 的版本、类型、发生时间、关联和载荷一致时，返回原序号。内容不一致时，按 C4 拒绝并记录故障。
-2. 新事件的 Run 必须仍允许追加。由 `last_event_sequence` 从 0 开始递增，与事件插入一起提交。终态过渡在同一事务中追加允许的事件，终态提交以后只允许已有事件的幂等重试。每个 Run 的序号连续，取值范围与 C4 一致。
-3. SSE 按 [C4](../events/c4-test-run-events.md) 轮询已提交的 `run_events`，读取 `sequence > cursor` 的事件并升序发送。
-
-Run 行锁可通过 `SELECT ... FOR UPDATE` 实现。PostgreSQL 的数据库序列在事务回滚时保留已发出的值。C4 的无空洞序号使用上述同一事务内的 Run 计数器。[PostgreSQL 17 行锁](https://www.postgresql.org/docs/17/explicit-locking.html#LOCKING-ROWS) · [PostgreSQL 17 序列函数](https://www.postgresql.org/docs/17/functions-sequence.html)
-
-## 5. 证据登记与访问
-
-- `ArtifactStore.save` 在证据字节可读且元数据已提交后返回 `ArtifactRef`。写入失败时保留失败结果并处理未登记文件。数据库提交结果不明确时，先根据存储键核对登记记录，再清理孤儿文件。
-- 事件或报告引用证据前，在写入边界确认其登记已提交且属于同一 Run。报告断言的证据满足 C2 的关联要求。公开响应按 C5 生成同源访问 URL，存储键只供后端使用。
-- 下载时按证据元数据查询所属 Run，先验证访问权限，再按 [C5](../artifacts/c5-test-evidence-artifacts.md) 判断过期和存储可读性。
-- 到期回收文件后保留最小元数据、过期时间和删除记录，直到 Run 删除。移除 Run 时，平台先清理证据文件或记录待清理项，再清除 PostgreSQL 中的关联记录。
-
-## 6. 验收
-
-在独立 PostgreSQL 17 测试库应用迁移，再以并发连接和可控故障验证事务边界。
-
-| ID | 通过条件 |
+| 写入 | 提交内容 |
 | --- | --- |
-| C6-AT-01 | 排队提交后重启 Worker 仍能领取。两个 Worker 竞争同一 Run 时只写入一次 `run.started`，只启动一次执行 |
-| C6-AT-02 | 事件重试复用原序号，内容冲突被拒绝。模拟事务回滚时计数器与事件一起回退，下一条事件编号连续。不同 Run 独立编号 |
-| C6-AT-03 | 取消先提交和完成先提交分别得到 C1/C2 规定的结果。每次 Run 恰有一个终态。含报告时，终态、报告与事件原子可见，`report.generated` 的序号在终态前 |
-| C6-AT-04 | 重启后按原游标重放事件。回放期间并发追加新事件，消费者最终按序收到已提交记录。回滚事件不会发送 |
-| C6-AT-05 | 文件写入或元数据提交失败时无可发布的悬空证据引用。未授权请求返回 `404`。过期文件回收后，授权请求返回 `410` 且历史报告仍可显示证据元数据 |
-| C6-AT-06 | 报告或事件引用另一 Run 的证据时写入失败。使用带标记的测试凭据证明公开查询、事件和报告已脱敏 |
-| C6-AT-07 | 空库可初始化为当前版本，已有库升级保留数据。单个迁移失败时，表结构和版本记录一并回滚 |
+| 创建 | 保存 `queued` 记录后返回 `202`。Worker 重启后仍可领取 |
+| 领取 | 按创建时间取最早可锁定的任务，同时写入 `running`、`started_at`、令牌、租约到期时间及 `run.started` |
+| 排队取消 | 写入取消标记、`cancelled`、`finished_at` 和 `run.cancelled`，随后返回 `200` |
+| 运行中取消 | 持久化取消标记后返回 `202`。Worker 清理后提交 `cancelled`，必要清理失败提交 `errored` |
+| 结束 | 同时提交终态、判定或错误、结束时间及可用报告，清空租约。有报告时先追加 `report.generated`，再追加终态事件 |
+| 回收租约 | 锁定租约已过期或缺少租约的遗留运行，提交 `WORKER_ERROR` 与 `run.failed`，保留已有事件和证据 |
+
+每次续租读取取消标记，追加新事件、登记证据和提交终态均检查执行令牌与数据库时钟。终态提交与取消对 Run 行加锁，先提交的取消会影响最终结果。过期执行无法继续发布，恢复流程保留记录以便复查，重新运行由调用方发起。模型、浏览器和文件 I/O 在数据库事务外执行。
+
+删除按主体锁定终态任务，在同一事务内将仍有文件的证据加入 `deleted_run_artifacts` 并级联删除任务、事件、报告和证据元数据。API 提交后尝试清理，Worker 定期处理剩余任务。文件已经不存在时也可清除队列条目，文件删除失败时延迟重试。[迁移](../../migrations/0003_run_artifact_cleanup.sql)
+
+Worker 轮询和续租的默认值分别为 `WAATA_WORKER_POLL_SECONDS=0.25` 和 `WAATA_WORKER_HEARTBEAT_SECONDS=2`，`WAATA_WORKER_LEASE_SECONDS=15` 且须大于两个心跳间隔。[Worker](../../apps/api/src/waata_api/workers/runner.py)
+
+## 事件与证据
+
+- 事件写入锁定 Run 行。同一事件 ID 且内容一致时返回原序号，内容冲突时拒绝。新序号由同一事务中的 `last_event_sequence` 分配，随事件插入一起提交或回滚。SSE 升序推送 `sequence > cursor` 的已提交记录。[C4](../events/c4-test-run-events.md)
+- 文件存储先使字节可读，再登记元数据。提交结果不明确时，用存储键核对记录后清理未登记文件。报告和事件写入边界会校验证据引用及关联。[C5](../artifacts/c5-test-evidence-artifacts.md)
+- Worker 定期清理过期和孤立的文件。清理过期文件后保留元数据和删除时间，让报告继续解释历史证据。[文件存储实现](../../apps/api/src/waata_api/infrastructure/artifacts.py)
+
+集成测试覆盖迁移、并发领取、事件幂等、取消、租约回收和证据约束。[PostgreSQL 集成测试](../../apps/api/tests/test_repository.py) · [平台验收](../../docs/04-acceptance.md)

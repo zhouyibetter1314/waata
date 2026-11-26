@@ -1,8 +1,9 @@
-"""Check the shared v0.1 fixtures before integrating Vue, FastAPI, and waata."""
+"""Check the shared offline fixtures for Vue, FastAPI, and waata."""
 
 import json
 import unittest
 from collections import Counter
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -226,7 +227,14 @@ class RunFixtureTests(unittest.TestCase):
                     pending[call_id] = event["sequence"]
                 else:
                     self.assertLess(pending.pop(call_id), event["sequence"])
-                    self.assertEqual(payload, summary)
+                    self.assertEqual(
+                        {
+                            key: value
+                            for key, value in payload.items()
+                            if key != "detail"
+                        },
+                        summary,
+                    )
                     completed.add(call_id)
         self.assertFalse(pending)
         self.assertEqual(completed, self.report_calls.keys())
@@ -240,6 +248,9 @@ class RunFixtureTests(unittest.TestCase):
                 self.assertEqual(artifact["mime_type"], MEDIA_TYPES[artifact["kind"]])
                 self.assertEqual(artifact["url"], f"/api/v1/artifacts/{artifact_id}")
                 self.assertGreaterEqual(artifact["size_bytes"], 0)
+                captured_at = datetime.fromisoformat(artifact["captured_at"])
+                expires_at = datetime.fromisoformat(artifact["expires_at"])
+                self.assertEqual(expires_at - captured_at, timedelta(days=7))
         for case in self.report["cases"]:
             for assertion in case["assertions"]:
                 if assertion["passed"] is not None:
@@ -260,36 +271,45 @@ class RunFixtureTests(unittest.TestCase):
                     (case_id, step_id, call_id),
                 )
 
-    def test_c5_observations_match_registered_bytes_and_inspect_result(self):
+    def test_c5_observations_match_registered_bytes_and_tool_result(self):
         observations = {
             artifact["tool_call_id"]: artifact
             for artifact in self.artifacts
             if artifact["kind"] == "observation"
         }
-        inspect_by_id = {
-            example["context"]["tool_call_id"]: example["result"]["data"]
-            for example in self.tool_calls
-            if example["call"]["tool"] == "browser.inspect"
-        }
-        evidenced_calls = set()
-        for path in (CONTRACTS / "artifacts/examples").glob(
-            "4gaboards-*-observation.json"
-        ):
-            with self.subTest(file=path.name):
-                contents = path.read_text(encoding="utf-8")
-                data = json.loads(contents)
-                call_id = data["tool_call_id"]
+        evidence_dir = CONTRACTS / "artifacts/examples"
+        artifact_files = set(evidence_dir.glob("4gaboards-*-observation.json"))
+        expected_files = set()
+        for example in self.tool_calls:
+            if example["call"]["tool"] not in {"browser.observe", "browser.inspect"}:
+                continue
+            call_id = example["context"]["tool_call_id"]
+            with self.subTest(tool_call_id=call_id):
                 artifact = observations[call_id]
-                inspect_result = inspect_by_id[call_id]
-                self.assertNotIn("evidence_ids", data)
-                self.assertEqual(data["observed_at"], artifact["captured_at"])
-                self.assertEqual(data["actual"], inspect_result["actual"])
-                self.assertEqual(data["matched"], inspect_result["matched"])
-                # Use the canonical LF fixture bytes even in a CRLF checkout.
+                artifact_id = artifact["artifact_id"]
+                label = artifact_id.removeprefix("art_4ga_")
+                path = evidence_dir / f"4gaboards-{label}-observation.json"
+                expected_files.add(path)
+                # The compact browser response has no terminating newline.
+                contents = path.read_text(encoding="utf-8").removesuffix("\n")
+                data = json.loads(contents)
+                output = example["result"]["data"]
+                self.assertEqual([artifact_id], output["evidence_ids"])
+                self.assertEqual(
+                    data,
+                    {
+                        key: value
+                        for key, value in output.items()
+                        if key != "evidence_ids"
+                    },
+                )
+                self.assertTrue(example["context"].keys().isdisjoint(data))
+                self.assertEqual(
+                    datetime.fromisoformat(data["observed_at"]),
+                    datetime.fromisoformat(artifact["captured_at"]),
+                )
                 self.assertEqual(len(contents.encode("utf-8")), artifact["size_bytes"])
-                self.assertIn(artifact["artifact_id"], inspect_result["evidence_ids"])
-                evidenced_calls.add(call_id)
-        self.assertEqual(evidenced_calls, observations.keys())
+        self.assertEqual(expected_files, artifact_files)
 
     def test_public_fixtures_do_not_echo_the_credential_reference(self):
         reference = self.http_request["credential_ref"]

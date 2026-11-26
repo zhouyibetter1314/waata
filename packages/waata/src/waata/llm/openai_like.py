@@ -7,6 +7,9 @@ import logging
 import math
 import re
 from collections.abc import Sequence
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+from time import monotonic
 from typing import Any
 
 import httpx
@@ -16,6 +19,7 @@ from waata.core.model import (
     ChatResponse,
     ModelError,
     ModelMetadata,
+    ModelRateLimitError,
     ModelResponseError,
     ModelUsage,
     ToolCall,
@@ -24,6 +28,7 @@ from waata.core.tools import ToolSpec
 
 _FUNCTION_NAME = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _LOG = logging.getLogger(__name__)
+_DEFAULT_RATE_LIMIT_WAIT = 30.0
 _QUOTA_CODES = {
     "accountoverdue",
     "insufficientbalance",
@@ -38,11 +43,16 @@ def _http_failure(response: httpx.Response) -> tuple[str, bool]:
         body = response.json()
         error = body.get("error") if isinstance(body, dict) else None
         code = error.get("code") if isinstance(error, dict) else None
+        message = error.get("message") if isinstance(error, dict) else None
     except (ValueError, RecursionError):
         code = None
+        message = None
     if status == 402 or (isinstance(code, str) and code.lower() in _QUOTA_CODES):
         return "quota_or_balance", False
-    if status == 429:
+    if status == 429 or (
+        isinstance(message, str)
+        and "cluster tpm rate limit exceeded" in message.lower()
+    ):
         return "rate_limit", True
     if status in {400, 422}:
         return "request_format", False
@@ -55,6 +65,20 @@ def _http_failure(response: httpx.Response) -> tuple[str, bool]:
         if status == 425 or status >= 500
         else ("http_error", False)
     )
+
+
+def _retry_after(response: httpx.Response) -> float:
+    value = response.headers.get("Retry-After", "").strip()
+    if value.isascii() and value.isdecimal():
+        seconds = float(value)
+        return max(0.2, seconds)
+    try:
+        date = parsedate_to_datetime(value)
+        if date.tzinfo is None:
+            date = date.replace(tzinfo=UTC)
+        return max(0.2, (date - datetime.now(UTC)).total_seconds())
+    except (ValueError, TypeError, OverflowError):
+        return _DEFAULT_RATE_LIMIT_WAIT
 
 
 class OpenAILike:
@@ -70,7 +94,7 @@ class OpenAILike:
         context_window: int = 32_768,
         max_output_tokens: int = 2_048,
         supports_tools: bool = True,
-        supports_json: bool = False,
+        supports_json: bool | None = None,
         timeout: float = 30,
         thinking: bool | None = None,
     ) -> None:
@@ -98,6 +122,7 @@ class OpenAILike:
         self._model = model
         self._api_key = api_key
         self._timeout = timeout
+        self._retry_at = 0.0
         self._disable_thinking = thinking is False or url.host in {
             "api.deepseek.com",
             "ark.cn-beijing.volces.com",
@@ -106,7 +131,11 @@ class OpenAILike:
             context_window=context_window,
             max_output_tokens=max_output_tokens,
             supports_tools=supports_tools,
-            supports_json=supports_json,
+            supports_json=(
+                url.scheme == "https" and url.host == "api.deepseek.com"
+                if supports_json is None
+                else supports_json
+            ),
         )
         self._owns_client = client is None
         self._client = client if client is not None else httpx.AsyncClient()
@@ -144,6 +173,11 @@ class OpenAILike:
             raise ModelError("The configured model does not support tool calling")
         if json_mode and not self.metadata.supports_json:
             raise ModelError("The configured model does not support JSON mode")
+        cooldown = self._retry_at - monotonic()
+        if cooldown > 0:
+            raise ModelRateLimitError(
+                "Model service is rate limited", retry_after=cooldown
+            )
 
         tool_definitions, internal_names = _encode_tools(tools)
         body: dict[str, Any] = {
@@ -187,6 +221,13 @@ class OpenAILike:
                 response.status_code,
                 category,
             )
+            if category == "rate_limit":
+                retry_after = _retry_after(response)
+                self._retry_at = max(self._retry_at, monotonic() + retry_after)
+                raise ModelRateLimitError(
+                    f"Model service returned HTTP {response.status_code}",
+                    retry_after=retry_after,
+                )
             raise ModelError(
                 f"Model service returned HTTP {response.status_code}",
                 retryable=retryable,

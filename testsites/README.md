@@ -1,17 +1,11 @@
 # 本地测试站点
 
-三个上游项目以 Git 子模块管理，分别固定源代码版本。需要哪个站点时，可只检出对应路径。下面的命令检出全部三个站点。
+三个上游站点以 Git 子模块固定版本。可在仓库根目录用以下脚本启动需要的站点，脚本会检查或检出相应版本。每个站点有独立的本地数据。
 
-```bash
-git submodule update --init -- testsites/4gaboards testsites/admidio testsites/discourse
-```
-
-| 站点 | 路径 | 固定版本 | 部署文档 |
+| 站点 | 固定版本 | 本机地址 | 启动 |
 | --- | --- | --- | --- |
-| 4gaBoards | `testsites/4gaboards` | `v3.2.16` · `b76dcc95` | [4gaBoards 部署说明](https://github.com/RARgames/4gaBoards/blob/b76dcc95fb693ca1cf7bf7ee9380f0c755d2d31c/README.md#deploy) |
-| Admidio | `testsites/admidio` | `v5.0.2` · `4484b503` | [Admidio 安装说明](https://github.com/Admidio/admidio/blob/4484b50396e290900bc25bf953a4eb5040c7646b/README.md#installation) |
-| Discourse | `testsites/discourse` | `v2025.12.0-latest` · `3e7317b3` | [Discourse 本地开发容器说明](https://github.com/discourse/discourse/blob/3e7317b3344cca6c6510a32cc4c5c0f540132ad9/bin/docker/README.md) |
+| [4gaBoards](../examples/README.md#4gaboards-组员-a) | `v3.2.16` · `b76dcc95` | `http://127.0.0.1:3000` | `bash scripts/4gaboards.sh start` |
+| [Admidio](../examples/README.md#admidio-组员-b) | `v5.0.2` · `4484b503` | `http://127.0.0.1:8081` | `bash scripts/admidio.sh start` |
+| [Discourse](../examples/README.md#discourse-组员-c) | `v2025.12.0-latest` · `3e7317b3` | `http://127.0.0.1:4200` | 首次 `bash scripts/discourse.sh init`，随后 `bash scripts/discourse.sh start` |
 
-检出后按表中的固定版本文档部署需要的站点，为每个站点选择独立的 Compose 项目和数据卷。记录访问 origin 和测试账号初始化步骤，便于同版本复跑。接入 WAATA 时在目标策略中声明 origin、主体、动作与凭据引用。 [后端运行设置](../apps/api/README.md#运行设置) · [本地依赖](../infra/README.md) · [4gaBoards 契约示例](../contracts/examples/README.md)
-
-也可以接入你已有的授权测试站点，并自行选择验收场景。 [目标配置](../apps/api/README.md#配置一个你有权限测试的站点) · [手工验收](../docs/04-acceptance.md)
+脚本支持 `status`、`logs` 和 `stop`。只检出源码时运行 `git submodule update --init -- testsites/<站点>`。接入这些站点或已有的授权环境时，为实际 origin、账号引用及动作配置策略。[目标配置](../apps/api/README.md#配置一个你有权限测试的站点)

@@ -1,149 +1,22 @@
-<script setup lang="ts">
-import { computed } from 'vue';
-import { API_BASE } from '../../api';
-
-const isMock = computed(
-  () => import.meta.env.DEV && import.meta.env.VITE_API_MOCKING !== 'disabled',
-);
-const mode = computed(() => (isMock.value ? '契约 Mock' : '真实 FastAPI'));
-</script>
-
 <template>
   <section class="page settings-page">
     <div class="page-heading">
-      <div>
-        <div class="eyebrow">ENVIRONMENT & SETTINGS</div>
-        <h1>环境与设置</h1>
-        <p class="lead">
-          查看前端运行方式、正式契约和后端配置边界。敏感配置只保存在后端环境中。
-        </p>
-      </div>
+      <h1>环境与设置</h1>
     </div>
-
-    <div class="settings-status" :class="{ 'settings-status-mock': isMock }">
-      <span class="status-dot"></span>
-      <div>
-        <strong>{{
-          isMock ? '当前使用契约 Mock' : '当前使用真实 API 模式'
-        }}</strong>
-        <p>
-          {{
-            isMock
-              ? '适合独立验证前端交付条件，不代表真实 Agent 已运行。'
-              : '请求通过同源 /api/v1 发送到平台后端。'
-          }}
-        </p>
-      </div>
-    </div>
-
     <div class="settings-layout">
       <div class="panel settings-card">
-        <div class="panel-title">
-          <div>
-            <h2>前端运行配置</h2>
-            <p>由构建环境决定，不包含服务器秘密。</p>
-          </div>
-        </div>
+        <h2>场景库与界面</h2>
         <dl class="settings-list">
-          <dt>运行模式</dt>
-          <dd>{{ mode }}</dd>
-          <dt>API 前缀</dt>
-          <dd>
-            <code>{{ API_BASE }}</code>
-          </dd>
-          <dt>认证策略</dt>
-          <dd>同源凭据（same-origin）</dd>
-          <dt>SSE 客户端</dt>
-          <dd>{{ isMock ? '正式 SSE 样例重放' : '原生 EventSource' }}</dd>
           <dt>场景库位置</dt>
-          <dd>当前浏览器 Local Storage</dd>
+          <dd>当前浏览器。换用设备前，可以在场景库导出场景。</dd>
           <dt>界面语言</dt>
           <dd>简体中文</dd>
         </dl>
       </div>
-
       <div class="panel settings-card">
-        <div class="panel-title">
-          <div>
-            <h2>契约状态</h2>
-            <p>页面功能只消费 WAATA v0.1 正式接口。</p>
-          </div>
-        </div>
-        <div class="contract-list">
-          <div>
-            <span>C1</span>
-            <div>
-              <strong>任务 HTTP API</strong
-              ><small>提交、列表、详情、取消、报告与证据入口</small>
-            </div>
-            <b>已接入</b>
-          </div>
-          <div>
-            <span>C4</span>
-            <div>
-              <strong>运行事件</strong
-              ><small>SSE 重放、事件顺序、终态校准</small>
-            </div>
-            <b>已接入</b>
-          </div>
-          <div>
-            <span>C5</span>
-            <div>
-              <strong>报告证据</strong
-              ><small>同源授权 URL、JSON、截图与 ZIP</small>
-            </div>
-            <b>已接入</b>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel settings-card settings-wide">
-        <div class="panel-title">
-          <div>
-            <h2>模型与浏览器配置边界</h2>
-            <p>模型密钥和 Playwright 由服务端管理。</p>
-          </div>
-        </div>
-        <div class="boundary-grid">
-          <div>
-            <span>Vue 前端</span><strong>提交 C1 请求</strong>
-            <p>仅提交目标、预期、凭据引用和运行选项。</p>
-          </div>
-          <div>
-            <span>FastAPI / Worker</span><strong>读取服务端环境</strong>
-            <p>负责身份、目标授权、模型密钥、调度和证据授权。</p>
-          </div>
-          <div>
-            <span>WAATA Package</span><strong>执行自主测试</strong>
-            <p>通过注入的模型、浏览器和 ArtifactStore 运行。</p>
-          </div>
-        </div>
-        <div class="settings-note">
-          <strong>模型 API 密钥</strong>
-          <p>
-            在服务端部署环境或仓库根目录的本地 .env 中配置 WAATA_MODEL_API_KEY。
-          </p>
-        </div>
-      </div>
-
-      <div class="panel settings-card settings-wide">
-        <div class="panel-title">
-          <div>
-            <h2>当前限制</h2>
-          </div>
-        </div>
-        <ul class="settings-limitations">
-          <li>
-            <strong>Run 删除</strong><span>C1 v0.1 暂无任务删除接口。</span>
-          </li>
-          <li>
-            <strong>Playwright Trace</strong
-            ><span
-              >原始 Trace
-              采集关闭。运行证据包括结构化观察和按目标策略启用的截图。</span
-            >
-          </li>
-        </ul>
+        <h2>测试环境</h2>
+        <p>测试账号、模型和可访问的测试站点由平台管理员配置。</p>
+        <p>截图可从运行时间线查看，是否采集由测试站点的设置决定。</p>
       </div>
     </div>
   </section>

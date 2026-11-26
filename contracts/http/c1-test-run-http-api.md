@@ -1,176 +1,70 @@
-# C1 · 测试任务 HTTP API 契约
+# C1 · 测试任务 HTTP API
 
-## 1. 范围
+FastAPI 的请求和响应模型用于生成 OpenAPI 快照，Vue 从快照生成类型。普通消息为 JSON，字段使用 `snake_case`，Run ID 为不透明字符串，时间为 UTC。响应以 `null` 表示缺省的可空值，以 `[]` 表示空列表。[请求和响应模型](../../apps/api/src/waata_api/schemas/test_runs.py) · [OpenAPI 快照](openapi.json)
 
-定义受控 Web 测试任务的创建、查询、订阅、取消、报告和证据读取。FastAPI 请求与响应模型作为实现来源，导出 `contracts/http/openapi.json` 供前端生成类型。C1 使用 [C2](../waata/c2-waata-python-api.md) 的结果及判定、[C4](../events/c4-test-run-events.md) 的事件和 [C5](../artifacts/c5-test-evidence-artifacts.md) 的证据元数据。
+## 端点
 
-平台排队、状态和报告的数据库事务边界见 [C6](../database/c6-platform-persistence.md)。
-
-## 2. 通用约定
-
-| 项目 | 约定 |
-| --- | --- |
-| 路径与编码 | 前缀 `/api/v1`，普通消息为 UTF-8 JSON |
-| 标识与时间 | `run_id` 为不透明字符串，时间为 ISO 8601 UTC，字段使用 `snake_case` |
-| 空值 | 响应保留定义的字段。尚未产生的可空值为 `null`，空集合为 `[]` |
-| 权限 | 仅返回调用方有权访问的任务或证据。测试目标和服务端凭据引用均须授权 |
-| 脱敏 | 响应、日志和事件不得包含明文密码、Cookie、API Key、凭据引用或敏感 URL 值 |
-
-| `status` | 含义 |
-| --- | --- |
-| `queued` | 已接收并排队 |
-| `running` | Worker 正在处理，可同时有待生效的取消请求 |
-| `succeeded` | 测试流程正常完成，最终报告可查询 |
-| `errored` | 测试执行或平台处理故障 |
-| `cancelled` | 取消已生效，执行已停止并完成必要清理 |
-
-总体 `verdict` 由 C2 计算，取 `passed`、`failed`、`blocked` 或 `inconclusive`。仅 `succeeded` 有总体判定，例如 `succeeded + failed` 表示正常完成测试并发现断言失败。其他状态的总体 `verdict` 为 `null`。错误的部分报告可保留已经确定的用例判定。
-
-## 3. 端点
-
-| 方法 | 路径 | 成功状态与用途 |
+| 方法 | 路径 | 成功响应 |
 | --- | --- | --- |
-| POST | `/api/v1/test-runs` | `202`，创建并排队 |
-| GET | `/api/v1/test-runs` | `200`，分页列出任务 |
-| GET | `/api/v1/test-runs/{run_id}` | `200`，查询详情与进度 |
-| GET | `/api/v1/test-runs/{run_id}/events` | `200`，SSE。已读终态的重连返回 `204` |
-| GET | `/api/v1/test-runs/{run_id}/report` | `200`，读取结构化报告 |
-| POST | `/api/v1/test-runs/{run_id}/cancel` | `202`，受理运行中任务的取消。排队任务立即取消时返回 `200` |
-| GET | `/api/v1/artifacts/{artifact_id}` | `200`，按 C5 授权读取证据 |
+| POST | `/api/v1/test-runs` | `202`，已提交排队记录，返回 `run_id`、`status=queued`、`created_at` |
+| GET | `/api/v1/test-runs` | `200`，返回当前主体的 `items`、`page`、`page_size`、`total` |
+| GET | `/api/v1/test-runs/{run_id}` | `200`，返回运行状态、进度及报告摘要 |
+| DELETE | `/api/v1/test-runs/{run_id}` | `204`，删除已结束任务、事件、报告和证据引用，安排移除证据文件 |
+| GET | `/api/v1/test-runs/{run_id}/events` | `200` SSE，读至终态的游标返回 `204`。[C4](../events/c4-test-run-events.md) |
+| GET | `/api/v1/test-runs/{run_id}/report` | `200`，返回最终或部分报告 |
+| POST | `/api/v1/test-runs/{run_id}/cancel` | `200` 排队取消，`202` 运行中受理，返回 `run_id`、`status`、`cancellation_requested=true` |
+| GET | `/api/v1/artifacts/{artifact_id}` | `200`，返回证据字节及 MIME 类型。[C5](../artifacts/c5-test-evidence-artifacts.md) |
 
-### 3.1 创建任务
+## 创建与查询
 
-| 请求字段 | 类型 | 约束 |
-| --- | --- | --- |
-| `target_url` | string | 必填，合法的绝对 HTTP(S) URL。禁止 URL 内嵌用户名或密码，目标须授权 |
-| `goal`、`expected_behavior` | string | 必填，非空测试目标与预期行为，传给 C2 |
-| `credential_ref` | string 或 null | 可选，默认 `null`。非空值引用服务端为该 Run 授权的测试凭据集合 |
-| `options` | object | 可选，缺省时使用默认配置 |
-| `options.headless` | boolean | 可选，默认 `true`。设为 `false` 时，Worker 需要启用 `WAATA_ALLOW_HEADFUL` 且环境需支持有界面 Chromium，否则任务会因执行配置错误而结束 |
-| `options.max_steps_per_case` | integer | 可省略，由服务端补充默认值（默认 `16`）。显式传值需为正整数，并受服务端上限（默认 `50`）约束 |
-
-每用例步骤上限和 C3 的 Run 级浏览器动作上限分别计数，课程计步见 C2。拒绝明文凭据、越界配置及未知字段。排队记录提交后返回 `202`，响应含 `run_id: string`、`status: "queued"`、`created_at: string`。错误响应见第 5 节。
-
-### 3.2 列表与详情
-
-列表支持 `page`（默认 `1`，最小 `1`）和 `page_size`（默认 `20`，范围 `1–100`）。返回 `items: RunSummary[]`、`page: int`、`page_size: int`、`total: int`。在授权范围内统计总数，并按 `created_at`、`run_id` 依次降序排列。
-
-| 模型 | 字段与约束 |
+| 创建字段 | 约束 |
 | --- | --- |
-| `RunSummary` | `run_id`、`target_url`、`goal`、`created_at` 为字符串，`started_at` 和 `finished_at` 为可空时间，`status` 和可空的 `verdict` 取第 2 节定义的值 |
-| `RunDetail` | 继承摘要，另有 `expected_behavior: string`、`progress`、`summary`、`error`、`cancellation_requested: boolean` |
-| `progress` | `total_cases: int \| null` 在计划产生前为 `null`。非负 `completed_cases: int` 计算已判定的用例数 |
-| `summary` | 无可查询报告时为 `null`，其余情况包含 `passed`、`failed`、`blocked`、`inconclusive` 四项用例计数，未判定的用例不计入 |
-| `error` | `errored` 时为 C2 的 `RunError`，其余状态为 `null` |
+| `target_url` | 必填，已授权的绝对 HTTP(S) URL，URL 内的用户名或密码会被拒绝 |
+| `goal`、`expected_behavior` | 必填的非空字符串 |
+| `credential_ref` | 可选字符串，默认 `null`。字符串引用此主体及目标已授权的凭据集合 |
+| `options.headless` | 可选布尔值，默认 `true`。有界面运行需要 Worker 启用 `WAATA_ALLOW_HEADFUL` 并有可用显示环境 |
+| `options.max_steps_per_case` | 可选正整数，默认为 `16`，可信上限默认为 `50`。限额计数见 [C2](../waata/c2-waata-python-api.md) |
 
-`target_url`、目标及预期行为均为脱敏展示值。`started_at` 未启动时为 `null`，`finished_at` 进入终态前为 `null`。`cancellation_requested` 初始为 `false`，受理取消后为 `true`。
+省略 `options` 使用默认值。未知字段和命中服务端保密规则的请求内容会被拒绝。
 
-### 3.3 事件、报告与证据
+列表使用 `page`（最小和默认均为 `1`）和 `page_size`（默认 `20`，范围 `1–100`），按 `created_at DESC, run_id DESC` 排序。列表项和详情共有 `run_id`、`target_url`、`goal`、`status`、`verdict`、`created_at`、`started_at`、`finished_at`。详情增加以下字段。
 
-事件接口的 `text/event-stream` 信封、重放游标及终态见 C4。未建立流时使用第 5 节的 JSON 错误。连接关闭后可查询任务详情。
-
-报告响应采用 C2 的 `TestResult`，将其中的 `ArtifactRef` 投影为 C5 的 `ArtifactView`。进入终态前查询报告返回 `409 REPORT_NOT_READY`。技术故障若已保存部分报告则返回 `200`，总体判定为 `null`。已终止且无报告时返回 `409 REPORT_UNAVAILABLE`，包含取消分支。证据读取返回 C5 定义的内容和 MIME 类型。
-
-### 3.4 取消任务
-
-取消请求无需请求体。返回 `run_id`、`status`、`cancellation_requested`。
-
-| 当前状态 | 处理与响应 |
+| 详情字段 | 含义 |
 | --- | --- |
-| `queued` | 原子提交取消和终态事件，返回 `200`、`cancelled`、`true` |
-| `running` | 登记取消请求，返回 `202`、`running`、`true`。运行中重复提交复用同一取消请求 |
-| 终态 | 返回 `409 RUN_NOT_CANCELLABLE` |
+| `expected_behavior` | 脱敏后的预期行为 |
+| `progress` | 计划产生前 `total_cases=null`，`completed_cases` 统计已验证的用例 |
+| `summary` | 有报告时统计 `passed`、`failed`、`blocked`、`inconclusive` 四种用例，无报告时为 `null` |
+| `error` | `errored` 时为 C2 的 `RunError`，其余情况为 `null` |
+| `cancellation_requested` | 取消已受理时为 `true` |
 
-取消和完成并发时以提交顺序裁决。如果先受理取消，Worker 应停止执行，并在确认停止和清理后提交 `cancelled`。若取消过程中无法完成必要清理，按技术故障提交 `errored`。前端随后查询详情确认结果。
+`status` 描述 `queued`、`running`、`succeeded`、`errored`、`cancelled` 五个生命周期状态。总体 `verdict` 仅在 `succeeded` 时有值，例如 `succeeded + failed` 表示流程正常完成且有业务断言失败。技术故障保存的部分报告可保留已有用例判定。
 
-## 4. 示例
+报告把 `TestResult` 中的 `ArtifactRef` 转为 `ArtifactView`。运行未结束时报告接口返回 `409 REPORT_NOT_READY`，运行结束但没有报告时返回 `409 REPORT_UNAVAILABLE`。[C2 结果](../waata/c2-waata-python-api.md) · [C5 证据](../artifacts/c5-test-evidence-artifacts.md)
 
-完整的提交、响应和报告见 [4gaBoards 端到端示例](../examples/README.md)。
+取消无需请求体。排队任务原子提交 `cancelled` 和终态事件。运行中的重复取消复用同一个标记，Worker 清理后提交终态。终态任务返回 `409 RUN_NOT_CANCELLABLE`。并发规则见 [C6](../database/c6-platform-persistence.md)。
 
-创建任务的请求体如下。
+删除无需请求体。只有任务的创建者可删除 `succeeded`、`errored` 或 `cancelled` 任务。排队或运行中的任务返回 `409 RUN_NOT_DELETABLE`。任务删除后访问详情、报告、事件或证据返回 `404`。
 
-```json
-{
-  "target_url": "https://demo-app.test/login",
-  "goal": "验证演示站点的登录流程",
-  "expected_behavior": "有效凭据进入控制台，错误密码显示约定的提示",
-  "credential_ref": "demo_login_fixture",
-  "options": {"headless": true, "max_steps_per_case": 30}
-}
-```
+## 身份与错误
 
-成功排队后返回 `202`。
+本机模式识别来自回环连接的配置主体。网关模式校验可信网关令牌和主体标识。两种模式都校验 Host，POST 和 DELETE 校验浏览器 Origin，本机模式也允许省略 Origin。运行和证据由创建者访问，目标和凭据按主体授权。[后端配置](../../apps/api/README.md)
 
-```json
-{
-  "run_id": "run_001",
-  "status": "queued",
-  "created_at": "2026-11-21T00:59:00Z"
-}
-```
+失败响应包含 `error.code`、脱敏的 `error.message` 和用于关联日志的 `error.request_id`。HTTP 同时返回 `X-Request-ID`。已受理任务的执行故障由状态、事件和报告表达。
 
-以下为同一夹具在回归站点的任务详情。完整报告含有效凭据和错误密码两个用例。[查看报告 JSON](examples/test-run-report.json)。
-
-```json
-{
-  "run_id": "run_001",
-  "target_url": "https://demo-app.test/login",
-  "goal": "验证演示站点的登录流程",
-  "expected_behavior": "有效凭据进入控制台，错误密码显示约定的提示",
-  "status": "succeeded",
-  "verdict": "failed",
-  "progress": {"total_cases": 2, "completed_cases": 2},
-  "summary": {"passed": 1, "failed": 1, "blocked": 0, "inconclusive": 0},
-  "error": null,
-  "cancellation_requested": false,
-  "created_at": "2026-11-21T00:59:00Z",
-  "started_at": "2026-11-21T00:59:02Z",
-  "finished_at": "2026-11-21T01:00:04Z"
-}
-```
-
-## 5. 错误
-
-流建立之前的 HTTP 失败使用统一结构。任务已受理后，执行故障通过任务状态、事件和报告表达。
-
-```json
-{
-  "error": {
-    "code": "RUN_NOT_FOUND",
-    "message": "测试任务不存在",
-    "request_id": "req_123"
-  }
-}
-```
-
-| HTTP 状态 | 错误码 | 条件 |
-| --- | --- | --- |
-| `400` | `INVALID_REQUEST`、`INVALID_EVENT_CURSOR` | 无法解析请求格式，或 SSE 游标非法 |
-| `401` | `UNAUTHENTICATED` | 调用方缺少有效的平台身份认证 |
-| `403` | `TARGET_NOT_ALLOWED`、`CREDENTIAL_NOT_ALLOWED` | 测试目标或凭据引用未获授权 |
-| `404` | `RUN_NOT_FOUND`、`ARTIFACT_NOT_FOUND` | 资源不存在或对调用方不可见 |
-| `409` | `REPORT_NOT_READY`、`REPORT_UNAVAILABLE`、`RUN_NOT_CANCELLABLE` | 报告或取消与当前状态不相容 |
-| `410` | `ARTIFACT_EXPIRED` | 已授权的证据过期 |
-| `422` | `VALIDATION_ERROR` | 已解析请求的字段缺失、类型错误、值越界或包含不支持字段 |
-| `429` | `TOO_MANY_REQUESTS` | 为 HTTP 请求限流和配额预留 |
-| `500` | `INTERNAL_ERROR` | 未预期的服务端错误 |
-| `503` | `SERVICE_UNAVAILABLE`、`ARTIFACT_UNAVAILABLE` | 服务或存储暂不可用 |
-
-错误消息须脱敏，`request_id` 用于关联服务日志。HTTP 响应通过 `X-Request-ID` 返回对应标识。FastAPI 的请求校验错误需通过异常处理器映射成上述结构。参见 [FastAPI 错误处理文档](https://fastapi.tiangolo.com/tutorial/handling-errors/#override-request-validation-exceptions)。
-
-## 6. 契约验收
-
-| ID | 验证条件 |
+| HTTP | 错误码与条件 |
 | --- | --- |
-| C1-AT-01 | 合法任务返回 `202` 和可查询 Run ID，未授权目标、无效字段和无法解析的请求分别使用约定错误 |
-| C1-AT-02 | 查询能区分 `succeeded + failed` 和 `errored + null`，列表仅列出可访问任务 |
-| C1-AT-03 | SSE 可重放，前端能从详情恢复并校准终态 |
-| C1-AT-04 | 报告可表达最终结果、部分结果及明确的无报告状态，证据访问通过授权检验 |
-| C1-AT-05 | 排队取消、运行中受理、重复请求和终态竞争符合约定 |
-| C1-AT-06 | FastAPI 生成的 OpenAPI 与快照一致，生成的前端类型通过检查 |
+| `400` | 无效请求格式或 POST Origin 为 `INVALID_REQUEST`，非法 SSE 游标为 `INVALID_EVENT_CURSOR` |
+| `401` | `UNAUTHENTICATED`，连接、Host 或认证校验失败 |
+| `403` | `TARGET_NOT_ALLOWED`、`CREDENTIAL_NOT_ALLOWED`，目标或凭据未授权 |
+| `404` | `RUN_NOT_FOUND`、`ARTIFACT_NOT_FOUND`，资源不存在或不可见 |
+| `409` | `REPORT_NOT_READY`、`REPORT_UNAVAILABLE`、`RUN_NOT_CANCELLABLE`、`RUN_NOT_DELETABLE`，当前状态不支持该操作 |
+| `410` | `ARTIFACT_EXPIRED`，已授权的证据过期 |
+| `422` | `VALIDATION_ERROR`，字段缺失、类型错误、值越界、含不支持字段或触及保密规则 |
+| `500` | `INTERNAL_ERROR`，未预期的服务端错误 |
+| `503` | `SERVICE_UNAVAILABLE`、`ARTIFACT_UNAVAILABLE`，数据库或证据存储暂不可用 |
 
-## 7. 部署配置与扩展
+## 示例与验证
 
-本机模式从回环连接识别配置的主体。部署接入可信网关时由网关注入主体，FastAPI 校验网关令牌。两种模式均校验请求 Host，并对 POST 校验浏览器 Origin。本机模式允许没有 Origin 的 POST，例如本机命令行调用。按主体和目标 origin 配置访问权限、允许的动作及凭据。配置见 [后端启动与联调](../../apps/api/README.md)。
+4gaBoards 示例串起创建请求、状态与报告。登录页回归报告展示 `succeeded + failed`。[4gaBoards 示例](../examples/README.md) · [登录页回归报告](examples/test-run-report.json)
 
-Worker 并发上限控制任务领取。限流、报告导出、筛选、场景管理和批量运行的扩展通过契约评审。见 [开放问题](../../docs/05-open-questions.md)。
+HTTP 测试验证请求、访问、取消、SSE 和报告契约，并比对生成的 OpenAPI 与快照。[HTTP 测试](../../apps/api/tests/test_http_contract.py) · [平台操作验收](../../docs/04-acceptance.md)

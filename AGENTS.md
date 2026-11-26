@@ -1,4 +1,4 @@
-# Agent Guidelines for WenAppAutoTestApp
+# Agent Guidelines for WAATA
 
 ## Git and pull requests
 
@@ -18,5 +18,6 @@
 - Use the root uv workspace and the hooks documented in [CONTRIBUTING.md](CONTRIBUTING.md). Run the relevant tests and `uv run --locked pre-commit run --all-files`. Check the lockfile with `uv lock --check` when changing Python dependencies.
 - Use the formatter versions pinned in [.pre-commit-config.yaml](.pre-commit-config.yaml), with Python rules in [pyproject.toml](pyproject.toml) and frontend rules in [apps/web/.prettierrc.json](apps/web/.prettierrc.json).
 - Test on authorized local fixtures or explicitly approved test environments with dedicated accounts. Enforce target and action restrictions at the browser execution boundary, and make test setup repeatable.
+- Keep test doubles and contract sample responses in test-only paths. Use the configured API, Worker, database, browser and model provider in the normal application entry points.
 - Keep credentials out of source, prompts, logs, reports, and traces. Redact sensitive evidence and use fixture references or environment configuration for secrets. Keep generated artifacts and IDE metadata local.
 - Treat the [test site submodules](testsites/README.md) as pinned upstream fixtures. Change their contents or revision pointers only when the task calls for it.

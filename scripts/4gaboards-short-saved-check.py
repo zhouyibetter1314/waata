@@ -13,7 +13,7 @@ from test_engine_integration import (
     MemoryArtifacts, assistant_text, case_plan, planning_response, url_check,
 )
 from waata.browser import PlaywrightAdapter
-from waata.llm import FakeLLM
+from waata_test_support.model import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest
 from waata.orchestrator.config import EngineConfig
 
@@ -53,7 +53,7 @@ async def main():
             llm=FakeLLM([planning_response(case_plan(f"{key} persisted outcome", assertions)),
                          assistant_text("Verify the already saved state.")]),
             browser=PlaywrightAdapter(
-                browser=prepared, allowed_origins={HOME}, allowed_css_selectors=allowed,
+                browser=prepared, allowed_origins={HOME}, preferred_css_selectors=allowed,
                 allowed_websocket_paths={"/socket.io/"}, allow_screenshots=True,
             ),
             artifact_store=store,

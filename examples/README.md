@@ -1,6 +1,6 @@
 # WAATA 本地 Web 应用测试手册
 
-这里的 36 个英文场景是根据课程给出的版本、数量、难度和功能范围编写的练习场景。截图提到开发阶段的 5 个 4gaBoards 示例及最终评测场景由课程方发放，4gaBoards 的 5 条基础练习可先用于调试，收到课程原题后另记。
+本手册提供 36 个可在固定版本上游站点练习的英文场景。每条列出数据前置条件、测试目标、预期行为和参考操作。运行时按实际报告与证据记录结果。
 
 | 分工 | 固定版本与提交 | 本地入口 | 基础 / 进阶 / 综合 | 小计 |
 | --- | --- | --- | --- | ---: |
@@ -9,20 +9,12 @@
 | [组员 C · Discourse](#discourse-组员-c) | `v2025.12.0-latest` · `3e7317b3` | `http://127.0.0.1:4200` | 4 / 4 / 3 | 11 |
 | **合计** | | | **13 / 13 / 10** | **36** |
 
-## 组员通用流程
+## 通用流程
 
-1. 在仓库根目录运行对应应用的脚本。首次部署时，脚本会初始化所需子模块并核对固定提交。启动后在浏览器确认能打开站点并登录测试账号。 [子模块版本](../testsites/README.md)
-2. 使用支持工具调用的模型和 PostgreSQL 启动 WAATA 的 API、Worker、Vue。启动 Vue 时设置 `VITE_API_MOCKING=disabled`。在项目根目录的 `.env` 中指定 `WAATA_TARGET_POLICY=.local/targets.json`，按自己的站点追加目标策略，并在修改后重启 API 和 Worker。不同电脑分别配置本机 origin，`localhost` 与 `127.0.0.1` 在 WAATA 策略中要按实际地址匹配。 [平台启动](../apps/api/README.md#本地启动与目标配置)
-3. 在应用里提前准备每个场景的 `Fixture`，将界面设为英文。用专用测试账号和虚构数据，同一场景的对象名在本次夹具中保持唯一。复跑前按前置条件恢复对象状态或换一组名称，并同步替换英文输入和预期里的名字。测试账号和业务数据由应用保留，每个 WAATA 用例会打开新的浏览器会话。
-4. 打开 [新建任务](http://127.0.0.1:5173/runs/new)。每个场景单独提交，填写应用部分指定的入口和账号引用。将 `Goal` 复制到「自然语言测试目标」，将 `Expected` 复制到「预期行为」。如果任务从登录页开始，把 `Sign in using the supplied test credential, then perform the scenario.` 加到目标里。必要时把前置条件中的公开对象名、页面位置或已有夹具附在目标后。`Steps` 是组员核对轨迹时使用的参考操作路径。WAATA 在用例收尾检查当前页面，跨页面和临时状态应按 `Evidence` 在出现时记录。
-5. 完成后打开[运行记录](http://127.0.0.1:5173/runs)，按 Run ID 查看报告、事件和证据。对照 `Expected` 核对实际值，逐项标明通过、失败、受阻或无法判定。技术异常另记运行状态和错误码。需要观察临时提示、前后状态变化或下载结果时，同时核对当时的观察证据，避免只用最后一页判断。 [手工验收 AC-01～AC-05](../docs/04-acceptance.md)
-
-### 运行环境
-
-- Linux 使用 Bash，先确认 `git`、`curl`、`openssl`、`docker info` 和 `docker compose version` 可用。Compose 需要支持 `up --wait`。在 WAATA 仓库根目录运行下方命令。
-- Windows 建议用 **WSL2（例如 Ubuntu）**。在 Docker Desktop 开启对应发行版的 WSL 集成，把仓库克隆到 WSL 的 Linux 文件系统，例如 `~/projects/waata`，再从 WSL 终端运行 `bash scripts/…`。PowerShell 和 CMD 有各自的语法。 [Docker Desktop 的 WSL2 配置](https://docs.docker.com/desktop/features/wsl/)
-- macOS 使用 Bash 和 Docker Desktop，核对镜像是否支持本机 CPU 架构。Discourse 优先使用 Linux x86_64 或 WSL2。若端口已被占用，先处理冲突，并让站点地址与 WAATA 目标策略一致。
-- 三个脚本都支持 `status`、`logs` 和 `stop`。例如运行 `bash scripts/4gaboards.sh status` 查看容器，运行 `bash scripts/4gaboards.sh stop` 暂停站点。下次用 `start` 恢复。
+1. 用下方脚本启动站点。脚本需要 Bash、Git、curl、OpenSSL、Docker 和支持 `up --wait` 的 Compose。在 Windows 上从启用 Docker 集成的 WSL2 运行。Discourse 优先用 Linux x86_64 或 WSL2。
+2. 按场景准备英文界面、专用账号和可重置数据。把目标加入本地策略，启动 WAATA 的 API、Worker 和 Vue。[平台启动](../apps/api/README.md#本地启动与目标配置)
+3. 在 [新建任务](http://127.0.0.1:5173/runs/new) 填写本地 URL、`Goal`、`Expected` 和专用凭据引用。如需先登录，在目标中说明。将场景中的标记替换为当次测试数据。`Steps` 用于复核执行路径，`Evidence` 用于核对过程中的状态。
+4. 从 [运行记录](http://127.0.0.1:5173/runs) 按 Run ID 打开报告，核对实际结果、判定和证据。复跑前恢复前置条件。各场景预算是预估，执行结果由当次证据确定。[验收](../docs/04-acceptance.md)
 
 ### 目标策略与凭据引用
 
@@ -33,7 +25,6 @@
   "origin": "http://127.0.0.1:4200",
   "owners": ["local"],
   "actions": ["browser.navigate", "browser.click", "browser.fill", "browser.select_option"],
-  "css_selectors": ["#login-account-name", "#login-account-password"],
   "credentials": {
     "dc_member": {
       "dc_member_login": {
@@ -49,12 +40,12 @@
 }
 ```
 
-用例执行身份由其凭据引用决定。涉及权限的场景，先用管理员准备角色和内容，再给对应运行选择成员或管理员引用。定位优先用唯一的可访问名称。使用 CSS 时，在目标策略的 `css_selectors` 登记精确选择器，并在必要时把选择器提供给规划器。需要截图时，目标策略可设置 `allow_screenshots: true` 并配置 `screenshot_mask_selectors`，任务目标明确要求取证。浏览器默认遮罩表单输入，测试邮件、截图和报告使用虚构数据。 [C3 定位与截图](../contracts/tools/c3-browser-tools.md)
+用例执行身份由其凭据引用决定。涉及权限的场景，先用管理员准备角色和内容，再给对应运行选择成员或管理员引用。Agent 根据页面观察选择唯一的控件定位器。凭据字段的 `locator` 用于绑定秘密与登录输入框。需要截图时，目标策略可设置 `allow_screenshots: true` 并配置 `screenshot_mask_selectors`，任务目标明确要求取证。普通表单内容可见，密码、凭据输入框和配置的敏感区域会遮挡。测试邮件、截图和报告使用虚构数据。 [C3 定位与截图](../contracts/tools/c3-browser-tools.md)
 
 ### 35 步与当前工具覆盖
 
 - 按课程截图计数。每次点击、输入、选择、滚动、拖拽、导航各算 1 次，失败重试也算。计划预算含初始导航与登录，留出重试空间。到 35 次停止操作，只观察并报告。准备夹具和复跑时清理数据应在场景开始前完成。
-- WAATA 默认的 `max_browser_actions_per_run=35` 计入已分发的导航、点击、填写和下拉选择。课程计数还包含部分工具拒绝与 WAATA 未提供的动作，复核时按两种口径分别记录。表单的「每用例最大步骤」限制的是 Agent 步骤，可对较长的用例填 `35`，课程操作数仍需单独核对。 [C2 运行预算](../contracts/waata/c2-waata-python-api.md#3-请求与配置) · [C3 预算口径](../contracts/tools/c3-browser-tools.md#72-预算和副作用)
+- WAATA 默认的 `max_browser_actions_per_run=35` 计入已分发的导航、点击、填写和下拉选择。课程计数还包含部分工具拒绝与 WAATA 未提供的动作，复核时按两种口径分别记录。表单的「每用例 Agent 步骤上限」统计模型决策轮数，新建任务默认 `16`。较长用例可增加轮数，课程操作数仍需单独核对。 [C2 运行预算](../contracts/waata/c2-waata-python-api.md#3-请求与配置) · [C3 预算口径](../contracts/tools/c3-browser-tools.md#72-预算和副作用)
 - 当前 C3 提供 `navigate`、`click`、`fill`、`select_option`、`observe`、`inspect` 和 `screenshot`。需要拖拽、显式滚动、文件上传或读取下载文件的环节按场景说明做手工对照。有等价界面入口时，报告记录实际使用的路径。结果表可填「需手工对照」，并附上可复核证据。 [C3 工具清单](../contracts/tools/c3-browser-tools.md#4-工具清单)
 
 组员交接时为每个场景填一行。应用版本来自上表，运行结果以报告判定和实际证据为准。团队汇总时保留每个场景一条结果，等权统计。课程场景通过率按教师的标准答案、证据和步数核算，保留 WAATA 判定准确识别出的应用缺陷及工具缺口。
@@ -65,7 +56,7 @@
 
 ## 4gaBoards 组员 A
 
-负责本应用的组员使用 `testsites/4gaboards` 固定子模块 `b76dcc95`。以下第一个练习参考仓库的项目创建示例，其余为本组编写。[子模块版本](../testsites/README.md) · [项目创建参考](../contracts/examples/README.md)
+项目创建场景参考跨模块契约示例。[子模块版本](../testsites/README.md) · [项目创建参考](../contracts/examples/README.md)
 
 ### 本地启动 4gaBoards
 
@@ -73,14 +64,14 @@
 bash scripts/4gaboards.sh start
 ```
 
-脚本沿用 `.local/temp.md` 的部署方式，使用独立 Compose 项目、固定版本镜像和本地数据卷。首次部署会生成 `.local/4gaboards/docker-compose.yml` 和本机凭据文件。新库的测试管理员是 `waataadmin`，密码在 `.local/4gaboards/.env` 的 `BOARDS_ADMIN_PASSWORD` 中。已有 Compose 配置和数据库卷会继续使用原有账号。
+脚本使用独立 Compose 项目、固定版本镜像和本地数据卷。首次部署会生成 `.local/4gaboards/docker-compose.yml` 和本机凭据文件。新库的测试管理员是 `waataadmin`，密码在 `.local/4gaboards/.env` 的 `BOARDS_ADMIN_PASSWORD` 中。已有 Compose 配置和数据库卷会继续使用原有账号。
 
 打开 [4gaBoards](http://127.0.0.1:3000/)，登录后确认项目面板和侧边栏可见。 [启动脚本](../scripts/4gaboards.sh) · [固定版本部署说明](../testsites/4gaboards/README.md#deploy)
 
 ### WAATA 与夹具
 
 - 场景从 `http://127.0.0.1:3000/` 发起。项目和看板深链分别形如 `/projects/<id>`、`/boards/<id>`。提前在人工准备夹具时记下实际 URL，把场景中的对象名和对应本地 URL 填进英文目标。登录后按需要导航到已记录的项目或看板。
-- 4gaBoards 目标策略可授权 `browser.navigate`、`browser.click` 和 `browser.fill`，同源 WebSocket 使用 `/socket.io/`。凭据集合可用 `boards_admin`，字段别名 `boards_admin_login_ref` 和 `boards_admin_pass_ref` 分别映射 `WAATA_BOARDS_ADMIN_LOGIN` 和 `WAATA_BOARDS_ADMIN_PASSWORD`。对应定位器是 `input[name="emailOrUsername"]`、`input[name="password"]`，提交按钮可用 `button[type="submit"]`。将采用的精确 CSS 字符串登记到该 origin 的 `css_selectors`。英文界面中登录按钮为 `Log in`，如果浏览器在登录前显示其他语言，可按实际控件或已授权定位器操作。
+- 4gaBoards 目标策略可授权 `browser.navigate`、`browser.click` 和 `browser.fill`，同源 WebSocket 使用 `/socket.io/`。凭据集合可用 `boards_admin`，字段别名 `boards_admin_login_ref` 和 `boards_admin_pass_ref` 分别映射 `WAATA_BOARDS_ADMIN_LOGIN` 和 `WAATA_BOARDS_ADMIN_PASSWORD`。对应定位器是 `input[name="emailOrUsername"]`、`input[name="password"]`。英文界面中登录按钮为 `Log in`。
 - 准备一个能创建项目且是目标项目经理的专用账号。进入其偏好设置选择英文，保持侧边栏可见。项目、列表、卡片用不同的场景编号命名，每条场景开始前单独准备夹具。点击自定义下拉框的条目时使用 `browser.click`。`browser.select_option` 适用于原生 `<select>`。
 - 以下英文 `Goal` 和 `Expected` 可直接复制到平台。英文 `Steps` 是执行顺序，若同一次 WAATA Run 须遵循指定顺序，可和 `Goal` 一起提交。预算为包含登录和导航的估算，队员按课程口径另记重试。手工场景的 WAATA 字段用于复核其中可自动观察的部分。
 
@@ -197,17 +188,17 @@ B11 验证拖拽手势，B12 验证下载文件，B13 验证文件选择器和�
 bash scripts/admidio.sh start
 ```
 
-Compose 从固定子模块构建应用并运行 MariaDB。首次启动需要下载构建依赖。脚本将配置和随机数据库密码放在 `.local/admidio/`，数据库与应用数据使用命名卷。 [启动脚本](../scripts/admidio.sh) · [上游容器说明](../testsites/admidio/README-Docker.md)
+本机已有 `waata-admidio:5.0.2` 镜像时，脚本直接复用。镜像缺失时，Compose 从固定子模块构建并下载依赖。配置和随机数据库密码保存在 `.local/admidio/`，数据库与应用数据使用命名卷。 [启动脚本](../scripts/admidio.sh) · [上游容器说明](../testsites/admidio/README-Docker.md)
 
 1. 首次打开[安装向导](http://127.0.0.1:8081/install/index.php)。组织短名填 `WAATA`，名称可填 `WAATA Admidio Lab`，时区选 `Asia/Shanghai`。创建专用管理员，邮件使用保留测试域，例如 `admin@example.invalid`。活动夹具关闭通知邮件。
 2. 打开[登录页](http://127.0.0.1:8081/system/login.php)，确认能登录并打开英文界面的 `Contacts`、`Groups & roles` 和 `Events`。
 
 ### WAATA 接入和准备数据
 
-- 目标地址统一填写 `http://127.0.0.1:8081/system/login.php`。在目标策略添加 origin `http://127.0.0.1:8081`，分配本机任务所有者，允许 `browser.navigate`、`browser.click`、`browser.fill`、`browser.select_option`。在 `css_selectors` 登记登录 CSS `#usr_login_name`、`#usr_password`、`#adm_button_login`。需要按 CSS 填活动日期时再登记 `#event_from`、`#event_from_time`、`#event_to`、`#event_to_time`。下表的字段级引用分别绑定上述两个输入框的 CSS 定位器。在 `credentials` 下以凭据集合为键，例如 `admidio_admin`。在集合对象中以字段级引用为键，值包含对应的 `env` 和 `locator`（`strategy: css`、`value: #usr_login_name` 或 `#usr_password`）。
+- 目标地址统一填写 `http://127.0.0.1:8081/system/login.php`。在目标策略添加 origin `http://127.0.0.1:8081`，分配本机任务所有者，允许 `browser.navigate`、`browser.click`、`browser.fill`、`browser.select_option`。下表的字段级引用分别绑定用户名和密码输入框。在 `credentials` 下以凭据集合为键，例如 `admidio_admin`。在集合对象中以字段级引用为键，值包含对应的 `env` 和 `locator`（`strategy: css`、`value: #usr_login_name` 或 `#usr_password`）。
 - 在应用内准备三个专用账号。管理员负责联系人、角色和活动配置。普通会员在组织内已可登录，另有参加活动用的普通角色。活动编辑员仅需要其专用角色的 **Manage events**，保留普通账号所需的组织成员身份。管理员可从 `Contacts` 创建测试联系人，在 `Create member` 表单填写 `Username`，并分配普通成员角色。测试联系人可留空邮箱，在用户的资料页点击 `Change password` 设置本地测试密码。测试管理员先手工验证这些账号在无痕窗口均可登录。账号环境变量写入 WAATA 的本地环境，网页提交时填写表中的凭据引用。
 - 在 `Groups & roles` 准备角色类别 `WAATA Training`，在 `Events` 准备日历 `WAATA Events`。后者对相应测试角色可见，事件编辑员可管理。各场景用独立的联系人、角色、活动或初始状态，实际提交时将 `{R}` 替换为本次编号。按日期的活动使用测试当天之后的日期，统一替换 `{DATE}` 为 `YYYY-MM-DD`，并记录系统时区。权限和报名场景可从初始状态各自准备，便于独立重跑。
-- 登录使用 **Username**、**Password**、**Sign in**。如果组织尚未预选，选 **WAATA**。运行下列场景时，在目标开头加上 `Sign in with the supplied test credential and select WAATA if the organization is not already selected.` 预算包含初始导航、登录和可选组织选择。若字段用增强下拉呈现，可点击可见下拉和选项。原生单选可使用 `browser.select_option`。任务需要精确 CSS 时，将已登记的字面定位器补进 `goal` 或 `expected_behavior`，供模型识别。界面自动刷新属于应用结果，证据检查用 `browser.observe` 或 `browser.inspect`。
+- 登录使用 **Username**、**Password**、**Sign in**。如果组织尚未预选，选 **WAATA**。运行下列场景时，在目标开头加上 `Sign in with the supplied test credential and select WAATA if the organization is not already selected.` 预算包含初始导航、登录和可选组织选择。若字段用增强下拉呈现，可点击可见下拉和选项。原生单选可使用 `browser.select_option`。界面自动刷新属于应用结果，证据检查用 `browser.observe` 或 `browser.inspect`。
 
 | 凭据集合 | 用户名字段引用及环境变量 | 密码字段引用及环境变量 |
 | --- | --- | --- |
@@ -289,7 +280,7 @@ Compose 从固定子模块构建应用并运行 MariaDB。首次启动需要下�
 
 #### ADM-09 · Delegate event management to a role
 
-- **Fixture** Use `admidio_admin`. The custom role `Event Editors {R}` exists in `WAATA Training` and has no **Manage events** permission. The Events module is enabled. Register `#rol_events` and `#rol_events:checked` as exact CSS selectors for this run.
+- **Fixture** Use `admidio_admin`. The custom role `Event Editors {R}` exists in `WAATA Training` and has no **Manage events** permission. The Events module is enabled.
 - **Goal** Enable the Manage events permission for the Event Editors {R} role and verify it persists. Inspect the permitted CSS locator `#rol_events:checked` on the reopened form.
 - **Expected** The edit form for Event Editors {R} shows Manage events checked after a fresh navigation. The role is still in WAATA Training.
 - **Steps** Sign in and open **Groups & roles**. Locate the exact role and enter **Edit role**. Click **Manage events** once and save. Reopen the same role's edit page and inspect `#rol_events:checked` for existence. This verifies saved configuration without relying on the icon-only permission column.
@@ -338,18 +329,18 @@ bash scripts/discourse.sh start
 
 ### Discourse 场景准备
 
-- 将 `http://127.0.0.1:4200` 加入本地 WAATA 目标策略，登记 `dc_member` 与 `dc_admin` 两组凭据引用。会员使用本页通用示例中的字段和环境变量。管理员沿用相同定位器，把相应的 `member`、`MEMBER` 替换为 `admin`、`ADMIN`。固定版登录字段为 `#login-account-name`、`#login-account-password`，提交按钮为 `#login-button`。若需要 CSS 定位，也可在当前目标的 `css_selectors` 明确登记 `#reply-title`、`textarea.d-editor-input`、`.text-size .combo-box`、`.post-info.edits button.wiki`、`.edit-link-options`。在浏览器中核对控件匹配后再提交场景。 [登录表单](../testsites/discourse/frontend/discourse/app/components/local-login-form.gjs) · [Wiki 指示器](../testsites/discourse/frontend/discourse/app/components/post/meta-data/edits-indicator.gjs)
+- 将 `http://127.0.0.1:4200` 加入本地 WAATA 目标策略，登记 `dc_member` 与 `dc_admin` 两组凭据引用。会员使用本页通用示例中的字段和环境变量。管理员沿用相同定位器，把相应的 `member`、`MEMBER` 替换为 `admin`、`ADMIN`。固定版登录字段为 `#login-account-name`、`#login-account-password`。 [登录表单](../testsites/discourse/frontend/discourse/app/components/local-login-form.gjs) · [Wiki 指示器](../testsites/discourse/frontend/discourse/app/components/post/meta-data/edits-indicator.gjs)
 - 目标地址统一填 `http://127.0.0.1:4200/login`，把对应角色的凭据引用填在专用字段。登录凭据用测试邮箱，资料页路径使用对应的论坛用户名。步骤数预估包含打开登录页、填写账号、填写密码和点击登录。每条有独立的初始状态，表中路径里的 `{member}`、`{admin}`、`{topic}` 需要换成当次账号名或完整同源路径。`{tag}` 用同一次运行的唯一标识替换。去除首次登录的提示后，从新会话验证流程。
-- 帖子用英语原文。输入框如果显示富文本编辑器，在本地固定副本中确认已使用上面的 Markdown 编辑配置。自定义下拉通过点击打开和点击选项完成。带有同名操作的页面使用明确的分类、主题、帖号或上下文来限定目标。必要时先登记当前夹具中唯一的精确 CSS 定位器。
+- 帖子用英语原文。输入框如果显示富文本编辑器，在本地固定副本中确认已使用上面的 Markdown 编辑配置。自定义下拉通过点击打开和点击选项完成。带有同名操作的页面使用明确的分类、主题、帖号或上下文来限定目标。
 - 邀请练习使用本地未兑换链接。`Pending` 页仅验证描述、行状态及兑换计数。保存证据时使用结构化观察，避免读取或记录邀请链接值。账号激活和邮件检查在 WAATA 运行前由组员通过本地收件箱完成。 [邀请系统测试](../testsites/discourse/spec/system/create_invite_spec.rb) · [邀请列表操作](../testsites/discourse/frontend/discourse/app/templates/user-invited/show.gjs)
 
 ### Basic（基础）· 4
 
 #### DC-01 · Create a topic
 
-- **Fixture** Use `dc_member`. The public `WAATA Lab` category is open for new member topics and the new title is unused.
-- **Goal** Create the topic “WAATA launch checklist {tag}” in WAATA Lab with the first post “The local team will review the launch checklist before opening the forum.”
-- **Expected** The topic page shows the exact new title, the WAATA Lab category, and the first post with the supplied text.
+- **Fixture** Use `dc_member`. The public `WAATA Lab` category is open for new member topics. Use an unused title. When repeating the scenario, update `DC01-01` to the same new value in Goal and Expected.
+- **Goal** Sign in with the supplied test credential. Open All categories and enter WAATA Lab before clicking New Topic. Enter the title “WAATA launch checklist DC01-01” and the body “The local team will review the launch checklist before opening the forum.” Click Create Topic and wait until the new topic page opens.
+- **Expected** A new topic titled “WAATA launch checklist DC01-01” is published. It belongs to the “WAATA Lab” category. Its first post reads exactly “The local team will review the launch checklist before opening the forum.”
 - **Steps** Sign in. Open the WAATA Lab category. Click New Topic. Fill title and body. Choose WAATA Lab if the category is not preselected. Click Create Topic. Inspect the topic page.
 - **Budget** 12 operations.
 

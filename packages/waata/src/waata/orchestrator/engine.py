@@ -7,7 +7,7 @@ from collections import deque
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from waata.artifacts import ArtifactInput, ArtifactRef, ArtifactStore
@@ -17,6 +17,7 @@ from waata.browser import (
     BrowserSetupCleanupError,
     InspectArgs,
 )
+from waata.browser.models import UrlPathStartsWith
 from waata.core.agent import AgentHistory, ContextLimitError, agent_step
 from waata.core.events import EventType, TestEvent
 from waata.core.model import (
@@ -24,6 +25,7 @@ from waata.core.model import (
     ChatResponse,
     LLMProvider,
     ModelError,
+    ModelRateLimitError,
     ModelResponseError,
     ToolCall,
     estimate_request_input_tokens,
@@ -46,7 +48,13 @@ from .models import (
     WAATAError,
     display_url,
 )
-from .planner import RUNNER_PROMPT, CasePlan, parse_plan, planning_messages
+from .planner import (
+    RUNNER_PROMPT,
+    CasePlan,
+    PlanValidationError,
+    parse_plan,
+    planning_messages,
+)
 
 EventCallback = Callable[[TestEvent], Awaitable[None]]
 _LOG = logging.getLogger(__name__)
@@ -54,6 +62,7 @@ _ACTIONS = frozenset(
     {"browser.navigate", "browser.click", "browser.fill", "browser.select_option"}
 )
 _C3_NAMES = _ACTIONS | {"browser.observe", "browser.inspect", "browser.screenshot"}
+_PAGE_FIELDS = ("url", "title", "aria", "elements", "truncated")
 _STALE_ACTION = ToolResult.failed(
     "ACTION_NOT_ALLOWED",
     "Page changed since the model observed it. Reobserve before acting.",
@@ -71,6 +80,14 @@ def _error(code: str, message: str) -> WAATAError:
 
 def _id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex}"
+
+
+def _same_page(before: dict | None, after: dict | None) -> bool:
+    return (
+        before is not None
+        and after is not None
+        and all(before.get(key) == after.get(key) for key in _PAGE_FIELDS)
+    )
 
 
 class _ModelBudgetExhausted(Exception):
@@ -111,6 +128,7 @@ class _CaseExecution:
     needs_observation: bool = True
     completion_retry_used: bool = False
     completion_feedback: str | None = None
+    repeated_observation: bool = False
 
 
 class TestEngine:
@@ -375,23 +393,30 @@ class _Run:
                 )
                 raise
             except (ModelError, TimeoutError) as exc:
+                limited = isinstance(exc, ModelRateLimitError)
+                code = "MODEL_RATE_LIMITED" if limited else "MODEL_UNAVAILABLE"
                 await self.observe(
                     "model.completed",
                     case_id,
                     step_id,
                     phase=phase,
                     duration_ms=self.elapsed_ms(start),
-                    error_code="MODEL_UNAVAILABLE",
+                    error_code=code,
                 )
-                if (isinstance(exc, ModelError) and not exc.retryable) or (
-                    attempt == self.config.model_retries
+                remaining = max(0, self.deadline - self.clock())
+                delay = exc.retry_after if limited else 0.2 * (2**attempt)
+                if (
+                    (isinstance(exc, ModelError) and not exc.retryable)
+                    or (attempt == self.config.model_retries)
+                    or (limited and delay >= remaining)
                 ):
                     raise _error(
-                        "MODEL_UNAVAILABLE", "The model request failed"
+                        code,
+                        "The model provider rate limit was reached"
+                        if limited
+                        else "The model request failed",
                     ) from None
-                await asyncio.sleep(
-                    min(0.2 * (2**attempt), max(0, self.deadline - self.clock()))
-                )
+                await asyncio.sleep(min(delay, remaining))
                 continue
             usage = response.usage
             total = None
@@ -431,11 +456,11 @@ class _Run:
         ]
         if approved:
             data["approved_css_selectors"] = approved
-        failure = "The model did not produce a valid test plan"
-        for repair in (False, True):
+        failure = None
+        for _ in range(2):
             try:
                 response = await self.model_request(
-                    planning_messages(data, repair=repair),
+                    planning_messages(data, repair_feedback=failure),
                     phase="planner",
                     json_mode=self.llm.metadata.supports_json,
                 )
@@ -452,20 +477,20 @@ class _Run:
                     "The model hit its output limit before finishing the test plan"
                 )
                 continue
-            failure = "The model did not produce a valid test plan"
             if response.message.tool_calls:
+                failure = (
+                    "The model tried to call tools instead of returning test-plan JSON"
+                )
                 continue
-            # `:=` 先把 parse_plan 的返回值赋给 cases，再判断它是否为 None。
-            # 空列表表示计划合法但没有用例，也会从这里返回。
-            if (
-                cases := parse_plan(
+            try:
+                return parse_plan(
                     response.message.content,
                     max_cases=self.config.max_test_cases,
                     max_checkpoints=self.config.max_checkpoints_per_case,
                 )
-            ) is not None:
-                return cases
-        raise _error("INTERNAL_ERROR", failure)
+            except PlanValidationError as exc:
+                failure = str(exc)
+        raise _error("MODEL_PLAN_INVALID", failure or "The model returned no test plan")
 
     async def execute_case(self, plan: CasePlan) -> None:
         result = TestCaseResult(
@@ -512,14 +537,14 @@ class _Run:
                 ToolRegistry(session.tools),
                 history=AgentHistory(
                     summarize=self.tool_history_summary,
+                    max_recent_turns=2,
+                    max_summary_chars=1024,
                     sanitize_message=self.sanitize_history_message,
                 ),
             )
             reached_target = False
             for index in range(self.max_steps):
-                step = StepResult(
-                    step_id=_id("step"), summary="Observe and exercise the test case"
-                )
+                step = StepResult(step_id=_id("step"))
                 result.steps.append(step)
                 await self.event(
                     "agent.step.started",
@@ -536,6 +561,7 @@ class _Run:
                         {
                             "url": self.request.target_url,
                         },
+                        phase="start",
                     )
                     if not navigation.success:
                         code = navigation.error.code if navigation.error else None
@@ -548,10 +574,10 @@ class _Run:
                     reached_target = True
                 try:
                     reason = await self.run_step(
-                        case, step, plan, can_continue=index + 1 < self.max_steps
+                        case, step, plan, remaining_steps=self.max_steps - index
                     )
                 except WAATAError as exc:
-                    if exc.error.code == "MODEL_UNAVAILABLE" and self.config.capture_final_screenshot:
+                    if exc.error.code in {"MODEL_UNAVAILABLE", "MODEL_RATE_LIMITED"} and self.config.capture_final_screenshot:
                         await self.capture_final_evidence(case, step)
                     raise
                 if reason is not None:
@@ -583,9 +609,10 @@ class _Run:
 
     async def capture_final_evidence(self, case: _CaseExecution, step: StepResult) -> None:
         try:
-            await self.run_tool(case, step, "browser.screenshot", {})
-        except Exception:
-            # Avoid replacing the primary verdict/error with an evidence failure.
+            await self.run_tool(case, step, "browser.screenshot", {}, phase="result")
+        except WAATAError as exc:
+            if exc.error.code != "BROWSER_ERROR":
+                raise
             _LOG.warning("Automatic final screenshot could not be captured")
 
     async def close_session(self, session: BrowserSession) -> None:
@@ -644,6 +671,23 @@ class _Run:
                 }
             )
         remaining = self.config.max_browser_actions_per_run - self.actions
+        page = case.session.latest_observation
+        if page is not None:
+            page = {
+                "url": page.get("url"),
+                "title": page.get("title"),
+                "aria": page.get("aria"),
+                "elements": [
+                    {
+                        key: value
+                        for key, value in control.items()
+                        if value is not None
+                        and (key != "text" or value != control.get("name"))
+                    }
+                    for control in page.get("elements", [])
+                ],
+                "truncated": page.get("truncated"),
+            }
         return {
             "name": case.result.name,
             "goal": self.sanitize(self.request.goal),
@@ -654,7 +698,7 @@ class _Run:
             "expected_behavior": case.result.expected_behavior,
             "checkpoints": checkpoints,
             "allowed_secret_refs": case.session.secret_refs,
-            "page": case.session.latest_observation,
+            "page": page,
             "page_is_current": not (
                 case.needs_observation or case.session.observation_stale
             ),
@@ -714,9 +758,16 @@ class _Run:
         step: StepResult,
         plan: CasePlan,
         *,
-        can_continue: bool,
+        remaining_steps: int,
     ) -> str | None:
-        if case.needs_observation or case.session.observation_stale:
+        before_refresh = (
+            case.session.latest_observation if case.repeated_observation else None
+        )
+        if (
+            case.needs_observation
+            or case.session.observation_stale
+            or case.repeated_observation
+        ):
             # Trusted fixture opt-in: allow async navigation/rendering to settle
             # before asking the model to act on a still-transitional page.
             previous = case.recent_actions[-1] if case.recent_actions else None
@@ -735,8 +786,12 @@ class _Run:
                 return "The current page could not be observed"
         if self.actions >= self.config.max_browser_actions_per_run:
             return "The browser action limit was reached"
+        tools = case.tools.specs
+        if _same_page(before_refresh, case.session.latest_observation):
+            tools = tuple(tool for tool in tools if tool.name != "browser.observe")
         model_revision = case.session.revision
         state = self.context_state(case, plan)
+        state["remaining_agent_steps"] = remaining_steps
         page = state["page"]
         compact_state = None
         if page:
@@ -746,11 +801,7 @@ class _Run:
                     "url": page.get("url"),
                     "title": page.get("title"),
                     "aria": (page.get("aria") or "")[:3000],
-                    "elements": [
-                        element
-                        for element in page.get("elements", [])
-                        if element.get("locator", {}).get("strategy") == "css"
-                    ][:6],
+                    "elements": page.get("elements", [])[:8],
                     "truncated": True,
                 },
             }
@@ -758,7 +809,7 @@ class _Run:
             messages = case.history.build_messages(
                 RUNNER_PROMPT,
                 state,
-                tools=case.tools.specs,
+                tools=tools,
                 metadata=self.llm.metadata,
                 max_input_tokens=self.config.max_input_tokens,
                 safety_margin=self.config.context_safety_margin,
@@ -767,7 +818,7 @@ class _Run:
             response = await self.model_request(
                 messages,
                 phase="runner",
-                tools=case.tools.specs,
+                tools=tools,
                 case_id=case.result.case_id,
                 step_id=step.step_id,
             )
@@ -791,6 +842,7 @@ class _Run:
             )
 
         paused = False
+        before_turn = case.session.latest_observation
 
         async def execute(call: ToolCall) -> ToolResult:
             nonlocal paused
@@ -833,10 +885,20 @@ class _Run:
             raise _error(
                 "INTERNAL_ERROR", "The model returned invalid tool data"
             ) from None
+        calls = response.message.tool_calls
+        case.repeated_observation = (
+            bool(calls)
+            and all(
+                call.name == "browser.observe"
+                and not (call.arguments or {}).get("include_screenshot")
+                for call in calls
+            )
+            and _same_page(before_turn, case.session.latest_observation)
+        )
         if not acted:
             stop = "The agent returned no tool calls"
             if (
-                can_continue
+                remaining_steps > 1
                 and not case.blocked
                 and not case.completion_retry_used
                 and any(
@@ -847,7 +909,7 @@ class _Run:
                 for checkpoint in plan.checkpoints:
                     arguments = checkpoint.model_dump(mode="json", exclude_none=True)
                     checked = await self.run_tool(
-                        case, step, "browser.inspect", arguments
+                        case, step, "browser.inspect", arguments, phase="check"
                     )
                     if checked.success and (checked.data or {}).get("matched") is False:
                         case.completion_retry_used = True
@@ -888,6 +950,7 @@ class _Run:
         arguments: dict[str, Any] | None,
         *,
         expected_revision: int | None = None,
+        phase: Literal["start", "check", "result"] | None = None,
     ) -> ToolResult:
         if self.tool_attempts >= self.config.max_tool_attempts_per_run:
             return ToolResult.failed(
@@ -902,6 +965,9 @@ class _Run:
             else "unknown_tool"
         )
         summary = ToolCallSummary(tool_call_id=tool_id, tool=safe_name)
+        detail = self.tool_detail(case, safe_name, arguments or {})
+        if phase is not None:
+            detail["phase"] = phase
         step.tool_calls.append(summary)
         await self.event(
             "tool.called",
@@ -954,6 +1020,15 @@ class _Run:
             if (ref := self.artifacts.refs.get(value)) is not None
             and ref.tool_call_id == tool_id
         ]
+        if safe_name == "browser.navigate" and output.success:
+            if isinstance(data.get("url"), str):
+                detail["destination"] = self.sanitize(data["url"])[:512]
+        if safe_name == "browser.inspect" and type(data.get("matched")) is bool:
+            detail["matched"] = data["matched"]
+        for evidence_id in summary.evidence_ids:
+            if self.artifacts.refs[evidence_id].kind == "screenshot":
+                detail["screenshot_id"] = evidence_id
+                break
         if dispatched:
             case.needs_observation = True
             case.inspections.clear()
@@ -962,6 +1037,10 @@ class _Run:
                 "success": output.success,
                 "error_code": summary.error_code,
             }
+            if "locator" in (arguments or {}):
+                action["locator"] = self.sanitize_model_data(arguments["locator"])
+            if "url" in data:
+                action["url"] = data["url"]
             case.recent_actions.append(action)
             if not output.success:
                 case.pending_effect = {
@@ -987,9 +1066,12 @@ class _Run:
             stale_page or optional_evidence_denied
         ):
             case.blocked = True
+        payload = summary.model_dump()
+        if detail:
+            payload["detail"] = detail
         await self.event(
             "tool.completed",
-            summary.model_dump(),
+            payload,
             case_id=case_id,
             step_id=step_id,
         )
@@ -1008,6 +1090,63 @@ class _Run:
             raise _error("BROWSER_ERROR", "The browser session failed")
         return output
 
+    def tool_detail(
+        self, case: _CaseExecution, tool: str, arguments: dict[str, Any]
+    ) -> dict[str, str | bool]:
+        """Describe the visible control or check without publishing tool arguments."""
+        elements = (case.session.latest_observation or {}).get("elements", [])
+        if tool == "browser.navigate":
+            for element in elements:
+                if element.get("href") and element["href"] == arguments.get("url"):
+                    label = element.get("name") or element.get("text")
+                    if label:
+                        return {"target": self.sanitize(label)[:160]}
+            return {}
+        if tool not in _ACTIONS and tool != "browser.inspect":
+            return {}
+
+        detail: dict[str, str | bool] = {}
+        if tool == "browser.inspect" and arguments.get("condition") in (
+            "url_equals",
+            "url_path_starts_with",
+            "title_equals",
+            "exists",
+            "visible",
+            "count",
+            "text_equals",
+        ):
+            detail["condition"] = arguments["condition"]
+        locator = arguments.get("locator")
+        if not isinstance(locator, dict):
+            return detail
+        strategy = locator.get("strategy")
+        text = locator.get("name" if strategy == "role" else "value")
+        if not isinstance(text, str) or not text.strip():
+            return detail
+        if strategy in ("role", "label", "text", "placeholder"):
+            detail["target"] = self.sanitize(" ".join(text.split()))[:160]
+
+        matches = [
+            element
+            for element in elements
+            if element.get("locator", {}) == locator
+            or (
+                strategy in ("role", "text")
+                and text == element.get("name" if strategy == "role" else "text")
+                and (strategy != "role" or locator.get("role") == element.get("role"))
+            )
+        ]
+        if not matches:
+            return detail
+        label = matches[0].get("name") or matches[0].get("text")
+        if label:
+            detail["target"] = self.sanitize(label)[:160]
+        if tool == "browser.click":
+            hrefs = {element.get("href") for element in matches}
+            if len(hrefs) == 1 and None not in hrefs:
+                detail["destination"] = self.sanitize(display_url(hrefs.pop()))[:512]
+        return detail
+
     async def verify_case(
         self,
         case: _CaseExecution,
@@ -1016,7 +1155,13 @@ class _Run:
         *,
         reached_target: bool,
     ) -> None:
-        for checkpoint in plan.checkpoints:
+        checkpoints = sorted(
+            plan.checkpoints,
+            key=lambda checkpoint: not isinstance(checkpoint.root, UrlPathStartsWith),
+        )
+        final_path_confirmed = True
+        final_url = None
+        for checkpoint in checkpoints:
             arguments = checkpoint.model_dump(mode="json", exclude_none=True)
             expected = arguments.get("expected", True)
             assertion = AssertionResult(
@@ -1026,11 +1171,14 @@ class _Run:
                 else expected,
             )
             case.result.assertions.append(assertion)
-            if not reached_target:
+            path_check = isinstance(checkpoint.root, UrlPathStartsWith)
+            if not reached_target or (not path_check and not final_path_confirmed):
                 continue
             self.refresh_checkpoints(case)
             prior = case.inspections.get(self.checkpoint_key(arguments))
-            latest = await self.run_tool(case, step, "browser.inspect", arguments)
+            latest = await self.run_tool(
+                case, step, "browser.inspect", arguments, phase="result"
+            )
             if (
                 latest.error is not None
                 and latest.error.code == "BUDGET_EXCEEDED"
@@ -1047,7 +1195,7 @@ class _Run:
                 if self.clock() + settle < self.deadline:
                     await asyncio.sleep(settle)
                     retry = await self.run_tool(
-                        case, step, "browser.inspect", arguments
+                        case, step, "browser.inspect", arguments, phase="result"
                     )
                     refreshed = retry.data or {}
                     stable_mismatch = (
@@ -1060,6 +1208,12 @@ class _Run:
                     )
                     if retry.success:
                         data = refreshed
+            if (
+                not path_check
+                and final_url is not None
+                and data.get("url") != final_url
+            ):
+                continue
             evidence_ids = [
                 value
                 for value in data.get("evidence_ids", [])
@@ -1075,6 +1229,11 @@ class _Run:
                 assertion.evidence_ids = evidence_ids
                 if data.get("matched") is True or stable_mismatch:
                     assertion.passed = data["matched"]
+            if path_check:
+                if assertion.passed is True:
+                    final_url = data.get("url")
+                else:
+                    final_path_confirmed = False
 
         values = [assertion.passed for assertion in case.result.assertions]
         if all(value is True for value in values):

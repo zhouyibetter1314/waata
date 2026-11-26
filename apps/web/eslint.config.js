@@ -5,12 +5,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: [
-      'dist',
-      'playwright-report',
-      'test-results',
-      'public/mockServiceWorker.js',
-    ],
+    ignores: ['dist', 'playwright-report', 'test-results'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -23,6 +18,7 @@ export default tseslint.config(
       globals: {
         AbortController: 'readonly',
         DOMException: 'readonly',
+        HTMLDialogElement: 'readonly',
         window: 'readonly',
       },
     },

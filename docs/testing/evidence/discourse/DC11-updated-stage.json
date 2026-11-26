@@ -1,0 +1,12 @@
+{
+  "run_id": "dc11-agent-f5c849595b",
+  "scene": "DC11",
+  "fixture_tag": "11251212-7b87",
+  "source_report_sha256": "e3f1c6c26e2619fdea6f078491e3bd9910041f3b3acfe0546b50e31e948dac35",
+  "source": "report.stages[0] captured read-only during Agent execution, before removal",
+  "check": "scoped invite 0/1 before removal",
+  "row_text_without_invitation_shortkey": "(0 / 1 redeemed)\nWAATA scoped invite 11251212-7b87\n\tjust now\tFeb 23, 2027 8:12 pm\t\nEdit\n​",
+  "screenshot_limit": "The masked screenshot was removed from the delivery directory on 2026-11-26. The original pre-deletion 0/1 observation remains in this JSON; no historical stage image was recreated.",
+  "retired_screenshot": "DC11-updated-stage.png",
+  "screenshot": null
+}

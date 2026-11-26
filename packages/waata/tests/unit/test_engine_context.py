@@ -4,11 +4,11 @@ import unittest
 from datetime import UTC, datetime
 
 from waata.artifacts import ArtifactInput, ArtifactRef
-from waata.browser import FakeBrowserAdapter
 from waata.core.model import ChatMessage, ChatResponse, ToolCall
 from waata.core.tools import ToolResult
-from waata.llm import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest
+from waata_test_support.browser import FakeBrowserAdapter
+from waata_test_support.model import FakeLLM
 
 _START = "http://fixture.test/start"
 _NEXT = "http://fixture.test/next"
@@ -135,6 +135,69 @@ class ScriptedModel(FakeLLM):
 
 
 class TestEngineContext(unittest.IsolatedAsyncioTestCase):
+    async def test_repeat_observation_is_deferred_only_while_page_is_unchanged(self):
+        request = TestRequest(
+            target_url=_START,
+            goal="Inspect the current fixture page",
+            expected_behavior="The fixture has loaded",
+        )
+        for changed in (False, True):
+            with self.subTest(changed=changed):
+                browser = NavigatingFixture()
+                expected = _NEXT if changed else _START
+                plan = {
+                    "cases": [
+                        {
+                            "name": "Observe fixture",
+                            "preconditions": [],
+                            "expected_behavior": "The fixture has loaded",
+                            "checkpoints": [
+                                {"condition": "url_equals", "expected": expected}
+                            ],
+                        }
+                    ]
+                }
+                model = FakeLLM(
+                    [
+                        ChatResponse(ChatMessage("assistant", json.dumps(plan))),
+                        ChatResponse(
+                            ChatMessage(
+                                "assistant",
+                                tool_calls=(
+                                    ToolCall("observe_once", "browser.observe", {}),
+                                ),
+                            )
+                        ),
+                        ChatResponse(ChatMessage("assistant", "Done")),
+                    ]
+                )
+                observations = 0
+
+                async def on_event(event):
+                    nonlocal observations
+                    if (
+                        event.type == "tool.completed"
+                        and event.payload["tool"] == "browser.observe"
+                    ):
+                        observations += 1
+                        if changed and observations == 2:
+                            browser.page_changed()
+
+                engine = TestEngine(
+                    llm=model, browser=browser, artifact_store=MemoryStore()
+                )
+                result = await engine.run(request, on_event=on_event)
+                self.assertEqual(result.verdict, "passed")
+                self.assertIn(
+                    "browser.observe", {tool.name for tool in model.requests[1].tools}
+                )
+                self.assertEqual(
+                    "browser.observe"
+                    in {tool.name for tool in model.requests[2].tools},
+                    changed,
+                )
+                self.assertEqual(observations, 3)
+
     async def test_stale_click_is_skipped_after_model_wait(self):
         await self.check_stale_click(delay_first_call=True)
 

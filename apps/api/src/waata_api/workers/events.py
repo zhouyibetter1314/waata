@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from datetime import timedelta
+from urllib.parse import urlsplit
 
 from waata.core.events import TestEvent
 
@@ -23,6 +24,46 @@ _FIELDS = {
 }
 
 
+def _tool_detail(
+    value: object, evidence: list[str], sanitize: Callable[[str], str]
+) -> dict[str, str | bool]:
+    if not isinstance(value, dict):
+        return {}
+    detail: dict[str, str | bool] = {}
+    if value.get("phase") in ("start", "check", "result"):
+        detail["phase"] = value["phase"]
+    if value.get("condition") in (
+        "url_equals",
+        "url_path_starts_with",
+        "title_equals",
+        "exists",
+        "visible",
+        "count",
+        "text_equals",
+    ):
+        detail["condition"] = value["condition"]
+    if isinstance(target := value.get("target"), str) and target.strip():
+        detail["target"] = sanitize(" ".join(target.split()))[:160]
+    if isinstance(destination := value.get("destination"), str):
+        try:
+            url = urlsplit(destination)
+            if (
+                url.scheme in ("http", "https")
+                and url.hostname
+                and url.username is None
+            ):
+                detail["destination"] = sanitize(
+                    url._replace(query="", fragment="").geturl()
+                )[:512]
+        except ValueError:
+            pass
+    if type(value.get("matched")) is bool:
+        detail["matched"] = value["matched"]
+    if value.get("screenshot_id") in evidence:
+        detail["screenshot_id"] = value["screenshot_id"]
+    return detail
+
+
 def public_event(
     event: TestEvent,
     run_id: str,
@@ -37,6 +78,7 @@ def public_event(
         raise ValueError("Invalid WAATA progress event")
 
     # Publish only the contracted fields, even for a substitutable C2 engine.
+    raw_detail = payload.get("detail")
     payload = {name: payload[name] for name in _FIELDS[event.type]}
     identifiers = [event.event_id, event.case_id, event.step_id]
     match event.type:
@@ -71,6 +113,8 @@ def public_event(
                 ):
                     raise ValueError("Invalid tool progress")
                 identifiers.extend([error, *evidence])
+                if detail := _tool_detail(raw_detail, evidence, sanitize):
+                    payload["detail"] = detail
         case "case.verified":
             if payload["verdict"] not in _VERDICTS:
                 raise ValueError("Invalid case verdict")

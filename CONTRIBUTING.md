@@ -1,77 +1,42 @@
-# WAATA 团队协作规约
+# WAATA 团队协作
 
-模块按 [v0.1 契约](contracts/README.md)联调。分支保护和 CI 的规划见 [Q-010](docs/05-open-questions.md#q-010-工程工具与流程)。
+从 `main` 创建功能分支。任务记录负责人、需求或 ADR 编号、关联契约和验收条件。跨模块变更由受影响的维护者共同评审，公共契约变更同步更新源模型、生成文件、样例和检查，并说明兼容性影响。架构决策记录到 ADR，功能变更同步更新需求与验收。[需求](docs/02-requirements.md) · [契约](contracts/README.md) · [验收](docs/04-acceptance.md)
 
-## 并行工作流
+## 本地开发与检查
 
-| 工作流 | 责任范围 | 独立验证方式 | 关联契约 |
-| --- | --- | --- | --- |
-| 前端 | Vue 页面、API 客户端、运行时间线和报告 | 用 Mock API 验证提交任务、状态更新与报告展示 | C1、C4、C5 |
-| 后端 | FastAPI、Worker、任务生命周期、PostgreSQL、证据存储和 SSE | 用 Mock TestEngine 验证调度、状态查询和报告查询，用 PostgreSQL 17 验证事务与重放 | C1、C2、C4、C5、C6 |
-| WAATA 核心 | 模型接口、Agent Runtime、测试编排与判定 | 用 Fake LLM 和 Fake BrowserAdapter 验证公共调用流程 | C2、C3、C4 |
-| 浏览器与可观测性 | Playwright、会话隔离、证据采集和 Langfuse | 用预设的功能测试动作验证受控页面操作与追踪 | C3、C4、C5 |
-| 契约与 QA | 公共契约、Mock、契约测试和端到端验收 | 对照实现验证契约，在授权站点手工验收平台流程 | C1～C6 |
-
-任务记录负责人、需求编号、关联契约和验收条件。使用 [4gaBoards 示例](contracts/examples/README.md)及测试替身并行开发，优先联调 HTTP、Python API 和事件。
-
-本地重新搭建时按 [本地依赖](infra/README.md)检出需要的子模块。验收人员选择经授权的测试站点，记录当前仓库修订、站点版本、模型、运行配置、Run ID 与实际判定。 [手工验收](docs/04-acceptance.md)
-
-## 数据库变更
-
-PostgreSQL 表、索引与约束通过 `migrations/` 下的版本化 SQL 管理。提交结构变更时新增迁移，同步更新受影响的 C6 说明，并记录空库初始化和已有库升级的验证结果。执行顺序和版本记录见 [迁移规约](migrations/README.md)。
-
-## 本地提交检查
-
-### 新成员初始化
-
-准备 Git 和 uv。每次新克隆后，在项目根目录运行以下命令，安装并初始化 `pre-commit` 和 `commit-msg` 两个 Git 钩子。
+从仓库根目录安装锁定的 Python 工作区和 Git 钩子。首次安装钩子需要联网。
 
 ```bash
-uv sync --locked
+uv sync --locked --all-packages
 uv run --locked pre-commit install --install-hooks
 ```
 
-`uv sync --locked` 按锁文件安装开发工具 `pre-commit`。`install --install-hooks` 在本机检查各钩子的缓存，下载并初始化缺少的工具版本。首次初始化需要联网。更新钩子版本后，运行 `uv run --locked pre-commit install-hooks` 可提前初始化新版本。 [pre-commit 安装说明](https://pre-commit.com/#pre-commit-install-hooks)
-
-个人安装的 `ruff`、`prettier` 或 `.ruff/` 工具目录可用于个人工作流。项目钩子使用自己的工具环境和仓库规则，安装状态由钩子缓存管理，无需设置 `RUFF_INSTALLED` 之类的变量。需要自定义缓存位置时可设置 `PRE_COMMIT_HOME`。
-
-### 格式化和验证
-
-| 工具 | 适用文件 | 共享规则 |
-| --- | --- | --- |
-| Ruff 0.14.14 | Python，检查代码、整理导入并格式化 | [根目录 pyproject.toml](pyproject.toml) |
-| Prettier 3.8.1 | `apps/web/` 下的 Vue、JS、TS、CSS、SCSS、Less、HTML 和 JSON，包含 JSX 与 TSX | [前端格式配置](apps/web/.prettierrc.json) |
-
-工具版本以 [钩子配置](.pre-commit-config.yaml)为准。编辑器中使用同一份规则。提交时只检查已暂存文件，同时验证配置文件语法、冲突标记和私钥。格式化写回后，先审阅改动，再重新暂存并提交。
+按改动范围运行测试，提交前运行全部钩子。PostgreSQL 用例需要由 `WAATA_TEST_DATABASE_URL` 指定独立的 PostgreSQL 17 测试库，浏览器用例需要安装 Chromium。
 
 ```bash
-# 验证共享契约夹具
-uv run --locked python -m unittest discover -s tests/contract
-
-# 检查仓库中的受版本控制文件
+uv run --locked python -m unittest discover -s tests/contract -v
+uv run --locked python -m unittest discover -s apps/api/tests -v
+uv run --locked --package waata --extra browser python -m unittest discover -s packages/waata/tests -v
 uv run --locked pre-commit run --all-files
-
-# 单独运行格式化钩子
-uv run --locked pre-commit run ruff-format --all-files
-uv run --locked pre-commit run prettier-web --all-files
 ```
 
-`commit-msg` 校验 Conventional Commits 标题，格式为 `type(scope): description`，`scope` 可省略。例如 `docs(contracts): clarify event replay` 或 `fix: preserve run evidence on cancellation`。常用类型见 [钩子配置](.pre-commit-config.yaml)。Git 自动生成的合并提交标题可用于同步主分支。
+前端检查见 [Vue 验证命令](apps/web/README.md#开发检查)。修改 Python 依赖时运行 `uv lock --check`。Ruff 和 Prettier 版本以钩子配置为准，Python 和前端沿用仓库规则。钩子写回格式后，审阅改动并重新暂存。[钩子](.pre-commit-config.yaml) · [Python](pyproject.toml) · [前端](apps/web/.prettierrc.json)
 
-## 提交 PR 前同步主分支
+运行验收使用授权测试站点和专用账号。记录项目修订、站点版本、模型、运行配置、Run ID 和实际判定。自动化测试将测试替身及样例留在测试路径，平台联调按真实启动流程验证。[开发启动](apps/api/README.md) · [验收](docs/04-acceptance.md)
 
-创建或更新 GitHub PR 前，必须获取项目主仓库最新的 `main` 并合入本地功能分支。开始同步前，确认已切到功能分支且工作区干净。
+## 数据库变更
+
+新增版本化 SQL 并同步 C6。保留已应用的 SQL，记录空库初始化和带代表数据的旧库升级结果。[迁移规约](migrations/README.md) · [C6](contracts/database/c6-platform-persistence.md)
+
+## 提交和评审
+
+使用 Conventional Commits 格式 `type(scope): description`，可省略 `scope`。按逻辑变更分开提交，保留工作区中其他人的改动。
+
+创建或更新 GitHub PR 前，在干净的功能分支同步主仓库最新的 `main`。主仓库远端名为 `origin` 时执行以下命令。使用 fork 时，将 `origin` 换成主仓库远端，例如 `upstream`。
 
 ```bash
-git fetch origin main && git merge FETCH_HEAD
+git fetch origin main
+git merge FETCH_HEAD
 ```
 
-如果 `origin` 指向个人 fork，使用指向项目主仓库的远端，例如将第一条命令改为 `git fetch upstream main`。出现冲突时，在本地解决并暂存冲突文件，通过 `git merge --continue` 完成合并。重新运行提交检查和受影响的测试，确认同步与验证通过后再推送功能分支并创建或更新 GitHub PR。
-
-## 评审要求
-
-1. 在任务中链接需求编号或 ADR，写明行为变化和验证条件。从 `main` 建立工作分支，通过 PR 评审。
-2. 变更公共契约时同步更新来源定义、示例与相关测试，并请受影响模块共同评审。兼容性变更说明旧调用方的影响。破坏性变更同时说明迁移方式。
-3. PR 说明需求、实现范围和实际验证结果。重要架构变更记录 ADR，需求变更同步更新 SRS 和验收条目。
-
-完成条件是实现满足关联验收条件，适用的测试通过，受影响的契约和文档已更新，PR 完成评审并合并。
+遇到冲突时在本地解决、暂存并执行 `git merge --continue`。重新运行检查和受影响的测试，再推送功能分支。PR 说明关联需求、实现范围、验证结果和未运行的检查。评审通过后合并。

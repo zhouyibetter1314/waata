@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { DEFAULT_AGENT_STEPS } from '../test-runs/validation';
 
 export interface CatalogApplication {
   id: string;
@@ -25,6 +26,14 @@ interface CatalogState {
 
 const STORAGE_KEY = 'waata.frontend.catalog.v1';
 
+const retiredDefaultApplication: CatalogApplication = {
+  id: 'app_4gaboards',
+  name: '4gaBoards',
+  base_url: 'http://localhost:3000/',
+  credential_ref: 'boards_local_fixture',
+  version: '3.2.16',
+};
+
 const retiredDefaultScenario: CatalogScenario = {
   id: 'scenario_create_project',
   application_id: 'app_4gaboards',
@@ -34,57 +43,56 @@ const retiredDefaultScenario: CatalogScenario = {
   source: 'C1 正式样例',
 };
 
-const defaults: CatalogState = {
-  applications: [
-    {
-      id: 'app_4gaboards',
-      name: '4gaBoards',
-      base_url: 'http://localhost:3000/',
-      credential_ref: 'boards_local_fixture',
-      version: '3.2.16',
-    },
-  ],
-  scenarios: [],
-  maxSteps: 12,
-};
-
-function cloneDefaults(): CatalogState {
-  return structuredClone(defaults);
+function emptyCatalog(): CatalogState {
+  return { applications: [], scenarios: [], maxSteps: DEFAULT_AGENT_STEPS };
 }
 
 function initialState(): CatalogState {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
-    if (!value) return cloneDefaults();
+    if (!value) return emptyCatalog();
     const parsed = JSON.parse(value) as Partial<CatalogState>;
     if (!Array.isArray(parsed.applications) || !Array.isArray(parsed.scenarios))
-      return cloneDefaults();
+      return emptyCatalog();
     const scenarios = parsed.scenarios.filter(
       (scenario) =>
         !Object.entries(retiredDefaultScenario).every(
           ([key, field]) => scenario?.[key as keyof CatalogScenario] === field,
         ),
     );
-    if (scenarios.length !== parsed.scenarios.length) {
+    const applications = parsed.applications.filter(
+      (application) =>
+        scenarios.some(
+          (scenario) => scenario?.application_id === application?.id,
+        ) ||
+        !Object.entries(retiredDefaultApplication).every(
+          ([key, field]) =>
+            application?.[key as keyof CatalogApplication] === field,
+        ),
+    );
+    if (
+      scenarios.length !== parsed.scenarios.length ||
+      applications.length !== parsed.applications.length
+    ) {
       try {
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ ...parsed, scenarios }),
+          JSON.stringify({ ...parsed, applications, scenarios }),
         );
       } catch {
-        // The remaining scenarios can still be loaded if storage is full.
+        // A storage write failure does not prevent loading the saved catalog.
       }
     }
     return {
-      applications: parsed.applications,
+      applications,
       scenarios,
       maxSteps:
         Number.isInteger(parsed.maxSteps) && Number(parsed.maxSteps) > 0
           ? Number(parsed.maxSteps)
-          : 12,
+          : DEFAULT_AGENT_STEPS,
     };
   } catch {
-    return cloneDefaults();
+    return emptyCatalog();
   }
 }
 

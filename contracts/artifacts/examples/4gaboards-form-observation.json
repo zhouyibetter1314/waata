@@ -1,0 +1,1 @@
+{"observation_id":"obs_4ga_form","url":"http://localhost:3000/","title":"4ga Boards","aria":"- textbox \"Enter project name...\"\n- button \"Add Project\"","elements":[{"locator":{"strategy":"placeholder","value":"Enter project name..."},"role":"textbox","name":null,"text":null,"enabled":true}],"truncated":false,"observed_at":"2026-11-21T02:00:07.567000+00:00"}

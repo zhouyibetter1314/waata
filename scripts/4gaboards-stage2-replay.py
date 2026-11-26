@@ -17,7 +17,8 @@ from test_engine_integration import (
 from waata.browser import PlaywrightAdapter
 from waata.core.model import ChatMessage, ChatResponse, ToolCall
 from waata.core.tools import ToolResult
-from waata.llm import FakeLLM, OpenAILike
+from waata.llm import OpenAILike
+from waata_test_support.model import FakeLLM
 from waata.orchestrator import TestEngine, TestRequest, WAATAError
 from waata.orchestrator.config import EngineConfig
 
@@ -221,7 +222,7 @@ async def run():
         prepared = await harness["prepared_browser"](browser, password, source)
         adapter_class = MoveTimeout if key == "B10" else PlaywrightAdapter
         adapter = adapter_class(
-            browser=prepared, allowed_origins={HOME}, allowed_css_selectors=selectors,
+            browser=prepared, allowed_origins={HOME}, preferred_css_selectors=selectors,
             allowed_websocket_paths={"/socket.io/"}, allow_screenshots=True,
         )
         engine = TestEngine(llm=models, browser=adapter, artifact_store=store, config=EngineConfig(
